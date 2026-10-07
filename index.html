@@ -107,6 +107,7 @@ nav .pill{display:flex;align-items:center;justify-content:center;width:52px;heig
 nav button[aria-current="page"]{color:var(--text);font-weight:700}
 nav button[aria-current="page"] .pill{background:var(--nav-on)}
 nav button:disabled{opacity:.45}
+nav[hidden]{display:none}
 :focus-visible{outline:2px solid var(--text);outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 </style>
@@ -196,18 +197,24 @@ nav button:disabled{opacity:.45}
     </main>
   </section>
 
+  <section class="view" id="v-journal" aria-label="Journal" hidden></section>
+
   <nav aria-label="Navigation">
     <button type="button" id="nav-roue" aria-current="page">
       <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12V6.5"/><path d="M12 12l4 2.5"/></svg></span>
       Roue
     </button>
-    <button type="button" disabled title="Bientôt">
+    <button type="button" id="nav-journal">
       <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/></svg></span>
       Journal
     </button>
     <button type="button" disabled title="Bientôt">
       <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg></span>
       Repas
+    </button>
+    <button type="button" disabled title="Bientôt">
+      <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span>
+      Tradition
     </button>
   </nav>
 
@@ -276,6 +283,7 @@ nav button:disabled{opacity:.45}
   var wake = parseWake(load(KEY_WAKE));
   if (wake === null) wake = DEFAULT_WAKE;
   var banner = null; // index de la phase annoncée, ou null
+  var listeners = { wake: [], tick: [] }; // pour les autres modules (Journal…) : « wake » = réveil changé, « tick » = horloge
 
   function locate(now) {
     var t = now.getHours() * 60 + now.getMinutes();
@@ -397,6 +405,10 @@ nav button:disabled{opacity:.45}
     var L = locate(new Date());
     if (announce) detect(L.i);
     paintWheel(L); paintCard(L); paintRows(L); paintBanner();
+    emit('tick');
+  }
+  function emit(ev) {
+    listeners[ev].forEach(function (fn) { try { fn(); } catch (e) {} });
   }
 
   /* ---------- Réveil saisi ---------- */
@@ -410,26 +422,53 @@ nav button:disabled{opacity:.45}
     banner = null;
     save(KEY_SEEN, String(locate(new Date()).i));
     refresh(false);
+    emit('wake');
   }
-  all('.wake-input').forEach(function (inp) {
+  // Un champ « Réveil » (Roue, Ma journée, Journal) : même valeur partout.
+  function bindWake(inp) {
     inp.value = wakeStr(wake);
     ['input', 'change'].forEach(function (ev) { inp.addEventListener(ev, function () { setWake(inp.value, inp); }); });
     // Si le champ est laissé vide, on restaure la valeur enregistrée en quittant le champ.
     inp.addEventListener('blur', function () { if (parseWake(inp.value) === null) inp.value = wakeStr(wake); });
-  });
+  }
+  all('.wake-input').forEach(bindWake);
 
   /* ---------- Navigation et bandeau ---------- */
+  var VIEWS = { roue: 'v-roue', journee: 'v-journee', journal: 'v-journal' };
   function show(view) {
-    $('v-roue').hidden = view !== 'roue';
-    $('v-journee').hidden = view !== 'journee';
-    var v = $(view === 'roue' ? 'v-roue' : 'v-journee');
+    Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== view; });
+    var cur = view === 'journal' ? 'nav-journal' : 'nav-roue';
+    ['nav-roue', 'nav-journal'].forEach(function (id) {
+      if (id === cur) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current');
+    });
+    document.querySelector('nav').hidden = false;
+    if (view === 'journal') {
+      if (window.LUNA.journal) window.LUNA.journal.onShow();
+      else $('v-journal').textContent = 'Le Journal n’a pas pu se charger. Recharge la page.';
+      return;
+    }
+    var v = $(VIEWS[view]);
     v.querySelector('main').scrollTop = 0;
     v.querySelector('h1').focus({ preventScroll: true });
   }
   $('go-journee').addEventListener('click', function () { show('journee'); });
   $('back-roue').addEventListener('click', function () { show('roue'); });
   $('nav-roue').addEventListener('click', function () { show('roue'); });
+  $('nav-journal').addEventListener('click', function () { show('journal'); });
   all('.b-x').forEach(function (b) { b.addEventListener('click', function () { banner = null; paintBanner(); }); });
+
+  /* ---------- Socle commun, offert aux autres modules (Journal, plus tard Repas…) ---------- */
+  window.LUNA = {
+    version: '2026-10-07-journal',
+    getWake: function () { return wake; },          // minutes depuis minuit : UNE seule valeur pour toute l'appli
+    setWake: setWake,
+    bindWake: bindWake,
+    phases: P.map(function (p) { return { name: p.name, s: p.s, e: p.e, color: p.color, transition: !!p.transition }; }),
+    show: show,
+    navVisible: function (v) { document.querySelector('nav').hidden = !v; },
+    on: function (ev, fn) { if (listeners[ev]) listeners[ev].push(fn); },
+    fmt: fmt, fmtClock: fmtClock, mod: mod, wakeStr: wakeStr, parseWake: parseWake
+  };
 
   /* ---------- Horloge ---------- */
   refresh(true);
@@ -443,5 +482,6 @@ nav button:disabled{opacity:.45}
   }
 })();
 </script>
+<script src="luna-journal.js"></script>
 </body>
 </html>
