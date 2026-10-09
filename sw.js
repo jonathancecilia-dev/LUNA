@@ -2,7 +2,7 @@
    Stratégie : on sert la copie en cache tout de suite, et on la met à jour en arrière-plan
    (la nouvelle version apparaît à l'ouverture suivante). Rien d'autre n'est stocké ici :
    les données (réveil) restent dans le localStorage de l'appareil. */
-const CACHE = 'luna-corps-v2';
+const CACHE = 'luna-corps-v3';
 const ASSETS = ['./', './index.html', './luna-journal.js', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {

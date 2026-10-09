@@ -10,6 +10,7 @@
    - pas de réponse au bout de 10 s : compté comme lapse, puis stimulus suivant ;
    - test interrompu si l'appli quitte l'écran ;
    - moins de 10 réponses valides : le relevé ne peut pas être enregistré.
+   Rappels : l'écran « Rappels » crée un fichier calendrier (.ics) ; c'est le calendrier de l'appareil qui sonne.
    Le temps de réaction est mesuré à partir de l'affichage du compteur ; la latence de l'écran et du
    toucher dépend de l'appareil : on se compare à soi-même, sur le même appareil. */
 (function () {
@@ -244,6 +245,7 @@
   var noteText = '', noteTs = 0;
   var pendingDel = null, notice = '';
   var backupStatus = '';
+  var rem = { tests: true, phases: true, days: 14 }, remStatus = '';
   var restore = null, restoreError = '';
 
   function newFlow() { return { confort: '', energie: '', moral: '', agitation: '', point: null, ts: 0, wake: 0, result: null }; }
@@ -340,6 +342,7 @@
       '<div class="j-sect j-gap"><span class="j-kick">HISTORIQUE</span><span class="j-aside" id="j-hnote"></span></div>' +
       '<div id="j-hist"></div>' +
       '<button type="button" class="btn secondary j-small" data-act="backup">Sauvegarder / Restaurer ' + ICON_CHEV + '</button>' +
+      '<button type="button" class="btn secondary j-small" data-act="remind">Rappels dans le calendrier ' + ICON_CHEV + '</button>' +
       '</main>';
   }
 
@@ -451,6 +454,34 @@
       '<p class="j-ver">Version du code : ' + esc(L.version || '?') + '</p></main>';
   }
 
+  function vRemind() {
+    var w = L.getWake(), nT = PTS.length, nP = remPhases().length;
+    function opt(key, title, desc) {
+      return '<label class="j-opt' + (rem[key] ? ' on' : '') + '"><input type="checkbox" data-rem="' + key + '"' + (rem[key] ? ' checked' : '') + '>' +
+        '<span class="t"><b>' + title + '</b><span class="d">' + desc + '</span></span></label>';
+    }
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">LUNA</span></div>' +
+      '<h1 tabindex="-1">Rappels</h1><p class="sub">Ton calendrier te prévient, appli fermée</p></header>' +
+      '<main style="padding-top:14px;gap:12px"><section class="j-card">' +
+      '<p class="lead">LUNA ne peut pas sonner quand elle est fermée. Elle crée un fichier calendrier : c’est ton calendrier qui te prévient.</p>' +
+      '<p>Calé sur ton réveil actuel : <b>' + L.fmtClock(w) + '</b>. Si tu changes de réveil, refais le fichier.</p>' +
+      '<p>Si un rappel passe, ce n’est pas grave : il n’y a rien à rattraper.</p>' +
+      '<div class="chips" style="margin:0"><span class="chip hy">Heures = moyennes à ajuster</span></div></section>' +
+      '<section class="j-sec" style="gap:8px"><h2>QUOI RAPPELER ?</h2>' +
+      opt('tests', 'Créneaux de test · ' + nT + ' par jour', 'Au début de chaque fenêtre (par ex. 9h40–10h40 pour un réveil à 8h10).') +
+      opt('phases', 'Changements de phase · ' + nP + ' par jour', 'Au début de chaque phase sourcée, avec son conseil. Pas pour les transitions, ni l’inertie (tu viens de te réveiller).') +
+      '<div class="j-field" style="margin-top:4px"><label class="j-lab" for="j-rdays">Pendant</label>' +
+      '<select id="j-rdays" class="j-sel" data-rem="days">' + [7, 14, 30].map(function (d) {
+        return '<option value="' + d + '"' + (rem.days === d ? ' selected' : '') + '>' + d + ' jours</option>';
+      }).join('') + '</select></div></section>' +
+      '<div class="j-actions"><button type="button" class="btn primary" id="j-mk" data-act="make-ics"' + (rem.tests || rem.phases ? '' : ' disabled') + '>Créer le fichier calendrier</button>' +
+      '<span class="j-hint left" id="j-rstatus" role="status" aria-live="polite">' + esc(remStatus) + '</span></div>' +
+      '<details class="j-det"><summary>Comment l’ajouter à mon calendrier ?</summary>' +
+      '<p class="j-p" style="margin:0 0 8px">Ouvre le fichier .ics obtenu (feuille de partage ou dossier Téléchargements), puis choisis d’ajouter les événements à ton calendrier. Sur ordinateur, tu peux aussi utiliser l’import de fichier .ics de ton agenda.</p>' +
+      '<p class="j-p" style="margin:0 0 8px">Conseil : range-les dans un calendrier à part nommé « LUNA ». Pour tout retirer d’un coup, il suffira de le supprimer.</p>' +
+      '<p class="j-p" style="margin:0 0 8px">Pas encore vérifié : où Chrome sur iPhone range ce fichier, et si ton calendrier garde les alarmes d’un fichier importé.</p></details></main>';
+  }
+
   function restoreStats() {
     var r = restore, known = {};
     entries.forEach(function (e) { known[e.id] = true; });
@@ -504,11 +535,11 @@
       '</div></main>';
   }
 
-  var VIEWS = { home: vHome, feel: vFeel, intro: vIntro, run: vRun, result: vResult, note: vNote, backup: vBackup, restore: vRestore, history: vHistory };
+  var VIEWS = { home: vHome, feel: vFeel, intro: vIntro, run: vRun, result: vResult, note: vNote, backup: vBackup, restore: vRestore, history: vHistory, reminders: vRemind };
 
   function render() {
     root.innerHTML = (VIEWS[screen] || vHome)();
-    L.navVisible(screen === 'home' || screen === 'backup');
+    L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders');
     if (screen === 'home') { L.bindWake(root.querySelector('.wake-input')); updateHome(); }
     if (screen === 'run') startPvt();
     var focus = screen === 'run' ? $('j-area') : root.querySelector('h1');
@@ -652,34 +683,37 @@
     var el = root.querySelector('.j-card p.last');
     if (el) el.textContent = lastBackupText();
   }
-  function doBackup() {
-    var text = buildBackup(), d = new Date(), name = 'luna-sauvegarde-' + keyOf(d) + '.json', file = null;
-    try { file = new File([text], name, { type: 'application/json' }); } catch (e) {}
+  // Envoie un fichier : feuille de partage si le navigateur la propose pour un fichier, sinon téléchargement.
+  function shareOrDownload(text, name, type, title, cb) {
+    var file = null;
+    try { file = new File([text], name, { type: type }); } catch (e) {}
     function download() {
       try {
-        var url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+        var url = URL.createObjectURL(new Blob([text], { type: type }));
         var a = document.createElement('a');
         a.href = url; a.download = name;
         document.body.appendChild(a); a.click();
         setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
-        markBackup(); refreshLast();
-        setStatus('Fichier « ' + name + ' » téléchargé : cherche-le dans tes Téléchargements. Si rien n’apparaît, ouvre « copier le contenu » ci-dessous.');
-      } catch (e) {
-        setStatus('Le téléchargement a échoué. Ouvre « copier le contenu » ci-dessous.');
-      }
+        cb.downloaded();
+      } catch (e) { cb.failed(); }
     }
-    setStatus('');
     if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: 'Sauvegarde LUNA' }).then(function () {
-        markBackup(); refreshLast();
-        setStatus('Fichier « ' + name + ' » partagé. Vérifie qu’il est bien rangé là où tu l’as choisi.');
-      }).catch(function (err) {
-        if (err && err.name === 'AbortError') setStatus('Sauvegarde annulée.');
-        else download();
+      navigator.share({ files: [file], title: title }).then(function () { cb.shared(); }, function (err) {
+        if (err && err.name === 'AbortError') cb.aborted(); else download();
       });
     } else {
       download();
     }
+  }
+  function doBackup() {
+    var name = 'luna-sauvegarde-' + keyOf(new Date()) + '.json';
+    setStatus('');
+    shareOrDownload(buildBackup(), name, 'application/json', 'Sauvegarde LUNA', {
+      shared: function () { markBackup(); refreshLast(); setStatus('Fichier « ' + name + ' » partagé. Vérifie qu’il est bien rangé là où tu l’as choisi.'); },
+      downloaded: function () { markBackup(); refreshLast(); setStatus('Fichier « ' + name + ' » téléchargé : cherche-le dans tes Téléchargements. Si rien n’apparaît, ouvre « copier le contenu » ci-dessous.'); },
+      aborted: function () { setStatus('Sauvegarde annulée.'); },
+      failed: function () { setStatus('Le téléchargement a échoué. Ouvre « copier le contenu » ci-dessous.'); }
+    });
   }
   function doCopy() {
     var ta = $('j-copy');
@@ -692,6 +726,71 @@
     ta.select();
     try { if (document.execCommand('copy')) { ok(); return; } } catch (e) {}
     setStatus('Sélectionne le texte et copie-le à la main.');
+  }
+
+  /* ---------- Rappels : fichier calendrier (.ics, RFC 5545) ---------- */
+  // Phases à annoncer : les phases sourcées (pas les transitions), sans l'inertie (on vient de se réveiller).
+  function remPhases() { return L.phases.filter(function (p) { return !p.transition && p.s > 0; }); }
+  function icsEsc(s) { return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
+  // Lignes de 75 octets au plus ; la suite commence par une espace. On ne coupe jamais au milieu d'un caractère.
+  function icsFold(line) {
+    var enc = new TextEncoder(), out = [], cur = '', n = 0;
+    Array.from(line).forEach(function (c) {
+      var b = enc.encode(c).length;
+      if (n + b > 75) { out.push(cur); cur = ' '; n = 1; }
+      cur += c; n += b;
+    });
+    out.push(cur);
+    return out.join('\r\n');
+  }
+  function icsLocal(d) { return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00'; }
+  function icsUtc(d) {
+    return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z';
+  }
+  // Heures « flottantes » (sans fuseau) : le calendrier les lit à l'heure locale de l'appareil.
+  function buildIcs(o) {
+    var wake = L.getWake(), now = new Date(), ev = [];
+    var seq = Math.max(0, Math.floor((now.getTime() - Date.UTC(2026, 9, 8)) / 60000)); // monte à chaque nouvelle version du fichier
+    function at(total) { return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, total, 0); }
+    function add(uid, startTotal, durMin, summary, desc) {
+      var s = at(startTotal), e = new Date(s.getTime() + durMin * 60000);
+      ev.push(['BEGIN:VEVENT', 'UID:' + uid + '@luna.local', 'DTSTAMP:' + icsUtc(now), 'SEQUENCE:' + seq,
+        'DTSTART:' + icsLocal(s), 'DTEND:' + icsLocal(e), 'RRULE:FREQ=DAILY;COUNT=' + o.days,
+        'SUMMARY:' + icsEsc(summary), 'DESCRIPTION:' + icsEsc(desc), 'TRANSP:TRANSPARENT',
+        'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(summary), 'TRIGGER:-PT0M', 'END:VALARM', 'END:VEVENT']);
+    }
+    var wk = L.fmtClock(wake);
+    if (o.tests) PTS.forEach(function (p, i) {
+      add('luna-test-' + i, wake + p.target - p.tol, 2 * p.tol, 'LUNA · Test de vigilance · ' + p.name,
+        'Créneau libre de ' + L.fmt(wake + p.target - p.tol) + ' à ' + L.fmt(wake + p.target + p.tol) + ', calé sur ton réveil de ' + wk + '. But : ' + p.goal + (/[?!.]$/.test(p.goal) ? '' : '.') +
+        ' Fais le test quand tu veux dans la fenêtre. Si ce moment passe, ce n’est pas grave.');
+    });
+    if (o.phases) remPhases().forEach(function (p, i) {
+      add('luna-phase-' + i, wake + p.s, 5, 'LUNA · Nouvelle phase · ' + p.name,
+        'Début vers ' + L.fmt(wake + p.s) + ' (moyenne calée sur ton réveil de ' + wk + '). ' + p.advice +
+        ' Étiquette : ' + p.status + (p.durLabel ? ' · durée : ' + p.durLabel : '') + '.');
+    });
+    var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//LUNA//Rappels//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:LUNA'];
+    ev.forEach(function (e) { lines = lines.concat(e); });
+    lines.push('END:VCALENDAR');
+    return { text: lines.map(icsFold).join('\r\n') + '\r\n', count: ev.length };
+  }
+  function setRStatus(msg) {
+    remStatus = msg;
+    var el = $('j-rstatus');
+    if (el) el.textContent = msg;
+  }
+  function doIcs() {
+    if (!rem.tests && !rem.phases) return;
+    var out = buildIcs(rem), name = 'luna-rappels-' + keyOf(new Date()) + '.ics';
+    var what = plural(out.count, 'rappel', 'rappels') + ' par jour, pendant ' + rem.days + ' jours';
+    setRStatus('');
+    shareOrDownload(out.text, name, 'text/calendar', 'Rappels LUNA', {
+      shared: function () { setRStatus('Fichier « ' + name + ' » partagé (' + what + '). Ouvre-le avec ton calendrier pour l’ajouter.'); },
+      downloaded: function () { setRStatus('Fichier « ' + name + ' » téléchargé (' + what + '). Ouvre-le pour l’ajouter à ton calendrier.'); },
+      aborted: function () { setRStatus('Envoi annulé.'); },
+      failed: function () { setRStatus('Le téléchargement a échoué.'); }
+    });
   }
 
   /* ---------- Restauration ---------- */
@@ -748,6 +847,8 @@
       case 'save-note': saveNote(); break;
       case 'backup': restore = null; restoreError = ''; go('backup'); break;
       case 'do-backup': doBackup(); break;
+      case 'remind': remStatus = ''; go('reminders'); break;
+      case 'make-ics': doIcs(); break;
       case 'copy': doCopy(); break;
       case 'restore': restore = null; restoreError = ''; go('restore'); break;
       case 'read-paste': var ta = $('j-paste'); loadRestore(ta ? ta.value : '', ''); break;
@@ -775,6 +876,16 @@
       var ok = feelComplete(), nx = $('j-next'), hint = $('j-feelhint');
       if (nx) nx.disabled = !ok;
       if (hint) hint.textContent = ok ? 'Étape suivante : 3 minutes de test' : 'Les 4 réponses sont nécessaires';
+    } else if (t.getAttribute && t.getAttribute('data-rem')) {
+      var key = t.getAttribute('data-rem');
+      if (key === 'days') rem.days = Number(t.value) || 14;
+      else {
+        rem[key] = t.checked;
+        var lab = t.closest('.j-opt');
+        if (lab) lab.classList.toggle('on', t.checked);
+      }
+      var mk = $('j-mk');
+      if (mk) mk.disabled = !(rem.tests || rem.phases);
     } else if (t.id === 'j-file' && t.files && t.files[0]) {
       var f = t.files[0], rd = new FileReader();
       rd.onload = function () { loadRestore(String(rd.result), f.name); };
@@ -801,7 +912,7 @@
   L.on('wake', maybeUpdate);
   L.journal = {
     onShow: function () {
-      if (['home', 'backup', 'history'].indexOf(screen) < 0) { flow = newFlow(); screen = 'home'; }
+      if (['home', 'backup', 'history', 'reminders'].indexOf(screen) < 0) { flow = newFlow(); screen = 'home'; }
       render();
     }
   };

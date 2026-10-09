@@ -459,11 +459,12 @@ nav[hidden]{display:none}
 
   /* ---------- Socle commun, offert aux autres modules (Journal, plus tard Repas…) ---------- */
   window.LUNA = {
-    version: '2026-10-07-journal',
+    version: '2026-10-08-rappels',
     getWake: function () { return wake; },          // minutes depuis minuit : UNE seule valeur pour toute l'appli
     setWake: setWake,
     bindWake: bindWake,
-    phases: P.map(function (p) { return { name: p.name, s: p.s, e: p.e, color: p.color, transition: !!p.transition }; }),
+    phases: P.map(function (p) { return { name: p.name, s: p.s, e: p.e, color: p.color, transition: !!p.transition,
+                                          advice: p.advice, status: p.status, durLabel: p.durLabel }; }),
     show: show,
     navVisible: function (v) { document.querySelector('nav').hidden = !v; },
     on: function (ev, fn) { if (listeners[ev]) listeners[ev].push(fn); },
