@@ -58,6 +58,7 @@ main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;paddin
 .banner{display:flex;align-items:center;gap:10px;margin:0 5px;padding:8px 4px 8px 14px;background:var(--card);
   border:1px solid var(--line2);border-left:4px solid var(--dash);border-radius:12px}
 .banner[hidden]{display:none}
+.banner.alert{border-left-color:#52B7B0}
 .banner .txt{flex:1;min-width:0}
 .banner b{display:block;font-size:14px;font-weight:700}
 .banner span{display:block;font-size:12.5px;color:var(--muted);margin-top:1px}
@@ -94,10 +95,12 @@ main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;paddin
 .rbody{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px}
 .rl1,.rl2{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .rname{font-size:14px;font-weight:600;line-height:1.25}
-.row.tr .rname{color:var(--chip)}
+.row.hy{margin-left:18px;min-height:44px}
+.row.hy .rname{color:var(--chip);font-weight:500}
 .rchip{flex-shrink:0;font-size:11px;font-weight:600;padding:2px 7px;border-radius:999px;border:1px solid var(--dash);color:var(--chip);white-space:nowrap}
 .rchip.hy{border-style:dashed}
 .rl2{font-size:12px;line-height:1.3;color:var(--muted);font-variant-numeric:tabular-nums}
+.rl3{font-size:11.5px;line-height:1.3;color:var(--nav-off)}
 .now{flex-shrink:0;font-size:10px;font-weight:700;letter-spacing:.1em;padding:2px 8px;border-radius:999px;border:1px solid;color:var(--text)}
 
 nav{display:flex;padding:6px 12px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--nav);flex-shrink:0}
@@ -129,17 +132,16 @@ nav[hidden]{display:none}
         <div class="txt"><b class="b-title"></b><span class="b-sub"></span></div>
         <button type="button" class="b-x" aria-label="Fermer l’annonce de phase">×</button>
       </div>
+      <div class="banner alert" role="status" hidden>
+        <div class="txt"><b class="a-title"></b><span class="a-sub"></span></div>
+        <button type="button" class="a-go" aria-label="Ouvrir le Journal">›</button>
+      </div>
 
       <div class="wheel">
         <svg id="wheel" viewBox="0 0 360 360" role="img" aria-label="Roue circadienne sur 24 heures, réveil en haut, journée en sens horaire">
           <circle cx="180" cy="180" r="139" fill="none" stroke="#243148" stroke-width="22"/>
-          <path d="M180.8 41.0A139 139 0 0 1 197.3 42.1" fill="none" stroke="#8E90C9" stroke-width="22"/>
-          <path d="M199.0 42.3A139 139 0 0 1 248.8 59.2" fill="none" stroke="#52B7B0" stroke-width="22"/>
-          <path d="M250.2 60.0A139 139 0 0 1 300.0 109.8" fill="none" stroke="#F2C14E" stroke-width="22"/>
-          <path d="M318.9 183.9A139 139 0 0 1 307.6 235.2" fill="none" stroke="#56657F" stroke-width="22"/>
-          <path d="M246.1 302.3A139 139 0 0 1 196.0 318.1" fill="none" stroke="#F08A6A" stroke-width="22"/>
-          <path d="M149.1 315.5A139 139 0 0 1 86.7 283.1" fill="none" stroke="#8C6FD0" stroke-width="22"/>
-          <path d="M85.5 281.9A139 139 0 0 1 179.2 41.0" fill="none" stroke="#4C63B0" stroke-width="22"/>
+          <g id="arcs"></g>
+          <g id="hypo" fill="none"></g>
           <line x1="180" y1="56" x2="180" y2="25" stroke="#FFFFFF" stroke-width="2"/>
           <g id="ticks" stroke="#6E7E99" stroke-width="2"></g>
           <g id="tick-labels" fill="#A7B3C7" font-size="12" font-weight="600" text-anchor="middle"></g>
@@ -152,6 +154,8 @@ nav[hidden]{display:none}
           <text x="180" y="208" text-anchor="middle" font-size="11" font-weight="600" letter-spacing="1.5" fill="#A7B3C7">MAINTENANT</text>
         </svg>
       </div>
+
+      <p class="legend" style="text-align:center">Trait en pointillé à l’intérieur = sommet possible, à mesurer</p>
 
       <button type="button" class="go" id="go-journee">Toutes les phases de la journée
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
@@ -188,11 +192,16 @@ nav[hidden]{display:none}
         <div class="txt"><b class="b-title"></b><span class="b-sub"></span></div>
         <button type="button" class="b-x" aria-label="Fermer l’annonce de phase">×</button>
       </div>
-      <p class="legend">Couleur = phase · pointillé = transition, hors phases sourcées</p>
+      <div class="banner alert" role="status" hidden>
+        <div class="txt"><b class="a-title"></b><span class="a-sub"></span></div>
+        <button type="button" class="a-go" aria-label="Ouvrir le Journal">›</button>
+      </div>
+      <p class="legend">Couleur = phase · pointillé = sommet possible, à mesurer</p>
       <ol class="rows" id="rows"></ol>
       <div class="legend">
-        <p>Moyenne à ajuster = appuyée par une étude</p>
-        <p>Hypothèse à mesurer = sans étude, à confirmer par tes PVT</p>
+        <p>Établi = appuyé par des études (durée variable selon les personnes)</p>
+        <p>Moyenne à ajuster = valeur de groupe, à recaler sur toi</p>
+        <p>Hypothèse à mesurer = sans étude, à confirmer par tes tests</p>
       </div>
     </main>
   </section>
@@ -231,30 +240,27 @@ nav[hidden]{display:none}
   var KEY_WAKE = 'luna.wake', KEY_SEEN = 'luna.phaseSeen';
   var AJ = 'Moyenne à ajuster', HY = 'Hypothèse à mesurer';
 
-  // Phases en minutes APRÈS le réveil (s = début, e = fin). Durées de DÉPART :
-  //   AJ = appuyée par une étude ; HY = sans étude, à confirmer par les PVT.
-  // Les « transitions » ne sont PAS des phases sourcées : ce sont les créneaux entre deux phases.
+  // Phases en minutes APRÈS le réveil (R+) : s = début, e = fin. Ce sont des bornes de DÉPART, non mesurées :
+  // les tests du Journal serviront à les ajuster. Étiquettes : « Établi » (appuyé par des études), « Établi mais variable »,
+  // « Moyenne à ajuster » (valeur de groupe), « Hypothèse à mesurer » (sans étude).
   var P = [
-    { name: 'Inertie du réveil', s: 0, e: 30, color: '#8E90C9', dur: '~30 min (15–60)', durShort: '~30 min',
-      advice: 'Lumière, eau ; rien de lourd.', status: 'Établi', durLabel: AJ },
-    { name: 'Montée / haut de matinée', s: 30, e: 120, color: '#52B7B0', dur: '~1h30', durShort: '~1h30',
-      advice: 'La vigilance monte du réveil vers le pic.', status: 'Tendance établie', durLabel: HY },
-    { name: 'Pic de vigilance cognitive', s: 120, e: 240, color: '#F2C14E', dur: '~2 h', durShort: '~2 h',
-      advice: 'Le plus exigeant : écrire, décider.', status: 'Établi · non revérifié', durLabel: HY },
-    { name: 'Descente vers le creux', s: 240, e: 365, color: '#6E7E99', dur: '', durShort: '', transition: true,
-      advice: 'Aucune phase distincte n’est sourcée sur ce créneau.', status: 'Transition · hors phases sourcées', durLabel: '' },
-    { name: 'Creux d’après-midi', s: 365, e: 455, color: '#56657F', dur: '~1h30 · LUNA-3 : 1 à 2 h', durShort: '~1h30',
-      advice: 'Tâches légères, pause, marche.', status: 'Réel, circadien', durLabel: HY },
-    { name: 'Remontée vers le pic', s: 455, e: 605, color: '#6E7E99', dur: '', durShort: '', transition: true,
-      advice: 'Aucune phase distincte n’est sourcée sur ce créneau.', status: 'Transition · hors phases sourcées', durLabel: '' },
-    { name: 'Pic de fin de journée', s: 605, e: 695, color: '#F08A6A', dur: '~1h30 · LUNA-3 : 1 à 2 h', durShort: '~1h30',
-      advice: 'Sport, effort, coordination.', status: 'Établi · durée discutée', durLabel: HY },
-    { name: 'Fin du pic', s: 695, e: 770, color: '#6E7E99', dur: '', durShort: '', transition: true,
-      advice: 'Aucune phase distincte n’est sourcée sur ce créneau.', status: 'Transition · hors phases sourcées', durLabel: '' },
-    { name: 'Descente + mélatonine', s: 770, e: 890, color: '#8C6FD0', dur: '~2 h · 2–3 h avant le coucher', durShort: '~2 h',
-      advice: 'Lumière tamisée, on ralentit.', status: 'Établi', durLabel: HY },
-    { name: 'Fenêtre propice au sommeil', s: 890, e: 1440, color: '#4C63B0', dur: '≥ 7 h', durShort: '≥ 7 h',
-      advice: 'Le plus profond aux petites heures.', status: 'Établi', durLabel: AJ }
+    { name: 'Remise en route', s: 0, e: 120, color: '#8E90C9', dur: 'au moins 2 h, jusqu’à 4 h', durShort: '2 à 4 h',
+      advice: 'Lumière, eau ; rien de lourd tant que ça n’est pas revenu.', status: 'Établi', durLabel: AJ },
+    { name: 'Vigilance stable du matin', s: 120, e: 360, color: '#52B7B0', dur: '~4 h', durShort: '~4 h',
+      advice: 'Plateau de vigilance : le moment pour ce qui demande de la concentration.', status: 'Établi', durLabel: HY },
+    { name: 'Creux possible', s: 360, e: 480, color: '#56657F', dur: '~2 h, variable', durShort: '~2 h',
+      advice: 'Tâches légères, pause, marche. Variable selon les personnes : certains n’en ont pas.', status: 'Établi mais variable', durLabel: HY },
+    { name: 'Vigilance stable (fin d’après-midi et soirée)', s: 480, e: 780, color: '#52B7B0', dur: '~5 h', durShort: '~5 h',
+      advice: 'Plateau de vigilance ; un sommet de fin d’après-midi reste à mesurer.', status: 'Établi', durLabel: HY },
+    { name: 'Montée de mélatonine', s: 780, e: 900, color: '#8C6FD0', dur: '~2 h', durShort: '~2 h',
+      advice: 'Lumière tamisée, on ralentit.', status: 'Moyenne à ajuster', durLabel: '' },
+    { name: 'Fenêtre de sommeil', s: 900, e: 1440, color: '#4C63B0', dur: '≥ 7 h', durShort: '≥ 7 h',
+      advice: 'Au moins 7 h pour un adulte (consensus d’experts).', status: 'Établi', durLabel: '' }
+  ];
+  // Sommets possibles : HYPOTHÈSES à mesurer (aucune étude ne les établit). Dessinés en pointillé ; `after` = phase qui les contient.
+  var H = [
+    { name: 'Sommet du matin ?', s: 120, e: 240, color: '#F2C14E', after: 1 },
+    { name: 'Sommet de fin d’après-midi ?', s: 480, e: 600, color: '#F08A6A', after: 3 }
   ];
 
   /* ---------- Stockage (localStorage, avec repli en mémoire) ---------- */
@@ -293,10 +299,10 @@ nav[hidden]{display:none}
     return { t: t, rel: rel, i: i };
   }
 
-  // Bandeau « nouvelle phase » : seulement pour une phase SOURCÉE, et seulement si elle a changé depuis le dernier passage.
+  // Bandeau « nouvelle phase » : seulement si la phase a changé depuis le dernier passage.
   function detect(i) {
     var seen = load(KEY_SEEN);
-    if (seen !== null && seen !== String(i) && !P[i].transition) banner = i;
+    if (seen !== null && seen !== String(i)) banner = i;
     else if (banner !== null && banner !== i) banner = null;
     save(KEY_SEEN, String(i));
   }
@@ -305,6 +311,29 @@ nav[hidden]{display:none}
   function $(id) { return document.getElementById(id); }
   function all(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
   var NS = 'http://www.w3.org/2000/svg';
+
+  function polar(a, r) { var t = a * Math.PI / 180; return [(180 + r * Math.sin(t)).toFixed(1), (180 - r * Math.cos(t)).toFixed(1)]; }
+  function arcPath(a0, a1, r) {
+    var p0 = polar(a0, r), p1 = polar(a1, r);
+    return 'M' + p0[0] + ' ' + p0[1] + 'A' + r + ' ' + r + ' 0 ' + ((a1 - a0) > 180 ? 1 : 0) + ' 1 ' + p1[0] + ' ' + p1[1];
+  }
+  // 1440 min = 360° : 1 min = 0,25°. Un petit vide entre deux phases.
+  function paintArcs() {
+    var g = $('arcs'), h = $('hypo');
+    g.textContent = ''; h.textContent = '';
+    P.forEach(function (p) {
+      var el = document.createElementNS(NS, 'path');
+      el.setAttribute('d', arcPath(p.s / 4 + 0.35, p.e / 4 - 0.35, 139));
+      el.setAttribute('fill', 'none'); el.setAttribute('stroke', p.color); el.setAttribute('stroke-width', 22);
+      g.appendChild(el);
+    });
+    H.forEach(function (x) {
+      var el = document.createElementNS(NS, 'path');
+      el.setAttribute('d', arcPath(x.s / 4 + 0.35, x.e / 4 - 0.35, 119));
+      el.setAttribute('stroke', x.color); el.setAttribute('stroke-width', 4); el.setAttribute('stroke-dasharray', '2 5'); el.setAttribute('stroke-linecap', 'round');
+      h.appendChild(el);
+    });
+  }
 
   function paintWheel(L) {
     $('wake-label').textContent = fmtClock(wake) + ' · réveil';
@@ -349,49 +378,85 @@ nav[hidden]{display:none}
     var chips = $('c-chips');
     chips.textContent = '';
     chips.appendChild(chip('main', cur.status, cur.color));
-    if (cur.durLabel) chips.appendChild(chip(cur.durLabel === AJ ? '' : 'hy', cur.durLabel));
+    if (cur.durLabel) chips.appendChild(chip(cur.durLabel === AJ ? '' : 'hy', 'Durée · ' + cur.durLabel));
+    H.forEach(function (x) { if (L.rel >= x.s && L.rel < x.e) chips.appendChild(chip('hy', x.name + ' · ' + HY, x.color)); });
     $('c-next').textContent = 'Ensuite · ' + nxt.name + ' à ' + fmt(wake + nxt.s) + ' (dans ' + fmtDur(until) + ')';
     $('wheel').setAttribute('aria-label', 'Roue circadienne sur 24 heures, réveil en haut. Il est ' + fmtClock(L.t) +
       ', phase en cours : ' + cur.name + '.');
   }
 
+  function phaseRow(p, k, L) {
+    var li = document.createElement('li');
+    li.className = 'row' + (k === L.i ? ' cur' : '');
+    if (k === L.i) li.setAttribute('aria-current', 'true');
+
+    var bar = document.createElement('span');
+    bar.className = 'bar';
+    bar.style.background = p.color;
+
+    var body = document.createElement('div'); body.className = 'rbody';
+    var l1 = document.createElement('div'); l1.className = 'rl1';
+    var nm = document.createElement('span'); nm.className = 'rname'; nm.textContent = p.name;
+    var ch = document.createElement('span');
+    ch.className = 'rchip' + (p.status === 'Établi' ? '' : ' hy');
+    ch.textContent = p.status;
+    l1.appendChild(nm); l1.appendChild(ch);
+
+    var l2 = document.createElement('div'); l2.className = 'rl2';
+    var tm = document.createElement('span');
+    tm.textContent = fmt(wake + p.s) + ' – ' + fmt(wake + p.e) + (p.durShort ? ' · ' + p.durShort : '');
+    l2.appendChild(tm);
+    if (k === L.i) {
+      var nw = document.createElement('span'); nw.className = 'now'; nw.textContent = 'MAINTENANT';
+      nw.style.borderColor = p.color;
+      l2.appendChild(nw);
+    }
+    body.appendChild(l1); body.appendChild(l2);
+    if (p.durLabel) {
+      var l3 = document.createElement('div'); l3.className = 'rl3'; l3.textContent = 'Durée : ' + p.durLabel.toLowerCase();
+      body.appendChild(l3);
+    }
+    li.appendChild(bar); li.appendChild(body);
+    return li;
+  }
+  function hypoRow(h) {
+    var li = document.createElement('li');
+    li.className = 'row hy';
+    var bar = document.createElement('span');
+    bar.className = 'bar dashed';
+    bar.style.borderColor = h.color;
+    var body = document.createElement('div'); body.className = 'rbody';
+    var l1 = document.createElement('div'); l1.className = 'rl1';
+    var nm = document.createElement('span'); nm.className = 'rname'; nm.textContent = h.name;
+    var ch = document.createElement('span'); ch.className = 'rchip hy'; ch.textContent = HY;
+    l1.appendChild(nm); l1.appendChild(ch);
+    var l2 = document.createElement('div'); l2.className = 'rl2';
+    var tm = document.createElement('span'); tm.textContent = fmt(wake + h.s) + ' – ' + fmt(wake + h.e);
+    l2.appendChild(tm);
+    body.appendChild(l1); body.appendChild(l2);
+    li.appendChild(bar); li.appendChild(body);
+    return li;
+  }
   function paintRows(L) {
     var ol = $('rows');
     ol.textContent = '';
     P.forEach(function (p, k) {
-      var li = document.createElement('li');
-      li.className = 'row' + (k === L.i ? ' cur' : '') + (p.transition ? ' tr' : '');
-      if (k === L.i) li.setAttribute('aria-current', 'true');
-
-      var bar = document.createElement('span');
-      bar.className = 'bar' + (p.transition ? ' dashed' : '');
-      if (!p.transition) bar.style.background = p.color;
-
-      var body = document.createElement('div'); body.className = 'rbody';
-      var l1 = document.createElement('div'); l1.className = 'rl1';
-      var nm = document.createElement('span'); nm.className = 'rname'; nm.textContent = p.name;
-      var ch = document.createElement('span');
-      ch.className = 'rchip' + (p.transition || p.durLabel === HY ? ' hy' : '');
-      ch.textContent = p.transition ? 'Hors phases sourcées' : p.durLabel;
-      l1.appendChild(nm); l1.appendChild(ch);
-
-      var l2 = document.createElement('div'); l2.className = 'rl2';
-      var tm = document.createElement('span');
-      tm.textContent = fmt(wake + p.s) + ' – ' + fmt(wake + p.e) + (p.durShort ? ' · ' + p.durShort : '');
-      l2.appendChild(tm);
-      if (k === L.i) {
-        var nw = document.createElement('span'); nw.className = 'now'; nw.textContent = 'MAINTENANT';
-        nw.style.borderColor = p.color;
-        l2.appendChild(nw);
-      }
-      body.appendChild(l1); body.appendChild(l2);
-      li.appendChild(bar); li.appendChild(body);
-      ol.appendChild(li);
+      ol.appendChild(phaseRow(p, k, L));
+      H.forEach(function (h) { if (h.after === k) ol.appendChild(hypoRow(h)); });
     });
   }
 
+  var alertInfo = null; // { title, sub } : message d'un autre module (Journal), ou null
+  function paintAlert() {
+    all('.banner.alert').forEach(function (el) {
+      if (!alertInfo) { el.hidden = true; return; }
+      el.hidden = false;
+      el.querySelector('.a-title').textContent = alertInfo.title;
+      el.querySelector('.a-sub').textContent = alertInfo.sub;
+    });
+  }
   function paintBanner() {
-    all('.banner').forEach(function (el) {
+    all('.banner:not(.alert)').forEach(function (el) {
       if (banner === null) { el.hidden = true; return; }
       var p = P[banner];
       el.hidden = false;
@@ -456,15 +521,17 @@ nav[hidden]{display:none}
   $('nav-roue').addEventListener('click', function () { show('roue'); });
   $('nav-journal').addEventListener('click', function () { show('journal'); });
   all('.b-x').forEach(function (b) { b.addEventListener('click', function () { banner = null; paintBanner(); }); });
+  all('.a-go').forEach(function (b) { b.addEventListener('click', function () { show('journal'); }); });
 
   /* ---------- Socle commun, offert aux autres modules (Journal, plus tard Repas…) ---------- */
   window.LUNA = {
-    version: '2026-10-08-rappels',
+    version: '2026-10-11-plan-R+',
     getWake: function () { return wake; },          // minutes depuis minuit : UNE seule valeur pour toute l'appli
     setWake: setWake,
     bindWake: bindWake,
-    phases: P.map(function (p) { return { name: p.name, s: p.s, e: p.e, color: p.color, transition: !!p.transition,
+    phases: P.map(function (p) { return { name: p.name, s: p.s, e: p.e, color: p.color,
                                           advice: p.advice, status: p.status, durLabel: p.durLabel }; }),
+    setAlert: function (a) { alertInfo = a || null; paintAlert(); },
     show: show,
     navVisible: function (v) { document.querySelector('nav').hidden = !v; },
     on: function (ev, fn) { if (listeners[ev]) listeners[ev].push(fn); },
@@ -472,6 +539,7 @@ nav[hidden]{display:none}
   };
 
   /* ---------- Horloge ---------- */
+  paintArcs();
   refresh(true);
   setInterval(function () { refresh(true); }, 20000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(true); });
