@@ -5,8 +5,12 @@
 
    Deux choses séparées (décision du 11/10) :
    - RELEVÉ = ressenti seulement (5 questions + détail facultatif). « prévu » (un moment du plan) ou « libre » (à tout moment) ;
-   - TEST   = PVT-B (vigilance soutenue), 3 min. « prévu » ou « libre ».
+   - TEST   = PVT-B (vigilance soutenue), 3 min, ou Symbol Search (vitesse de traitement), ≈ 45 s. « prévu » ou « libre ».
    Le plan de la journée (PLAN) est une simple liste en « réveil + X » : on peut ajouter ou changer des moments sans toucher au reste.
+
+   Symbol Search (14/10) : protocole lu chez Hernandez et al. 2023 (20 essais, carte du bas identique à celle du haut) ;
+   symboles, pauses, exclusions et entraînement = RÉGLAGES DE LA MAQUETTE du 14/10, qui ne changent plus pendant le recueil
+   (chaque passage garde sa version et ses réglages). Tous les passages sont « libres » tant que le plan n'a pas de moment Symbol Search.
 
    Test PVT-B : protocole de Basner et al. 2011 — 3 min ; intervalle aléatoire de 1 à 4 s entre deux
    stimuli, retour affiché 1 s compris ; lapse = réponse > 355 ms ; faux départ = réponse < 100 ms.
@@ -29,7 +33,7 @@
   if (!L || !root) return;
 
   /* ---------- Constantes ---------- */
-  var KEY = 'luna.journal', KEY_BK = 'luna.journal.lastBackup', KEY_ACTS = 'luna.activities', KEY_BEDSKIP = 'luna.bedSkip';
+  var KEY = 'luna.journal', KEY_BK = 'luna.journal.lastBackup', KEY_ACTS = 'luna.activities', KEY_BEDSKIP = 'luna.bedSkip', KEY_PRAC = 'luna.practiced';
 
   // Plan de la journée, en minutes APRÈS le réveil (R+). kind : 'releve' | 'test' | 'both'.
   // Pour changer le plan : modifier cette liste (l'ordre doit rester croissant).
@@ -74,6 +78,29 @@
               timeout: 10000, debounce: 150, minValid: 10 };
   var DEVICE = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ? 'tel' : 'ord';
   var DEVICE_TXT = { tel: 'téléphone', ord: 'ordinateur' };
+
+  // Symbol Search : RÉGLAGES FIGÉS (maquette du 14/10). Ne pas les changer en cours de recueil : la référence compare « mêmes réglages ».
+  // iti = pause entre deux essais ; hit = retour visuel du toucher ; fbOk / fbErr = retour de l'entraînement (ms) ;
+  // rtMin / rtMax = temps comptés (ms) ; minAcc = seuil sous lequel l'étude lue écartait le passage ; refMin = passages avant d'afficher une référence.
+  var SS = { ver: 1, trials: 20, practice: 4, iti: 400, hit: 100, fbOk: 900, fbErr: 1400, ready: 1600,
+             rtMin: 200, rtMax: 5000, symbols: 9, refMin: 3, minAcc: 0.7, estSec: 45 };
+  var SS_NAMES = ['cercle', 'carré', 'triangle', 'plus', 'croix', 'losange', 'arche', 'zigzag', 'cible'];
+  var SS_PATHS = [
+    '<circle cx="50" cy="50" r="28"/>',
+    '<rect x="24" y="24" width="52" height="52"/>',
+    '<path d="M50 22L78 76L22 76Z"/>',
+    '<path d="M50 20V80M20 50H80"/>',
+    '<path d="M26 26L74 74M74 26L26 74"/>',
+    '<path d="M50 18L82 50L50 82L18 50Z"/>',
+    '<path d="M22 72A28 28 0 0 1 78 72"/>',
+    '<path d="M16 62L33 38L50 62L67 38L84 62"/>',
+    '<circle cx="50" cy="50" r="30"/><circle class="solid" cx="50" cy="50" r="9"/>'
+  ];
+  // Les tests qu'on peut lancer librement (Journal → « Test libre »). Les autres tests viendront s'ajouter ici.
+  var TESTS = [
+    { id: 'pvt', name: 'PVT-B', cog: 'Vigilance soutenue', dur: '3 min' },
+    { id: 'ss',  name: 'Symbol Search', cog: 'Vitesse de traitement', dur: '≈ ' + SS.estSec + ' s' }
+  ];
 
   var ICON_CHEV = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   var ICON_BACK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
@@ -200,7 +227,48 @@
     '.j-opt .t{display:flex;flex-direction:column;gap:3px}',
     '.j-opt b{font-size:15px}',
     '.j-opt b small{font-size:12px;font-weight:600;color:var(--muted)}',
-    '.j-opt span.d{font-size:13px;line-height:1.4;color:var(--muted)}'
+    '.j-opt span.d{font-size:13px;line-height:1.4;color:var(--muted)}',
+    // Choix du test libre
+    '.j-pick{margin:0 5px;width:calc(100% - 10px);min-height:64px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line2);',
+    '  color:var(--text);font:inherit;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:3px}',
+    '.j-pick .p1{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:15px;font-weight:700}',
+    '.j-pick .p1 small{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}',
+    '.j-pick .p2{font-size:13px;color:var(--muted)}',
+    '.j-pick .p3{font-size:12px;color:var(--nav-off);font-variant-numeric:tabular-nums}',
+    // Symbol Search
+    '#v-journal main.ss-main{padding:16px 20px 12px;gap:14px;align-items:center;justify-content:center}',
+    '.ss-trial{width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}',
+    '.ss-card{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px;border:2px solid var(--line2);border-radius:14px;background:var(--card);color:var(--text);min-width:0}',
+    '.ss-card svg{width:46px;height:46px;flex:none;fill:none;stroke:currentColor;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}',
+    '.ss-card svg .solid{fill:currentColor;stroke:none}',
+    '.ss-top{width:min(100%,220px);min-height:96px;border-color:var(--text)}',
+    '.ss-bottoms{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}',
+    'button.ss-choice{appearance:none;-webkit-appearance:none;font:inherit;min-height:112px;cursor:pointer;touch-action:manipulation}',
+    'button.ss-choice.hit{background:var(--nav-on);border-color:var(--text)}',
+    '.ss-trial.blank .ss-card svg{visibility:hidden}',
+    '.ss-cue{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;text-align:center}',
+    '.ss-fb{font-size:15px;font-weight:600;color:var(--muted);min-height:1.6em;text-align:center}',
+    '.ss-fb.ok{color:#52B7B0}',
+    '.ss-between{font-size:26px;font-weight:700;text-align:center}',
+    '.ss-note{font-size:14px;line-height:1.4;color:var(--muted);text-align:center}',
+    '.ss-demo{display:flex;flex-direction:column;align-items:center;gap:10px;margin:0 5px}',
+    '.ss-demo .ss-card svg{width:38px;height:38px}',
+    '.ss-demo .ss-top{min-height:80px}',
+    '.ss-strip{position:relative;height:28px;margin:4px 0;background:var(--bg);border:1px solid var(--line2);border-radius:6px}',
+    '.ss-strip .band{position:absolute;top:0;bottom:0;background:var(--nav-on);border-left:1px solid var(--dash);border-right:1px solid var(--dash)}',
+    '.ss-strip .med{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--muted)}',
+    '.ss-strip .cur{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--text);border:2px solid var(--card)}',
+    '.ss-ax{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}',
+    '.ss-facts{display:flex;flex-direction:column;margin:0}',
+    '.ss-facts div{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:6px 0;font-size:13px}',
+    '.ss-facts dt{color:var(--muted)}',
+    '.ss-facts dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}',
+    '.ss-tab{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}',
+    '.ss-tab th,.ss-tab td{padding:4px;text-align:left;border-top:1px solid var(--line);white-space:nowrap}',
+    '.ss-tabwrap{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:4px}',
+    '.ss-sec{display:flex;flex-direction:column;gap:4px;padding:8px 0;border-top:1px solid var(--line)}',
+    '.ss-sec h3{margin:0;font-size:13px;font-weight:700}',
+    '.ss-sec p{margin:0;font-size:13px;line-height:1.45;color:var(--muted)}'
   ].join('\n');
   var st = document.createElement('style');
   st.textContent = css;
@@ -257,6 +325,89 @@
     if (d.getTime() < refMs) d.setDate(d.getDate() + 1);
     return d.getTime();
   }
+
+  /* ---------- Symbol Search : fonctions pures ---------- */
+  // Signature des réglages : deux passages ne se comparent que si elle est identique.
+  var SS_CFG = 'v' + SS.ver + '/n' + SS.trials + '/iti' + SS.iti + '/rt' + SS.rtMin + '-' + SS.rtMax + '/sym' + SS.symbols;
+  function ssMedian(a) {
+    if (!a.length) return null;
+    var s = a.slice().sort(function (x, y) { return x - y; }), m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  function ssShuffle(a, rnd) {
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), x = a[i]; a[i] = a[j]; a[j] = x; }
+    return a;
+  }
+  function ssHalf(n, first, second) { // n valeurs : la moitié `first`, le reste `second`
+    var half = Math.floor(n / 2), out = [];
+    for (var i = 0; i < n; i++) out.push(i < half ? first : second);
+    return out;
+  }
+  // Une carte du haut : deux symboles différents, pas la même paire que l'essai d'avant (boucles bornées).
+  function ssPair(rnd, prev) {
+    for (var k = 0; k < 200; k++) {
+      var a = Math.floor(rnd() * SS.symbols), b = Math.floor(rnd() * SS.symbols);
+      if (a !== b && a + '-' + b !== prev) return [a, b];
+    }
+    return prev === '0-1' ? [0, 2] : [0, 1]; // repli, ne devrait jamais servir
+  }
+  function ssOther(rnd, a, b) { // un symbole qui n'est ni a ni b
+    for (var k = 0; k < 200; k++) { var c = Math.floor(rnd() * SS.symbols); if (c !== a && c !== b) return c; }
+    for (var c2 = 0; c2 < SS.symbols; c2++) if (c2 !== a && c2 !== b) return c2;
+    return 0;
+  }
+  /* n essais (pair). La moitié des bonnes cartes à gauche, la moitié à droite ; la moitié des écarts sur le 1er symbole, la moitié sur le 2e.
+     Jamais 4 fois le même côté d'affilée, jamais deux fois de suite la même carte du haut. (Règles de la maquette du 14/10.) */
+  function ssMake(n, rnd) {
+    var sides = [], k, i;
+    for (k = 0; k < 300; k++) {
+      sides = ssShuffle(ssHalf(n, 'L', 'R'), rnd);
+      var ok = true;
+      for (i = 3; i < n; i++) if (sides[i] === sides[i - 1] && sides[i] === sides[i - 2] && sides[i] === sides[i - 3]) { ok = false; break; }
+      if (ok) break;
+    }
+    var ks = ssShuffle(ssHalf(n, 0, 1), rnd), out = [], prev = '';
+    for (i = 0; i < n; i++) {
+      var p = ssPair(rnd, prev), a = p[0], b = p[1], c = ssOther(rnd, a, b);
+      prev = a + '-' + b;
+      out.push({ top: [a, b], match: [a, b], foil: ks[i] === 0 ? [c, b] : [a, c], side: sides[i], k: ks[i] });
+    }
+    return out;
+  }
+  // tr : [{ side:'L'|'R', resp:'L'|'R', rt:ms }]. Temps comptés : réponses justes entre rtMin et rtMax.
+  function ssScore(tr) {
+    var correct = 0, excl = 0, used = [];
+    tr.forEach(function (t) {
+      if (t.resp === t.side) {
+        correct++;
+        if (t.rt < SS.rtMin || t.rt > SS.rtMax) excl++; else used.push(t.rt);
+      }
+    });
+    return { n: tr.length, correct: correct, excluded: excl, used: used.length, med: ssMedian(used), acc: tr.length ? correct / tr.length : 0 };
+  }
+  // Référence personnelle (À ajuster) : médiane des passages PRÉVUS précédents, mêmes réglages, même appareil. Les tests libres n'y entrent pas.
+  function ssRefCompare(prev, cur) {
+    if (prev.length < SS.refMin) return { ok: false, n: prev.length, need: SS.refMin };
+    var lo = Math.min.apply(null, prev), hi = Math.max.apply(null, prev), ref = ssMedian(prev);
+    return { ok: true, n: prev.length, ref: ref, lo: lo, hi: hi, cur: cur, diff: cur - ref, pos: cur < lo ? 'below' : cur > hi ? 'above' : 'inside' };
+  }
+  function ssScale(c) {
+    var lo = Math.min(c.lo, c.cur), hi = Math.max(c.hi, c.cur);
+    var pd = hi > lo ? (hi - lo) * 0.2 : Math.max(Math.abs(hi) * 0.05, 1), d0 = lo - pd, d1 = hi + pd;
+    return function (v) { return (v - d0) / (d1 - d0) * 100; };
+  }
+  function ssMs(v) { return v === null || v === undefined ? '·' : Math.round(v) + ' ms'; }
+  function ssDur(ms) {
+    if (ms === null || ms === undefined || !isFinite(ms)) return '·';
+    var s = Math.round(ms / 1000);
+    if (s < 60) return s + ' s';
+    var m = Math.floor(s / 60), r = s % 60;
+    return m + ' min' + (r ? ' ' + pad(r) + ' s' : '');
+  }
+  function ssSide(s) { return s === 'L' ? 'gauche' : 'droite'; }
+  function ssGlyph(i) { return '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">' + SS_PATHS[i] + '</svg>'; }
+  function ssPairHtml(p) { return ssGlyph(p[0]) + ssGlyph(p[1]); }
+  function ssPairName(p) { return SS_NAMES[p[0]] + ' et ' + SS_NAMES[p[1]]; }
 
   /* ---------- Données ---------- */
   var entries = [], storageOk = true, lastBackup = null, actNames = ACTS_DEFAULT.slice();
@@ -349,6 +500,19 @@
     var mean = p.mean === null || p.mean === undefined ? null : Number(p.mean);
     return { n: n, mean: isFinite(mean) ? mean : null, lapses: lp, falseStarts: fs, timeouts: to, rts: rts, durationMs: int(p.durationMs, 0, 1e7) || 0 };
   }
+  // Symbol Search : résumé + un essai = [côté de la bonne carte, écart sur le symbole 1 ou 2, côté choisi, temps en ms] (0 = gauche, 1 = droite).
+  function cleanSs(s) {
+    s = s && typeof s === 'object' ? s : {};
+    var ver = int(s.ver, 1, 99), n = int(s.n, 1, 100), c = int(s.correct, 0, 100), u = int(s.used, 0, 100), x = int(s.excluded, 0, 100);
+    if (ver === null || n === null || c === null || u === null || x === null || c > n || u > c || u + x !== c) return null;
+    var med = s.med === null || s.med === undefined ? null : Number(s.med);
+    var tr = Array.isArray(s.trials) ? s.trials.slice(0, 100).filter(function (t) {
+      return Array.isArray(t) && t.length === 4 && (t[0] === 0 || t[0] === 1) && (t[1] === 0 || t[1] === 1) && (t[2] === 0 || t[2] === 1) &&
+             isFinite(t[3]) && t[3] >= 0 && t[3] < 1e6;
+    }).map(function (t) { return [t[0], t[1], t[2], Math.round(t[3])]; }) : [];
+    return { ver: ver, cfg: typeof s.cfg === 'string' ? s.cfg.slice(0, 80) : '', n: n, correct: c, used: u, excluded: x,
+             med: isFinite(med) && med >= 0 ? Math.round(med * 10) / 10 : null, durationMs: int(s.durationMs, 0, 1e7) || 0, trials: tr };
+  }
   function clean(e) {
     if (!e || typeof e !== 'object') return null;
     var ts = Number(e.ts);
@@ -400,6 +564,17 @@
       if (dt) o.detail = dt;
       return o;
     }
+    if (e.test === 'ss') { // Symbol Search
+      var ss2 = cleanSs(e.ss);
+      if (!ss2) return null;
+      o.test = 'ss'; o.ss = ss2;
+      o.device = e.device === 'tel' ? 'tel' : 'ord';
+      o.input = typeof e.input === 'string' ? e.input.slice(0, 12) : '';
+      var nth = int(e.nth, 1, 100000), nd = int(e.nthDay, 1, 1000);
+      if (nth !== null) o.nth = nth;
+      if (nd !== null) o.nthDay = nd;
+      return o;
+    }
     var pv2 = cleanPvt(e.pvt); // test
     if (!pv2) return null;
     o.pvt = pv2;
@@ -421,7 +596,8 @@
 
   function newFlow(o) {
     o = o || {};
-    return { mode: o.mode || 'releve', slot: o.slot == null ? null : o.slot, feel: {}, detail: '', feelTs: 0, ts: 0, wake: 0, result: null };
+    return { mode: o.mode || 'releve', test: o.test || 'pvt', slot: o.slot == null ? null : o.slot, feel: {}, detail: '', feelTs: 0, ts: 0, wake: 0, result: null,
+             ssMode: 'test', prac: null };
   }
 
   /* ---------- Aujourd'hui : moments du plan ---------- */
@@ -429,6 +605,7 @@
     var now = new Date(), wake = L.getWake(), tk = dayKey(now.getTime(), wake), done = {};
     entries.forEach(function (e) {
       if (e.day !== tk || e.slot == null || (e.kind !== 'releve' && e.kind !== 'test')) return;
+      if (e.test === 'ss') return; // les moments du plan ne comptent que le PVT-B jusqu'à l'arrivée des moments à plusieurs tests
       var d = done[e.slot] || (done[e.slot] = {});
       if (!d[e.kind] || e.ts < d[e.kind].ts) d[e.kind] = e;
     });
@@ -515,6 +692,11 @@
       body = (e.comment ? '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.comment) + '</div>' : '') +
         (e.feelStart ? '<div class="body">Début : ' + esc(feelShort(e.feelStart)) + (e.feelStartLate ? ' (noté après coup)' : '') + '</div>' : '') +
         (e.feelEnd ? '<div class="body">Fin : ' + esc(feelShort(e.feelEnd)) + (e.feelEndLate ? ' (noté après coup)' : '') + '</div>' : '');
+    } else if (e.test === 'ss') {
+      var sv = e.ss, early = e.plan !== 'prevu' && e.rel < 120;
+      line = ph.name + ' · ' + (sv.med === null ? 'pas de mesure' : ssMs(sv.med)) + ' · ' + sv.correct + '/' + sv.n + ' justes · ' + DEVICE_TXT[e.device];
+      kindTxt = 'Symbol Search · ' + planTxt(e) + (early ? ' · avant R+2h' : '');
+      if (e.nth) body = '<div class="body">Passage n° ' + e.nth + (e.nthDay ? ' · ' + (e.nthDay === 1 ? '1er' : e.nthDay + 'ᵉ') + ' de la journée' : '') + '</div>';
     } else if (e.kind === 'test') {
       var p = e.pvt;
       line = ph.name + ' · ' + (p.mean === null ? 'pas de mesure' : p.mean + ' ms') + ' · ' + plural(p.lapses, 'lapse', 'lapses') + ' · ' + DEVICE_TXT[e.device];
@@ -683,7 +865,7 @@
   function vIntro() {
     var m = flow.slot != null ? PLAN[flow.slot] : null, both = flow.mode === 'both';
     var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : 'Test libre : il sera enregistré, hors des moments du plan.';
-    return '<header class="subhead"><div class="top">' + (both ? back('feel', 'Ressenti') : back('home', 'Journal')) +
+    return '<header class="subhead"><div class="top">' + (both ? back('feel', 'Ressenti') : (m ? back('home', 'Journal') : back('tests', 'Tests'))) +
       '<span class="module">' + (both ? 'Étape 2 sur 2' : (m ? rLabel(m.r) + ' · prévu' : 'Test libre')) + '</span></div>' +
       '<h1 tabindex="-1">Test de vigilance</h1><p class="sub">PVT-B · 3 minutes</p></header>' +
       '<main style="padding-top:14px;gap:12px">' +
@@ -729,6 +911,143 @@
       '<div class="foot">' +
       (enough ? '<button type="button" class="btn primary" data-act="save">' + (both ? 'Enregistrer le relevé et le test' : 'Enregistrer le test') + '</button>'
               : '<button type="button" class="btn primary" data-act="intro">Refaire le test</button>') +
+      '<button type="button" class="btn ghost" data-act="discard">Ne pas enregistrer</button></div>';
+  }
+
+  /* ---------- Test libre : choisir le test ---------- */
+  function testOf(e) { return e.test === 'ss' ? 'ss' : 'pvt'; }
+  function lastPass(id) {
+    var best = null;
+    entries.forEach(function (e) { if (e.kind === 'test' && testOf(e) === id && (!best || e.ts > best.ts)) best = e; });
+    return best;
+  }
+  function vTests() {
+    var tk = todayInfo().tk;
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="module">Test libre</span></div>' +
+      '<h1 tabindex="-1">Choisir un test</h1><p class="sub">À tout moment · enregistré hors des moments du plan</p></header>' +
+      '<main style="padding-top:14px;gap:10px">' +
+      TESTS.map(function (t) {
+        var l = lastPass(t.id);
+        return '<button type="button" class="j-pick" data-act="test-pick" data-id="' + t.id + '">' +
+          '<span class="p1"><span>' + esc(t.name) + '</span><small>' + esc(t.dur) + '</small></span>' +
+          '<span class="p2">' + esc(t.cog) + '</span>' +
+          '<span class="p3">' + (l ? 'Dernier passage : ' + esc(dayText(l.day, tk)).toLowerCase() + ', ' + clockOf(l.ts) : 'Jamais passé') + '</span></button>';
+      }).join('') +
+      '<p class="j-p">Un test libre ne valide aucun moment du plan. Il est gardé et compté dans ton numéro de passage, mais il n’entre ni dans ta référence ni dans la lecture par heure.</p></main>';
+  }
+
+  /* ---------- Symbol Search : écrans ---------- */
+  var INPUT_TXT = { touch: 'doigt', mouse: 'souris', souris: 'souris', pen: 'stylet', clavier: 'clavier', mixte: 'mixte' };
+  function ssPlural(n, one, many) { return n + ' ' + (n > 1 ? many : one); }
+
+  function vSsIntro() {
+    var m = flow.slot != null ? PLAN[flow.slot] : null, practiced = ssPracticed();
+    var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : 'Test libre : il sera enregistré, hors des moments du plan et hors de ta référence.';
+    if (!m && L.mod(minOf(new Date()) - L.getWake()) < 120) msg += ' Avant R+2h, il sera noté « avant R+2h » (l’inertie du réveil peut durer 2 à 4 h : Jewett 1999).';
+    var demoTop = [0, 3], demoFoil = [0, 5];
+    return '<header class="subhead"><div class="top">' + (m ? back('home', 'Journal') : back('tests', 'Tests')) +
+      '<span class="module">' + (m ? rLabel(m.r) + ' · prévu' : 'Test libre') + '</span></div>' +
+      '<h1 tabindex="-1">Symbol Search</h1><p class="sub">Vitesse de traitement · ≈ ' + SS.estSec + ' s</p></header>' +
+      '<main style="padding-top:14px;gap:12px">' +
+      (notice ? '<p class="j-warn" role="alert">' + esc(notice) + '</p>' : '') +
+      '<div class="ss-demo"><div class="ss-card ss-top" role="img" aria-label="Exemple, carte du haut : ' + ssPairName(demoTop) + '">' + ssPairHtml(demoTop) + '</div>' +
+      '<div class="ss-bottoms" role="img" aria-label="Exemple, cartes du bas : à gauche ' + ssPairName(demoTop) + ', à droite ' + ssPairName(demoFoil) + '">' +
+      '<div class="ss-card">' + ssPairHtml(demoTop) + '</div><div class="ss-card">' + ssPairHtml(demoFoil) + '</div></div></div>' +
+      '<section class="j-card"><h2 class="j-kick">AVANT DE COMMENCER</h2><ol class="j-list">' +
+      '<li>Une carte apparaît en haut, deux en bas.</li>' +
+      '<li>Touche la carte du bas identique à celle du haut, le plus vite possible sans te tromper' + (DEVICE === 'ord' ? ' (ou touches ← et →)' : '') + '.</li>' +
+      '<li>L’autre carte ne diffère que d’un symbole. Ici, il faudrait toucher celle de gauche.</li>' +
+      '<li>' + SS.trials + ' essais. ' + (DEVICE === 'tel' ? 'Téléphone posé, même main, mode silencieux.' : 'Même souris ou trackpad, notifications coupées.') + '</li></ol></section>' +
+      '<div class="chips"><div class="chips" style="margin:0"><span class="chip main">Établi · Hernandez 2023</span><span class="chip hy">À ajuster · symboles et réglages de LUNA</span></div></div>' +
+      '<p class="j-p">Le protocole (20 essais, carte identique à choisir) vient de l’étude lue. Les neuf symboles sont dessinés pour LUNA : ce ne sont pas ceux de l’étude. Durée de ≈ ' + SS.estSec + ' s estimée d’après l’étude, non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.</p>' +
+      '<p class="j-p">' + esc(msg) + '</p></main>' +
+      '<div class="foot">' +
+      (practiced
+        ? '<button type="button" class="btn primary" data-act="ss-test">Commencer (≈ ' + SS.estSec + ' s)</button><button type="button" class="btn secondary" data-act="ss-practice">Refaire l’entraînement</button>'
+        : '<button type="button" class="btn primary" data-act="ss-practice">Entraînement (≈ 20 s, une fois)</button><button type="button" class="btn secondary" data-act="ss-test">Passer directement au test</button>') +
+      '</div>';
+  }
+
+  function vSsRun() {
+    return '<header><div class="j-runhead"><h1 tabindex="-1">Symbol Search</h1><span class="j-time" id="ss-count" style="font-size:15px" aria-live="polite">Prêt</span></div>' +
+      '<div class="j-prog" aria-hidden="true"><div id="ss-bar"></div></div></header>' +
+      '<main class="ss-main" id="ss-stage"></main>' +
+      '<div class="foot"><button type="button" class="btn ghost" data-act="ss-stop">Arrêter</button></div>';
+  }
+
+  function vSsPrac() {
+    var good = flow.prac ? flow.prac.good : 0;
+    return '<header><span class="module" style="display:block">Entraînement terminé</span>' +
+      '<h1 tabindex="-1" style="margin-top:4px">' + good + (good > 1 ? ' bonnes réponses' : ' bonne réponse') + ' sur ' + SS.practice + '</h1></header>' +
+      '<main style="padding-top:14px;gap:12px"><section class="j-card"><p class="lead">L’entraînement n’est pas noté dans les passages.</p>' +
+      '<p>Aucun seuil de réussite : l’étude lue n’en donne pas. Tu peux le refaire autant que tu veux.</p></section></main>' +
+      '<div class="foot"><button type="button" class="btn primary" data-act="ss-test">Passer le test</button>' +
+      '<button type="button" class="btn secondary" data-act="ss-practice">Refaire l’entraînement</button>' +
+      '<button type="button" class="btn ghost" data-act="ss-intro">Retour à la consigne</button></div>';
+  }
+
+  // Référence personnelle : médiane des passages PRÉVUS précédents, mêmes réglages, même appareil. Un test libre y est comparé mais n'y entre pas.
+  function ssRefPrev(cfg, device) {
+    return entries.filter(function (e) { return e.test === 'ss' && e.plan === 'prevu' && e.ss.cfg === cfg && e.device === device && e.ss.med !== null; })
+      .map(function (e) { return e.ss.med; });
+  }
+  function ssRefHtml(r, libre) {
+    var h = '<section class="j-card"><h2 class="j-kick">TA RÉFÉRENCE</h2><div class="chips" style="margin:0"><span class="chip hy">À ajuster</span></div>';
+    if (libre) h += '<p>Test libre : il est comparé à ta référence mais n’y entre pas (« libre : hors référence »).</p>';
+    if (r.med === null) return h + '<p>Pas de chiffre principal pour ce passage : aucune réponse juste n’a pu être comptée.</p></section>';
+    var c = ssRefCompare(ssRefPrev(r.cfg, r.device), r.med);
+    if (!c.ok) {
+      return h + '<p>Pas encore de référence : il faut au moins ' + c.need + ' passages comparables (mêmes réglages, même appareil, faits aux moments du plan, hors « test libre »). Il y en a ' + c.n + '.</p>' +
+        (c.n === 0 ? '<p>Les moments du plan, qui fourniront ces passages, arrivent dans une prochaine version de l’appli.</p>' : '') + '</section>';
+    }
+    var p = ssScale(c), lo = p(c.lo), hi = p(c.hi);
+    var verdict = c.pos === 'inside' ? 'Dans la fourchette de tes passages précédents.' : (c.pos === 'above' ? 'Plus lent que tous tes passages précédents.' : 'Plus rapide que tous tes passages précédents.');
+    var a = Math.round(Math.abs(c.diff)), diff = a === 0 ? 'aucun écart' : a + ' ms ' + (c.diff > 0 ? 'plus lent' : 'plus rapide');
+    var label = 'Ce passage : ' + ssMs(c.cur) + '. Ta médiane : ' + ssMs(c.ref) + '. Fourchette de tes passages précédents : ' + ssMs(c.lo) + ' à ' + ssMs(c.hi) + '.';
+    return h + '<p class="lead" style="font-size:14px">' + verdict + '</p>' +
+      '<div class="ss-strip" role="img" aria-label="' + label + '"><i class="band" style="left:' + lo.toFixed(1) + '%;width:' + (hi - lo).toFixed(1) + '%"></i>' +
+      '<i class="med" style="left:' + p(c.ref).toFixed(1) + '%"></i><i class="cur" style="left:' + p(c.cur).toFixed(1) + '%"></i></div>' +
+      '<div class="ss-ax" aria-hidden="true"><span>← plus rapide</span><span>plus lent →</span></div>' +
+      '<p class="j-fhint">Bande : fourchette de tes passages · trait : ta médiane · rond : ce passage.</p>' +
+      '<dl class="ss-facts"><div><dt>Ce passage</dt><dd>' + ssMs(c.cur) + '</dd></div>' +
+      '<div><dt>Ta médiane, ' + ssPlural(c.n, 'passage', 'passages') + ' avant</dt><dd>' + ssMs(c.ref) + '</dd></div>' +
+      '<div><dt>Fourchette de ces passages</dt><dd>' + ssMs(c.lo) + ' à ' + ssMs(c.hi) + '</dd></div>' +
+      '<div><dt>Écart avec ta médiane</dt><dd>' + diff + '</dd></div></dl>' +
+      (c.n < 10 ? '<p class="j-fhint">Moins de 10 passages avant : la fourchette est encore approximative.</p>' : '') + '</section>';
+  }
+
+  function ssTableHtml(trials) {
+    var rows = trials.map(function (t, i) {
+      return '<tr><td>' + (i + 1) + '</td><td>' + ssSide(t.side) + '</td><td>' + ssSide(t.resp) + '</td><td>' + (t.ok ? 'juste' : 'erreur') + '</td><td>' + Math.round(t.rt) + ' ms</td></tr>';
+    }).join('');
+    return '<details class="j-det"><summary>Voir les essais en tableau</summary><div class="ss-tabwrap"><table class="ss-tab"><thead><tr><th>#</th><th>Bonne</th><th>Choix</th><th>Résultat</th><th>Temps</th></tr></thead><tbody>' + rows + '</tbody></table></div></details>';
+  }
+
+  function vSsResult() {
+    var r = flow.result, rel = relAt(r.ts, r.wake), ph = phaseAt(rel), libre = flow.slot == null, early = libre && rel < 120;
+    var count = entries.filter(function (e) { return e.test === 'ss'; }).length + 1;
+    return '<header><span class="module" style="display:block">Fin du test</span><h1 tabindex="-1" style="margin-top:4px">Résultat</h1></header>' +
+      '<main style="padding-top:14px;gap:12px">' +
+      '<section class="j-card"><div class="nowline" style="margin:0"><span class="dot" style="background:' + ph.color + '"></span><span>' + clockOf(r.ts) + ' · ' + esc(ph.name) + '</span></div>' +
+      '<div class="j-metrics"><div><b>' + (r.med === null ? '—' : Math.round(r.med) + '<small> ms</small>') + '</b><span>Temps médian, réponses justes</span></div>' +
+      '<div><b>' + r.correct + '<small> / ' + r.n + '</small></b><span>Réponses justes</span></div>' +
+      '<div><b>' + r.used + '<small> / ' + r.n + '</small></b><span>Essais comptés dans le temps</span></div></div>' +
+      '<p class="j-fhint" style="color:var(--text)"><b>Chiffre principal :</b> le temps médian des réponses justes (le premier chiffre). Plus bas = plus rapide.</p>' +
+      '<p class="j-fhint">Durée du passage : ' + ssDur(r.durationMs) + ' (estimée : ≈ ' + SS.estSec + ' s)</p>' +
+      '<div class="chips" style="margin:0"><span class="chip main">Mesuré (toi, ' + ssPlural(count, 'test', 'tests') + ')</span><span class="chip hy">' + DEVICE_TXT[r.device] + ' · ' + (INPUT_TXT[r.input] || r.input) + '</span>' +
+      '<span class="chip hy">' + (libre ? 'test libre' : 'prévu') + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
+      (r.acc < SS.minAcc ? '<p class="j-ok">Sous 70 % de réponses justes, l’étude lue écartait le passage de ses analyses.</p>' : '') +
+      ssRefHtml(r, libre) +
+      '<section class="j-card"><dl class="ss-facts" style="margin:0"><div><dt>Justes hors des temps comptés (moins de 0,2 s ou plus de 5 s)</dt><dd>' + r.excluded + '</dd></div></dl></section>' +
+      ssTableHtml(r.trials) +
+      '<details class="j-det"><summary>Comment lire ce résultat</summary>' +
+      '<div class="ss-sec"><h3>Le chiffre qui compte · Établi</h3><p>Temps médian des réponses justes, en ms. Plus bas = plus rapide. L’étude lue suit le temps des réponses justes ; LUNA le résume par la médiane (choix à ajuster). À côté : les réponses justes. Sous 70 % de justes, l’étude écartait le passage.</p></div>' +
+      '<div class="ss-sec"><h3>Comparé à quoi · À ajuster</h3><p>À toi-même : la médiane de tes passages précédents sur ce test, faits aux moments du plan, avec les mêmes réglages, sur cet appareil. Les tests libres ne comptent pas. Rien n’est affiché avant 3 passages.</p></div>' +
+      '<div class="ss-sec"><h3>Pas de barème · Établi</h3><p>Dans les sources lues, aucune norme ni seuil « bon / mauvais » pour ce test. LUNA n’en invente pas. Aucun seuil de santé non plus : un professionnel décide.</p></div>' +
+      '<div class="ss-sec"><h3>Prudence · Établi</h3><p>Un passage seul est bruité. L’ICC de 0,71 classe des personnes entre elles. Pour suivre une même personne, la variation fiable d’un passage à l’autre est de 0,41 à 0,53 (Sliwinski 2018, deux types de tâches confondus, résumé seul). Un passage hors de la fourchette n’est donc pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.</p></div>' +
+      '<div class="ss-sec"><h3>Précision · Hypothèse à mesurer</h3><p>Le chronomètre part à l’image où les cartes s’affichent : précision d’une image environ (17 ms), non vérifiée sur ton téléphone.</p></div></details>' +
+      '<p class="j-p">Un seul passage ne dit presque rien : c’est la répétition sur plusieurs jours qui compte. Pas de seuil de santé ici.</p></main>' +
+      '<div class="foot"><button type="button" class="btn primary" data-act="ss-save">Enregistrer le test</button>' +
       '<button type="button" class="btn ghost" data-act="discard">Ne pas enregistrer</button></div>';
   }
 
@@ -901,9 +1220,9 @@
   /* ---------- Restauration : affichage ---------- */
   function countsText(list) {
     var n = {};
-    list.forEach(function (e) { var k = e.kind === 'releve' && e.pvt ? 'combo' : e.kind; n[k] = (n[k] || 0) + 1; });
+    list.forEach(function (e) { var k = e.kind === 'releve' && e.pvt ? 'combo' : (e.kind === 'test' && e.test === 'ss' ? 'ss' : e.kind); n[k] = (n[k] || 0) + 1; });
     var parts = [];
-    [['releve', 'relevé', 'relevés'], ['combo', 'relevé + test', 'relevés + tests'], ['test', 'test', 'tests'], ['activite', 'activité', 'activités'],
+    [['releve', 'relevé', 'relevés'], ['combo', 'relevé + test', 'relevés + tests'], ['test', 'test', 'tests'], ['ss', 'passage Symbol Search', 'passages Symbol Search'], ['activite', 'activité', 'activités'],
      ['repas', 'repas', 'repas'], ['coucher', 'coucher', 'couchers'], ['note', 'note', 'notes']].forEach(function (t) {
       if (n[t[0]]) parts.push(plural(n[t[0]], t[1], t[2]));
     });
@@ -962,14 +1281,17 @@
   }
 
   var VIEWS = { home: vHome, feel: vFeel, intro: vIntro, run: vRun, result: vResult, note: vNote, backup: vBackup, restore: vRestore, history: vHistory,
-                reminders: vRemind, 'act-start': vActStart, 'act-end': vActEnd, meal: vMeal, bed: vBed, edit: vEdit };
+                reminders: vRemind, 'act-start': vActStart, 'act-end': vActEnd, meal: vMeal, bed: vBed, edit: vEdit,
+                tests: vTests, 'ss-intro': vSsIntro, 'ss-run': vSsRun, 'ss-prac': vSsPrac, 'ss-result': vSsResult };
 
   function render() {
+    if (ssRun && screen !== 'ss-run') { ssRun.why = 'silent'; ssKill(); } // on quitte l'écran du test : on l'arrête sans rien dire
     root.innerHTML = (VIEWS[screen] || vHome)();
     L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders');
     if (screen === 'home') { L.bindWake(root.querySelector('.wake-input')); updateHome(); }
     if (screen === 'reminders') L.bindWake(root.querySelector('.wake-input'));
     if (screen === 'run') startPvt();
+    if (screen === 'ss-run') ssStart(flow.ssMode === 'practice' ? ssPractice : ssTest);
     var focus = screen === 'run' ? $('j-area') : root.querySelector('h1');
     if (focus) focus.focus({ preventScroll: true });
     var m = root.querySelector('main');
@@ -1072,6 +1394,165 @@
     s.raf = requestAnimationFrame(frame);
   }
 
+  /* ---------- Test Symbol Search ---------- */
+  // Déroulé porté de la maquette du 14/10 : tout ce qui attend (pause, réponse) passe par ssPend, donc tout peut être annulé d'un coup.
+  var SS_CANCEL = {};
+  var ssRun = null; // { dead, rej, why }
+
+  function ssPracticed() {
+    try { var o = JSON.parse(localStorage.getItem(KEY_PRAC)); return !!(o && o.ss); } catch (e) { return false; }
+  }
+  function ssMarkPracticed() {
+    try { var o = JSON.parse(localStorage.getItem(KEY_PRAC)) || {}; o.ss = Date.now(); localStorage.setItem(KEY_PRAC, JSON.stringify(o)); } catch (e) {}
+  }
+  function ssPend(setup) {
+    var c = ssRun;
+    return new Promise(function (resolve, reject) {
+      if (!c || c.dead) { reject(SS_CANCEL); return; }
+      var cleanup = null;
+      var killer = function () { if (cleanup) cleanup(); reject(SS_CANCEL); };
+      c.rej.add(killer);
+      var done = function (v) { c.rej.delete(killer); if (cleanup) cleanup(); resolve(v); };
+      cleanup = setup(done) || null;
+    });
+  }
+  function ssSleep(ms) { return ssPend(function (done) { var t = setTimeout(done, ms); return function () { clearTimeout(t); }; }); }
+  function ssKill() {
+    if (!ssRun) return;
+    ssRun.dead = true;
+    var fns = Array.from(ssRun.rej);
+    ssRun.rej.clear();
+    fns.forEach(function (f) { f(); });
+  }
+  function ssVis() { if (document.hidden && ssRun) { ssRun.why = 'hidden'; ssKill(); } }
+  function ssEnd() { ssRun = null; document.removeEventListener('visibilitychange', ssVis); }
+  function ssStop() { if (ssRun) { ssRun.why = 'stop'; ssKill(); } }
+  function ssStart(fn) {
+    ssKill();
+    var c = ssRun = { dead: false, rej: new Set(), why: 'stop' };
+    document.addEventListener('visibilitychange', ssVis);
+    fn().catch(function (e) {
+      if (ssRun !== c) return;
+      ssEnd();
+      var why = e === SS_CANCEL ? c.why : 'error';
+      if (e !== SS_CANCEL && window.console) console.error(e);
+      if (why === 'silent') return;
+      if (why === 'hidden') notice = 'Test interrompu : l’appli a quitté l’écran. Rien n’a été enregistré. Tu peux recommencer.';
+      else if (why === 'error') notice = 'Un problème est survenu. Rien n’a été enregistré. Tu peux recommencer.';
+      go('ss-intro');
+      notice = '';
+    });
+  }
+
+  function ssStage(html) { var s = $('ss-stage'); if (s) s.innerHTML = html; }
+  function ssReadout(text, p) {
+    var t = $('ss-count'), b = $('ss-bar');
+    if (t) t.textContent = text;
+    if (b) b.style.width = Math.round((p || 0) * 100) + '%';
+  }
+  // Écran d'essai : posé une fois par bloc, seul le contenu des cartes change ensuite.
+  function ssTrialScreen() {
+    ssStage('<div class="ss-trial blank" id="ss-trial"><div class="ss-card ss-top" id="ss-top" role="img" aria-label="Carte du haut"></div>' +
+      '<p class="ss-cue">Touche la carte du bas identique</p>' +
+      '<div class="ss-bottoms"><button type="button" class="ss-card ss-choice" id="ss-cl"></button><button type="button" class="ss-card ss-choice" id="ss-cr"></button></div>' +
+      '<p class="ss-fb" id="ss-fb" aria-live="polite"></p></div>');
+  }
+
+  // Un essai : cartes affichées, réponse, pause. Le temps part de l'image où les cartes s'affichent (comme le PVT-B).
+  async function ssTrialOnce(t, o) {
+    var tr = $('ss-trial'), top = $('ss-top'), cL = $('ss-cl'), cR = $('ss-cr'), fbl = $('ss-fb');
+    if (!tr || !top || !cL || !cR || !fbl) throw new Error('écran du test absent');
+    fbl.textContent = ''; fbl.className = 'ss-fb';
+    var left = t.side === 'L' ? t.match : t.foil, right = t.side === 'L' ? t.foil : t.match;
+    top.innerHTML = ssPairHtml(t.top); top.setAttribute('aria-label', 'Carte du haut : ' + ssPairName(t.top));
+    cL.innerHTML = ssPairHtml(left); cL.setAttribute('aria-label', 'Carte de gauche : ' + ssPairName(left));
+    cR.innerHTML = ssPairHtml(right); cR.setAttribute('aria-label', 'Carte de droite : ' + ssPairName(right));
+    var res = await ssPend(function (done) {
+      var armed = false, t0 = 0, raf = 0;
+      function fin(resp, ev, inp) {
+        if (!armed) return;
+        armed = false;
+        done({ resp: resp, rt: Math.max(0, tsOf(ev) - t0), inp: inp });
+      }
+      function mk(resp) { // toucher ou clic = pointerdown ; un « click » sans souris (detail 0) = touche Entrée/Espace sur le bouton
+        return function (ev) {
+          if (ev.type === 'click') { if (ev.detail !== 0) return; fin(resp, ev, 'clavier'); }
+          else fin(resp, ev, ev.pointerType || 'souris');
+        };
+      }
+      var onL = mk('L'), onR = mk('R');
+      function onKey(ev) {
+        if (ev.repeat) return;
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); fin('L', ev, 'clavier'); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); fin('R', ev, 'clavier'); }
+      }
+      cL.addEventListener('pointerdown', onL); cL.addEventListener('click', onL);
+      cR.addEventListener('pointerdown', onR); cR.addEventListener('click', onR);
+      document.addEventListener('keydown', onKey);
+      tr.classList.remove('blank');
+      raf = requestAnimationFrame(function () { t0 = performance.now(); armed = true; });
+      return function () {
+        cancelAnimationFrame(raf);
+        cL.removeEventListener('pointerdown', onL); cL.removeEventListener('click', onL);
+        cR.removeEventListener('pointerdown', onR); cR.removeEventListener('click', onR);
+        document.removeEventListener('keydown', onKey);
+      };
+    });
+    var ok = res.resp === t.side, btn = res.resp === 'L' ? cL : cR;
+    btn.classList.add('hit');
+    if (o.practice) {
+      fbl.textContent = ok ? 'Correct' : 'Pas cette carte : la bonne était à ' + ssSide(t.side);
+      fbl.className = 'ss-fb' + (ok ? ' ok' : '');
+    }
+    await ssSleep(SS.hit);
+    btn.classList.remove('hit');
+    if (o.practice) await ssSleep((ok ? SS.fbOk : SS.fbErr) - SS.hit);
+    tr.classList.add('blank'); fbl.textContent = '';
+    await ssSleep(SS.iti);
+    return { side: t.side, k: t.k, resp: res.resp, rt: Math.round(res.rt), ok: ok, inp: res.inp };
+  }
+  async function ssRunList(list, o) {
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      ssReadout(o.label + ' ' + (i + 1) + ' sur ' + list.length, i / list.length);
+      out.push(await ssTrialOnce(list[i], o));
+    }
+    return out;
+  }
+
+  // Entraînement : un bloc de 4 essais avec retour. Pas enregistré.
+  async function ssPractice() {
+    ssReadout('Entraînement', 0);
+    ssStage('<p class="ss-between">Entraînement</p><p class="ss-note">' + SS.practice + ' essais, avec un retour après chaque réponse.</p>');
+    await ssSleep(SS.ready);
+    ssTrialScreen();
+    var res = await ssRunList(ssMake(SS.practice, Math.random), { practice: true, label: 'Entraînement' });
+    var good = res.filter(function (r) { return r.ok; }).length;
+    ssMarkPracticed();
+    ssEnd();
+    flow.prac = { good: good };
+    go('ss-prac');
+  }
+  // Test : 20 essais.
+  async function ssTest() {
+    var t0 = performance.now();
+    flow.ts = Date.now();
+    flow.wake = L.getWake();
+    ssReadout('Prêt', 0);
+    ssStage('<p class="ss-between">Prêt</p><p class="ss-note">' + SS.trials + ' essais. Le plus vite possible, sans te tromper.</p>');
+    await ssSleep(SS.ready);
+    ssTrialScreen();
+    var res = await ssRunList(ssMake(SS.trials, Math.random), { practice: false, label: 'Essai' });
+    var sc = ssScore(res), inps = {};
+    res.forEach(function (t) { inps[t.inp] = true; });
+    var kinds = Object.keys(inps);
+    flow.result = { ver: SS.ver, cfg: SS_CFG, n: sc.n, correct: sc.correct, used: sc.used, excluded: sc.excluded, med: sc.med, acc: sc.acc,
+                    durationMs: Math.round(performance.now() - t0), trials: res, device: DEVICE, input: kinds.length === 1 ? kinds[0] : 'mixte',
+                    ts: flow.ts, wake: flow.wake };
+    ssEnd();
+    go('ss-result');
+  }
+
   /* ---------- Enregistrer ---------- */
   function afterSave(msg) {
     entries.sort(byTs);
@@ -1107,6 +1588,20 @@
     t.pvt = { n: r.n, mean: r.mean, lapses: r.lapses, falseStarts: r.falseStarts, timeouts: r.timeouts, rts: r.rts, durationMs: r.durationMs };
     entries.push(t);
     afterSave((flow.mode === 'both' ? 'Relevé et test enregistrés · ' : 'Test enregistré · ') + clockOf(ts) + '.');
+  }
+  function saveSs() { // Symbol Search : un test seul (un moment du plan viendra plus tard)
+    var r = flow.result;
+    if (!r || flow.test !== 'ss') return;
+    var prev = entries.filter(function (x) { return x.test === 'ss'; });
+    var e = baseEntry('test', r.ts, r.wake);
+    e.test = 'ss'; e.slot = flow.slot; e.plan = flow.slot != null ? 'prevu' : 'libre'; e.device = r.device; e.input = r.input;
+    e.nth = prev.length + 1; // n-ième passage de ce test (tous passages, libres compris)
+    e.nthDay = prev.filter(function (x) { return x.day === e.day; }).length + 1; // n-ième passage de ce test dans la journée
+    e.ss = { ver: r.ver, cfg: r.cfg, n: r.n, correct: r.correct, used: r.used, excluded: r.excluded, med: r.med === null ? null : Math.round(r.med * 10) / 10,
+             durationMs: r.durationMs,
+             trials: r.trials.map(function (t) { return [t.side === 'L' ? 0 : 1, t.k, t.resp === 'L' ? 0 : 1, Math.round(t.rt)]; }) };
+    entries.push(e);
+    afterSave('Symbol Search enregistré · ' + clockOf(r.ts) + '.');
   }
   function saveNote() {
     var text = noteText.trim();
@@ -1422,7 +1917,14 @@
     switch (name) {
       case 'home': pendingDel = null; form = null; manageActs = false; flow = newFlow(); go('home'); break;
       case 'releve': flow = newFlow({ mode: 'releve' }); go('feel'); break;
-      case 'test-libre': flow = newFlow({ mode: 'test' }); go('intro'); break;
+      case 'test-libre': flow = newFlow({ mode: 'test' }); go('tests'); break;
+      case 'tests': flow = newFlow({ mode: 'test' }); go('tests'); break;
+      case 'test-pick': flow = newFlow({ mode: 'test', test: id === 'ss' ? 'ss' : 'pvt' }); go(id === 'ss' ? 'ss-intro' : 'intro'); break;
+      case 'ss-intro': go('ss-intro'); break;
+      case 'ss-practice': flow.ssMode = 'practice'; go('ss-run'); break;
+      case 'ss-test': flow.ssMode = 'test'; go('ss-run'); break;
+      case 'ss-stop': ssStop(); break;
+      case 'ss-save': saveSs(); break;
       case 'moment': startMoment(Number(id)); break;
       case 'feel': go('feel'); break;
       case 'intro': if (screen === 'feel') flow.feelTs = Date.now(); go('intro'); break;
