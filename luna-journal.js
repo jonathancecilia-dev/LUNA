@@ -5,12 +5,17 @@
 
    Deux choses séparées (décision du 11/10) :
    - RELEVÉ = ressenti seulement (5 questions + détail facultatif). « prévu » (un moment du plan) ou « libre » (à tout moment) ;
-   - TEST   = PVT-B (vigilance soutenue), 3 min, ou Symbol Search (vitesse de traitement), ≈ 45 s. « prévu » ou « libre ».
+   - TEST   = PVT-B (vigilance soutenue), 3 min, ou un test cognitif : Symbol Search (vitesse de traitement, ≈ 45 s),
+              Rotation span (mémoire de travail, ≈ 90 s), Hand Swype (vitesse de réaction/choix, 60 s), Flanker (attention/inhibition, ≈ 110 s). « prévu » ou « libre ».
    Le plan de la journée (PLAN) est une simple liste en « réveil + X » : on peut ajouter ou changer des moments sans toucher au reste.
 
    Symbol Search (14/10) : protocole lu chez Hernandez et al. 2023 (20 essais, carte du bas identique à celle du haut) ;
    symboles, pauses, exclusions et entraînement = RÉGLAGES DE LA MAQUETTE du 14/10, qui ne changent plus pendant le recueil
    (chaque passage garde sa version et ses réglages). Tous les passages sont « libres » tant que le plan n'a pas de moment Symbol Search.
+
+   Rotation span, Hand Swype, Flanker (15/10) : même principe — réglages = ceux des maquettes du 14/10, figés pendant le recueil
+   (versions « v1 »), entraînement montré la première fois seulement et jamais enregistré, essai interrompu = rien d'enregistré.
+   Chaque passage garde ses essais (compacts) ; tous les chiffres affichés sont recalculés à partir d'eux. Tous « libres » pour l'instant.
 
    Test PVT-B : protocole de Basner et al. 2011 — 3 min ; intervalle aléatoire de 1 à 4 s entre deux
    stimuli, retour affiché 1 s compris ; lapse = réponse > 355 ms ; faux départ = réponse < 100 ms.
@@ -96,10 +101,30 @@
     '<path d="M16 62L33 38L50 62L67 38L84 62"/>',
     '<circle cx="50" cy="50" r="30"/><circle class="solid" cx="50" cy="50" r="9"/>'
   ];
-  // Les tests qu'on peut lancer librement (Journal → « Test libre »). Les autres tests viendront s'ajouter ici.
+  // Rotation span : RÉGLAGES FIGÉS (valeurs de départ de la maquette du 14/10, version téléphone de Hakun 2023). Ne pas les changer en cours de recueil.
+  // blank = pause avant chaque lettre et chaque flèche ; arrow = durée de la flèche à retenir ; feedback = retour de l'entraînement (ms) ;
+  // startTimeout = temps limite des lettres à l'entraînement seulement ; between = écran « Essai n sur 3 » ; 3 essais de 5 flèches, sans temps limite pendant le test.
+  var RS = { ver: 1, trials: 3, size: 5, blank: 500, arrow: 1000, feedback: 800, startTimeout: 5000, between: 1400, refMin: 3, estSec: 90 };
+  var RS_LETTERS = ['F', 'G', 'R'];
+  var RS_DIRS = ['haut', 'haut-droite', 'droite', 'bas-droite', 'bas', 'bas-gauche', 'gauche', 'haut-gauche'];
+  // Hand Swype : RÉGLAGES FIGÉS (maquette du 14/10 ; test NeuroUX, Paolillo 2024). dur = durée du test (la source : 60 s) ; swipe = distance du balayage (px) ;
+  // hit = retour du sens enregistré, blank = vide entre deux essais, fbOk / fbErr = retour de l'entraînement ; pool = nombre d'essais tirés d'avance (jamais atteint en 60 s).
+  var HS = { ver: 1, dur: 60000, hit: 150, blank: 150, swipe: 28, fbOk: 1000, fbErr: 1500, pool: 150, practice: 6, ready: 1600, el: 'ship', refMin: 3, estSec: 60 };
+  var HS_DIRS = ['U', 'R', 'D', 'L'];
+  var HS_WORD = { U: 'haut', D: 'bas', L: 'gauche', R: 'droite' };
+  var HS_TXT = { U: 'vers le haut', D: 'vers le bas', L: 'vers la gauche', R: 'vers la droite' };
+  var HS_KEYS = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R' };
+  // Flanker : RÉGLAGES FIGÉS (maquette du 14/10 ; NIH Toolbox, Zelazo 2014, et manuel ABCD sur téléphone). La flèche à juger est toujours au milieu.
+  // fix = fixation (une des trois durées, tirée au hasard) ; iti = pause entre essais ; hit = bouton touché surligné ; limit = temps limite d'un essai ;
+  // minRt = en dessous, une réponse juste n'est pas comptée dans les temps ; entraînement : blocs de 4 essais, 3 justes pour passer, 3 blocs au plus.
+  var FL = { ver: 1, trials: 40, fix: [1000, 1250, 1500], iti: 800, hit: 100, limit: 3000, fbOk: 1000, fbErr: 1500, minRt: 100, practice: 4, pracBlocks: 3, pracPass: 3, ready: 1600, refMin: 3, estSec: 110 };
+  // Les tests qu'on peut lancer librement (Journal → « Test libre »). Memory List viendra s'ajouter ici.
   var TESTS = [
     { id: 'pvt', name: 'PVT-B', cog: 'Vigilance soutenue', dur: '3 min' },
-    { id: 'ss',  name: 'Symbol Search', cog: 'Vitesse de traitement', dur: '≈ ' + SS.estSec + ' s' }
+    { id: 'rs',  name: 'Rotation span', cog: 'Mémoire de travail', dur: '≈ ' + ssDur(RS.estSec * 1000) },
+    { id: 'fl',  name: 'Flanker', cog: 'Inhibition', dur: '≈ ' + ssDur(FL.estSec * 1000) },
+    { id: 'ss',  name: 'Symbol Search', cog: 'Vitesse de traitement', dur: '≈ ' + SS.estSec + ' s' },
+    { id: 'hs',  name: 'Hand Swype', cog: 'Flexibilité', dur: ssDur(HS.estSec * 1000) }
   ];
 
   var ICON_CHEV = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -268,7 +293,73 @@
     '.ss-tabwrap{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:4px}',
     '.ss-sec{display:flex;flex-direction:column;gap:4px;padding:8px 0;border-top:1px solid var(--line)}',
     '.ss-sec h3{margin:0;font-size:13px;font-weight:700}',
-    '.ss-sec p{margin:0;font-size:13px;line-height:1.45;color:var(--muted)}'
+    '.ss-sec p{margin:0;font-size:13px;line-height:1.45;color:var(--muted)}',
+    '.ss-sec a{color:var(--text);overflow-wrap:anywhere}',
+    '.ss-q{font-size:16px;line-height:1.35;color:var(--text);text-align:center;max-width:26ch;margin:0}',
+    '.rn-wrap{width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;margin:auto 0}',
+    // Rotation span
+    '.rs-box{width:min(58vw,170px);aspect-ratio:1;max-width:100%;color:var(--text)}',
+    '.rs-box.small{width:76px}',
+    '.rs-box svg{width:100%;height:100%;display:block;overflow:visible}',
+    '.rs-box text{fill:currentColor;font-family:inherit}',
+    '.rs-demo{display:flex;justify-content:center;gap:28px;margin:0 5px}',
+    '.rs-demo figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px}',
+    '.rs-demo figcaption{font-size:12px;color:var(--muted);text-align:center;max-width:13ch}',
+    '.rs-answers{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:min(100%,320px)}',
+    '.rs-answers .btn.rs-big{min-height:60px;font-size:16px}',
+    '.rs-count{font-size:14px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;min-height:1.3em;margin:0}',
+    '.rs-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:min(100%,272px)}',
+    '.rs-tile{position:relative;appearance:none;-webkit-appearance:none;aspect-ratio:1;background:var(--card);border:1px solid var(--line2);border-radius:10px;color:var(--text);padding:8px;display:grid;place-items:center;cursor:pointer;touch-action:manipulation;font:inherit}',
+    '.rs-tile svg{width:100%;height:100%;display:block}',
+    '.rs-tile.sel{border-color:var(--text);background:var(--nav-on);box-shadow:inset 0 0 0 1px var(--text)}',
+    '.rs-tile .n{position:absolute;top:2px;left:6px;font-size:12px;font-weight:700;color:var(--text)}',
+    '.rs-marks{display:flex;flex-direction:column;gap:8px;align-items:center}',
+    '.rs-row{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}',
+    '.rs-cells{display:flex;gap:5px}',
+    '.rs-m{width:16px;height:16px;border:2px solid var(--line2);border-radius:3px;display:inline-block;vertical-align:-3px}',
+    '.rs-m.cp{background:var(--text);border-color:var(--text)}',
+    '.rs-m.ap{border-color:var(--text)}',
+    '.rs-m.no{border-style:dashed;border-color:var(--muted)}',
+    '.rs-leg{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;font-size:12px;color:var(--muted)}',
+    // Hand Swype
+    '.hs-defs{position:absolute;width:0;height:0;overflow:hidden}',
+    '.hs-rule,.hs-pad{--p:min(7rem,calc((100vw - 5.5rem) / 3));flex:none}',
+    '.hs-trial{width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;margin:auto 0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}',
+    '.hs-rule{align-self:center;width:calc(var(--p) * 3);max-width:100%;min-height:66px;display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid var(--text);background:var(--nav-on);border-radius:12px;font-size:16px;line-height:1.25;text-align:left;color:var(--text)}',
+    '.hs-rule[data-rule="move"]{border-style:dashed;background:var(--card)}',
+    '.hs-rule svg{width:34px;height:34px;flex:none}',
+    '.hs-rule b{font-weight:700;text-transform:uppercase;letter-spacing:.04em}',
+    '.hs-rule.off{visibility:hidden}',
+    '.hs-pad{position:relative;align-self:center;width:calc(var(--p) * 3);max-width:100%;height:calc(var(--p) * 2);overflow:hidden;background:var(--card);border:1px solid var(--line2);border-radius:12px;touch-action:none;cursor:grab;color:var(--text);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}',
+    '.hs-pad.demo{cursor:default;margin:0 auto}',
+    '.hs-rule.demo{margin:0 auto}',
+    '.hs-belt{position:absolute;left:calc(var(--p) * -1);top:calc(var(--p) * -1);display:grid;grid-template-columns:repeat(5,var(--p));grid-auto-rows:var(--p);animation-duration:1.3s;animation-timing-function:linear;animation-iteration-count:infinite;will-change:transform;--a:0deg}',
+    '.hs-belt[data-point="R"]{--a:90deg}',
+    '.hs-belt[data-point="D"]{--a:180deg}',
+    '.hs-belt[data-point="L"]{--a:270deg}',
+    '.hs-belt .h{width:calc(var(--p) * .78);height:calc(var(--p) * .78);margin:calc(var(--p) * .11);transform:rotate(var(--a))}',
+    '.hs-belt.mv-R{animation-name:hsbeltR}',
+    '.hs-belt.mv-L{animation-name:hsbeltL}',
+    '.hs-belt.mv-D{animation-name:hsbeltD}',
+    '.hs-belt.mv-U{animation-name:hsbeltU}',
+    '@keyframes hsbeltR{from{transform:translateX(0)}to{transform:translateX(var(--p))}}',
+    '@keyframes hsbeltL{from{transform:translateX(var(--p))}to{transform:translateX(0)}}',
+    '@keyframes hsbeltD{from{transform:translateY(0)}to{transform:translateY(var(--p))}}',
+    '@keyframes hsbeltU{from{transform:translateY(var(--p))}to{transform:translateY(0)}}',
+    '.hs-reg{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;color:var(--muted)}',
+    '.hs-reg svg{width:44px;height:44px}',
+    '@media (pointer:coarse){.hs-keys{display:none}}',
+    '@media (prefers-reduced-motion:reduce){.hs-pad.demo .hs-belt{animation:none}}',
+    // Flanker
+    '.fl-trial{width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;margin:auto 0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}',
+    '.fl-stim{display:flex;align-items:center;justify-content:center;gap:6px;height:clamp(4.2rem,20vw,6rem);width:100%;color:var(--text)}',
+    '.fl-a{position:relative;width:min(15vw,4.2rem);aspect-ratio:1;flex:none}',
+    '.fl-a svg{width:100%;height:100%;display:block;overflow:visible}',
+    '.fl-a.tg::after{content:"";position:absolute;left:50%;top:74%;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:12px solid var(--text)}',
+    '.fl-resp{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}',
+    'button.fl-btn{appearance:none;-webkit-appearance:none;min-height:76px;font-size:16px;display:flex;align-items:center;justify-content:center;gap:10px;touch-action:manipulation}',
+    'button.fl-btn svg{width:34px;height:34px;flex:none}',
+    'button.fl-btn.hit{background:var(--nav-on);border-color:var(--text)}'
   ].join('\n');
   var st = document.createElement('style');
   st.textContent = css;
@@ -409,6 +500,137 @@
   function ssPairHtml(p) { return ssGlyph(p[0]) + ssGlyph(p[1]); }
   function ssPairName(p) { return SS_NAMES[p[0]] + ' et ' + SS_NAMES[p[1]]; }
 
+  /* ---------- Rotation span, Hand Swype, Flanker : fonctions pures ---------- */
+  var RS_CFG = 'v' + RS.ver + '/' + RS.trials + 'x' + RS.size + '/free';
+  var HS_CFG = 'v' + HS.ver + '/' + (HS.dur / 1000) + 's/random/' + HS.el + '/sw' + HS.swipe;
+  var FL_CFG = 'v' + FL.ver + '/n' + FL.trials + '/mid/rt' + FL.minRt + '/lim' + FL.limit;
+  function fmtN1(v) { return (Math.round(v * 10) / 10).toString().replace('.', ','); }
+
+  // Rotation span. Un essai = { a: flèches vues (0 à 15), s: flèches touchées, l: [[1 juste | 0 fausse | 2 temps écoulé, ms], …] }.
+  function rsArrowLabel(id) { return (id < 8 ? 'Flèche longue' : 'Flèche courte') + ' vers ' + RS_DIRS[id % 8]; }
+  function rsPick(n, rnd) { // n flèches différentes parmi 16 (aucune flèche répétée dans un essai)
+    var a = [];
+    for (var i = 0; i < 16; i++) a.push(i);
+    return ssShuffle(a, rnd).slice(0, n);
+  }
+  function rsScoreTrial(arrows, sel) { // cp : à la bonne place ; ap : retrouvée n'importe où
+    var cp = 0, ap = 0, marks = [];
+    for (var j = 0; j < arrows.length; j++) {
+      if (sel[j] === arrows[j]) { cp++; ap++; marks.push('cp'); }
+      else if (sel.indexOf(arrows[j]) >= 0) { ap++; marks.push('ap'); }
+      else marks.push('no');
+    }
+    return { cp: cp, ap: ap, marks: marks };
+  }
+  function rsSummary(trials) {
+    var cp = 0, ap = 0, max = 0, lc = 0, lt = 0, to = 0, sum = 0, an = 0, marks = [];
+    trials.forEach(function (t) {
+      var sc = rsScoreTrial(t.a, t.s);
+      cp += sc.cp; ap += sc.ap; max += t.a.length; marks.push(sc.marks);
+      t.l.forEach(function (l) { lt++; if (l[0] === 1) lc++; if (l[0] === 2) to++; else { sum += l[1]; an++; } });
+    });
+    return { cp: cp, ap: ap, max: max, lc: lc, lt: lt, to: to, avgRt: an ? Math.round(sum / an * 10) / 10 : null, marks: marks };
+  }
+
+  // Hand Swype. Un essai (stocké) = [règle (0 pointent, 1 se déplacent), sens où ils pointent, sens où ils se déplacent, sens de la réponse, ms] ; sens : 0 haut, 1 droite, 2 bas, 3 gauche.
+  // Tout est tiré au hasard à chaque essai ; seule règle : le sens où ils pointent et celui où ils se déplacent sont toujours différents.
+  function hsMake(n, rnd) {
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var rule = rnd() < 0.5 ? 'point' : 'move', p = HS_DIRS[Math.floor(rnd() * 4)];
+      var others = HS_DIRS.filter(function (d) { return d !== p; }), m = others[Math.floor(rnd() * 3)];
+      out.push({ rule: rule, point: p, move: m, ans: rule === 'point' ? p : m, sw: i > 0 && out[i - 1].rule !== rule });
+    }
+    return out;
+  }
+  function hsPractice(rnd) { // tiré au hasard aussi, mais on garde un tirage où l'on voit les deux consignes (au moins 2 changements)
+    for (var k = 0; k < 300; k++) {
+      var tr = hsMake(HS.practice, rnd);
+      if (tr.filter(function (t) { return t.sw; }).length >= 2) return tr;
+    }
+    return hsMake(HS.practice, rnd);
+  }
+  function hsSwipeDir(dx, dy, min) { // rien tant que le doigt n'a pas parcouru min px ; ensuite l'axe le plus long (à égalité, l'horizontal)
+    if (Math.sqrt(dx * dx + dy * dy) < min) return null;
+    return Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U');
+  }
+  function hsExpand(list) {
+    var out = [];
+    list.forEach(function (t, i) {
+      var rule = t[0] === 1 ? 'move' : 'point', p = HS_DIRS[t[1]], m = HS_DIRS[t[2]], ans = rule === 'point' ? p : m, resp = HS_DIRS[t[3]];
+      out.push({ rule: rule, point: p, move: m, ans: ans, resp: resp, rt: t[4], ok: resp === ans, sw: i > 0 && out[i - 1].rule !== rule });
+    });
+    return out;
+  }
+  function hsCompact(t) { return [t.rule === 'move' ? 1 : 0, HS_DIRS.indexOf(t.point), HS_DIRS.indexOf(t.move), HS_DIRS.indexOf(t.resp), Math.round(t.rt)]; }
+  // Temps médian des réponses justes (chiffre principal), erreurs, et temps selon que la consigne change ou se répète
+  // (le premier essai n'a pas d'essai d'avant : il n'entre pas dans ces deux-là).
+  function hsScore(list) {
+    var tr = hsExpand(list), correct = 0, nSw = 0, nRep = 0, okSw = 0, okRep = 0, rt = [], rtSw = [], rtRep = [];
+    tr.forEach(function (t, i) {
+      if (i > 0) { if (t.sw) nSw++; else nRep++; }
+      if (!t.ok) return;
+      correct++; rt.push(t.rt);
+      if (i > 0) { if (t.sw) { okSw++; rtSw.push(t.rt); } else { okRep++; rtRep.push(t.rt); } }
+    });
+    var med = ssMedian(rt), ms = ssMedian(rtSw), mr = ssMedian(rtRep);
+    return { n: tr.length, correct: correct, errors: tr.length - correct, errRate: tr.length ? (tr.length - correct) / tr.length : null,
+             med: med, medSw: ms, medRep: mr, swCost: (ms !== null && mr !== null) ? ms - mr : null, nSw: nSw, nRep: nRep, okSw: okSw, okRep: okRep };
+  }
+
+  // Flanker. Un essai (stocké) = [congruent 1 | incongruent 0, côté de la cible (0 gauche, 1 droite), réponse (0 gauche, 1 droite, 2 aucune), ms (−1 si aucune)].
+  // De quoi recalculer le temps incongruent, le temps congruent et le coût (le chiffre à suivre n'est pas encore tranché).
+  function flMake(n, rnd) { // moitié congruents, moitié incongruents, autant à gauche qu'à droite ; jamais 4 fois de suite la même condition ou le même côté (boucles bornées)
+    var kinds = [], i;
+    [true, false].forEach(function (c) { ['L', 'R'].forEach(function (d) { kinds.push({ cong: c, dir: d }); }); });
+    var per = Math.floor(n / kinds.length);
+    for (var attempt = 0; attempt < 500; attempt++) {
+      var left = kinds.map(function () { return per; }), out = [], stuck = false;
+      for (i = 0; i < per * kinds.length; i++) {
+        var cand = [], L = out.length;
+        for (var k = 0; k < kinds.length; k++) {
+          if (!left[k]) continue;
+          var nx = kinds[k];
+          var runC = L >= 3 && out[L - 1].cong === nx.cong && out[L - 2].cong === nx.cong && out[L - 3].cong === nx.cong;
+          var runD = L >= 3 && out[L - 1].dir === nx.dir && out[L - 2].dir === nx.dir && out[L - 3].dir === nx.dir;
+          if (!runC && !runD) for (var w = 0; w < left[k]; w++) cand.push(k);
+        }
+        if (!cand.length) { stuck = true; break; }
+        var pk = cand[Math.floor(rnd() * cand.length)];
+        left[pk]--; out.push({ cong: kinds[pk].cong, dir: kinds[pk].dir });
+      }
+      if (!stuck) return out;
+    }
+    var base = [];
+    for (i = 0; i < per; i++) kinds.forEach(function (k2) { base.push({ cong: k2.cong, dir: k2.dir }); });
+    return ssShuffle(base, rnd);
+  }
+  function flPractice(rnd) { // 4 essais : 2 congruents, 2 incongruents, un de chaque côté
+    return ssShuffle([{ cong: true, dir: 'L' }, { cong: true, dir: 'R' }, { cong: false, dir: 'L' }, { cong: false, dir: 'R' }], rnd);
+  }
+  function flExpand(list) {
+    return list.map(function (t) {
+      var dir = t[1] === 0 ? 'L' : 'R', resp = t[2] === 2 ? null : (t[2] === 0 ? 'L' : 'R');
+      return { cong: t[0] === 1, dir: dir, resp: resp, rt: t[3] < 0 ? null : t[3], ok: resp === dir };
+    });
+  }
+  function flCompact(t) { return [t.cong ? 1 : 0, t.dir === 'L' ? 0 : 1, t.resp === null ? 2 : (t.resp === 'L' ? 0 : 1), t.rt === null ? -1 : Math.round(t.rt)]; }
+  function flScore(list) {
+    var tr = flExpand(list), correct = 0, none = 0, fast = 0, nC = 0, nI = 0, okC = 0, okI = 0, rc = [], ri = [];
+    tr.forEach(function (t) {
+      if (t.cong) nC++; else nI++;
+      if (t.resp === null) { none++; return; }
+      if (t.ok) {
+        correct++;
+        if (t.cong) okC++; else okI++;
+        if (t.rt < FL.minRt) fast++; else (t.cong ? rc : ri).push(t.rt);
+      }
+    });
+    var mc = ssMedian(rc), mi = ssMedian(ri);
+    return { n: tr.length, correct: correct, none: none, fast: fast, nCong: nC, nIncong: nI, okCong: okC, okIncong: okI,
+             medCong: mc, medIncong: mi, cost: (mc !== null && mi !== null) ? mi - mc : null, usedCong: rc.length, usedIncong: ri.length };
+  }
+
   /* ---------- Données ---------- */
   var entries = [], storageOk = true, lastBackup = null, actNames = ACTS_DEFAULT.slice();
   var KINDS = ['releve', 'test', 'note', 'activite', 'repas', 'coucher'];
@@ -513,6 +735,74 @@
     return { ver: ver, cfg: typeof s.cfg === 'string' ? s.cfg.slice(0, 80) : '', n: n, correct: c, used: u, excluded: x,
              med: isFinite(med) && med >= 0 ? Math.round(med * 10) / 10 : null, durationMs: int(s.durationMs, 0, 1e7) || 0, trials: tr };
   }
+  // Liste d'entiers de lo à hi, de minLen à maxLen éléments, sans doublon si `distinct` ; sinon null.
+  function intList(v, lo, hi, minLen, maxLen, distinct) {
+    if (!Array.isArray(v) || v.length < minLen || v.length > maxLen) return null;
+    var out = [];
+    for (var i = 0; i < v.length; i++) {
+      var n = int(v[i], lo, hi);
+      if (n === null || (distinct && out.indexOf(n) >= 0)) return null;
+      out.push(n);
+    }
+    return out;
+  }
+  function round1(v) { return v === null || v === undefined ? null : Math.round(v * 10) / 10; }
+  // Rotation span, Hand Swype, Flanker : on ne garde que les essais (et la version, les réglages, la durée) ; tous les chiffres sont recalculés à partir des essais.
+  function cleanRs(s) {
+    s = s && typeof s === 'object' ? s : {};
+    var ver = int(s.ver, 1, 99);
+    if (ver === null || !Array.isArray(s.trials) || s.trials.length < 1 || s.trials.length > 6) return null;
+    var tr = [];
+    for (var i = 0; i < s.trials.length; i++) {
+      var t = s.trials[i];
+      if (!t || typeof t !== 'object') return null;
+      var a = intList(t.a, 0, 15, 1, 8, true), sel = intList(t.s, 0, 15, 0, 8, true);
+      if (!a || !sel || sel.length > a.length || !Array.isArray(t.l) || t.l.length !== a.length) return null;
+      var l = [];
+      for (var j = 0; j < t.l.length; j++) {
+        var x = t.l[j], c = Array.isArray(x) ? int(x[0], 0, 2) : null, rt = Array.isArray(x) ? Number(x[1]) : NaN;
+        if (c === null || !isFinite(rt) || rt < 0 || rt >= 1e6) return null;
+        l.push([c, Math.round(rt)]);
+      }
+      tr.push({ a: a, s: sel, l: l });
+    }
+    var sm = rsSummary(tr);
+    return { ver: ver, cfg: typeof s.cfg === 'string' ? s.cfg.slice(0, 80) : '', cp: sm.cp, ap: sm.ap, max: sm.max, lc: sm.lc, lt: sm.lt, to: sm.to, avgRt: sm.avgRt,
+             durationMs: int(s.durationMs, 0, 1e7) || 0, trials: tr };
+  }
+  function cleanHs(s) {
+    s = s && typeof s === 'object' ? s : {};
+    var ver = int(s.ver, 1, 99);
+    if (ver === null || !Array.isArray(s.trials) || s.trials.length < 1 || s.trials.length > 200) return null;
+    var tr = [];
+    for (var i = 0; i < s.trials.length; i++) {
+      var t = s.trials[i];
+      if (!Array.isArray(t) || t.length !== 5) return null;
+      var r = int(t[0], 0, 1), p = int(t[1], 0, 3), m = int(t[2], 0, 3), a = int(t[3], 0, 3), rt = Number(t[4]);
+      if (r === null || p === null || m === null || a === null || p === m || !isFinite(rt) || rt < 0 || rt >= 1e6) return null;
+      tr.push([r, p, m, a, Math.round(rt)]);
+    }
+    var sc = hsScore(tr);
+    return { ver: ver, cfg: typeof s.cfg === 'string' ? s.cfg.slice(0, 80) : '', n: sc.n, correct: sc.correct, errors: sc.errors, med: round1(sc.med),
+             medSw: round1(sc.medSw), medRep: round1(sc.medRep), durationMs: int(s.durationMs, 0, 1e7) || 0, trials: tr };
+  }
+  function cleanFl(s) {
+    s = s && typeof s === 'object' ? s : {};
+    var ver = int(s.ver, 1, 99);
+    if (ver === null || !Array.isArray(s.trials) || s.trials.length < 1 || s.trials.length > 120) return null;
+    var tr = [];
+    for (var i = 0; i < s.trials.length; i++) {
+      var t = s.trials[i];
+      if (!Array.isArray(t) || t.length !== 4) return null;
+      var c = int(t[0], 0, 1), d = int(t[1], 0, 1), r = int(t[2], 0, 2), rt = Number(t[3]);
+      if (c === null || d === null || r === null || !isFinite(rt) || rt >= 1e6 || (r === 2) !== (rt === -1) || (r !== 2 && rt < 0)) return null;
+      tr.push([c, d, r, Math.round(rt)]);
+    }
+    var sc = flScore(tr);
+    return { ver: ver, cfg: typeof s.cfg === 'string' ? s.cfg.slice(0, 80) : '', n: sc.n, correct: sc.correct, none: sc.none, fast: sc.fast,
+             medCong: round1(sc.medCong), medIncong: round1(sc.medIncong), durationMs: int(s.durationMs, 0, 1e7) || 0, trials: tr };
+  }
+  var CL = { ss: cleanSs, rs: cleanRs, hs: cleanHs, fl: cleanFl }; // un validateur par test enregistré
   function clean(e) {
     if (!e || typeof e !== 'object') return null;
     var ts = Number(e.ts);
@@ -564,10 +854,10 @@
       if (dt) o.detail = dt;
       return o;
     }
-    if (e.test === 'ss') { // Symbol Search
-      var ss2 = cleanSs(e.ss);
-      if (!ss2) return null;
-      o.test = 'ss'; o.ss = ss2;
+    if (e.test && CL[e.test]) { // Symbol Search, Rotation span, Hand Swype, Flanker
+      var tp2 = CL[e.test](e[e.test]);
+      if (!tp2) return null;
+      o.test = e.test; o[e.test] = tp2;
       o.device = e.device === 'tel' ? 'tel' : 'ord';
       o.input = typeof e.input === 'string' ? e.input.slice(0, 12) : '';
       var nth = int(e.nth, 1, 100000), nd = int(e.nthDay, 1, 1000);
@@ -597,7 +887,7 @@
   function newFlow(o) {
     o = o || {};
     return { mode: o.mode || 'releve', test: o.test || 'pvt', slot: o.slot == null ? null : o.slot, feel: {}, detail: '', feelTs: 0, ts: 0, wake: 0, result: null,
-             ssMode: 'test', prac: null };
+             tMode: 'test', prac: null };
   }
 
   /* ---------- Aujourd'hui : moments du plan ---------- */
@@ -605,7 +895,7 @@
     var now = new Date(), wake = L.getWake(), tk = dayKey(now.getTime(), wake), done = {};
     entries.forEach(function (e) {
       if (e.day !== tk || e.slot == null || (e.kind !== 'releve' && e.kind !== 'test')) return;
-      if (e.test === 'ss') return; // les moments du plan ne comptent que le PVT-B jusqu'à l'arrivée des moments à plusieurs tests
+      if (e.test) return; // les moments du plan ne comptent que le PVT-B jusqu'à l'arrivée des moments à plusieurs tests
       var d = done[e.slot] || (done[e.slot] = {});
       if (!d[e.kind] || e.ts < d[e.kind].ts) d[e.kind] = e;
     });
@@ -696,6 +986,11 @@
       var sv = e.ss, early = e.plan !== 'prevu' && e.rel < 120;
       line = ph.name + ' · ' + (sv.med === null ? 'pas de mesure' : ssMs(sv.med)) + ' · ' + sv.correct + '/' + sv.n + ' justes · ' + DEVICE_TXT[e.device];
       kindTxt = 'Symbol Search · ' + planTxt(e) + (early ? ' · avant R+2h' : '');
+      if (e.nth) body = '<div class="body">Passage n° ' + e.nth + (e.nthDay ? ' · ' + (e.nthDay === 1 ? '1er' : e.nthDay + 'ᵉ') + ' de la journée' : '') + '</div>';
+    } else if (e.test && TD[e.test] && TD[e.test].histLine) { // Rotation span, Hand Swype, Flanker
+      var td3 = TD[e.test], early3 = e.plan !== 'prevu' && e.rel < 120;
+      line = ph.name + ' · ' + td3.histLine(e[e.test]) + ' · ' + DEVICE_TXT[e.device];
+      kindTxt = td3.name + ' · ' + planTxt(e) + (early3 ? ' · avant R+2h' : '');
       if (e.nth) body = '<div class="body">Passage n° ' + e.nth + (e.nthDay ? ' · ' + (e.nthDay === 1 ? '1er' : e.nthDay + 'ᵉ') + ' de la journée' : '') + '</div>';
     } else if (e.kind === 'test') {
       var p = e.pvt;
@@ -915,7 +1210,7 @@
   }
 
   /* ---------- Test libre : choisir le test ---------- */
-  function testOf(e) { return e.test === 'ss' ? 'ss' : 'pvt'; }
+  function testOf(e) { return e.test || 'pvt'; }
   function lastPass(id) {
     var best = null;
     entries.forEach(function (e) { if (e.kind === 'test' && testOf(e) === id && (!best || e.ts > best.ts)) best = e; });
@@ -936,12 +1231,24 @@
       '<p class="j-p">Un test libre ne valide aucun moment du plan. Il est gardé et compté dans ton numéro de passage, mais il n’entre ni dans ta référence ni dans la lecture par heure.</p></main>';
   }
 
+  /* ---------- Tests : descripteurs ---------- */
+  // Un descripteur par test enregistré (Symbol Search, Rotation span, Hand Swype, Flanker). Les écrans de Symbol Search sont écrits à part (version validée le 15/10) ;
+  // les autres sont fabriqués à partir de leur descripteur (voir « Écrans communs »).
+  var TD = {};
+  TD.ss = { name: 'Symbol Search',
+    pack: function (r) {
+      return { ver: r.ver, cfg: r.cfg, n: r.n, correct: r.correct, used: r.used, excluded: r.excluded, med: r.med === null ? null : Math.round(r.med * 10) / 10,
+               durationMs: r.durationMs,
+               trials: r.trials.map(function (t) { return [t.side === 'L' ? 0 : 1, t.k, t.resp === 'L' ? 0 : 1, Math.round(t.rt)]; }) };
+    } };
+  var RUN = {}; // déroulés : { ss: { practice, test }, ... }, renseignés plus bas
+
   /* ---------- Symbol Search : écrans ---------- */
   var INPUT_TXT = { touch: 'doigt', mouse: 'souris', souris: 'souris', pen: 'stylet', clavier: 'clavier', mixte: 'mixte' };
   function ssPlural(n, one, many) { return n + ' ' + (n > 1 ? many : one); }
 
   function vSsIntro() {
-    var m = flow.slot != null ? PLAN[flow.slot] : null, practiced = ssPracticed();
+    var m = flow.slot != null ? PLAN[flow.slot] : null, practiced = tPracticed('ss');
     var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : 'Test libre : il sera enregistré, hors des moments du plan et hors de ta référence.';
     if (!m && L.mod(minOf(new Date()) - L.getWake()) < 120) msg += ' Avant R+2h, il sera noté « avant R+2h » (l’inertie du réveil peut durer 2 à 4 h : Jewett 1999).';
     var demoTop = [0, 3], demoFoil = [0, 5];
@@ -969,10 +1276,10 @@
   }
 
   function vSsRun() {
-    return '<header><div class="j-runhead"><h1 tabindex="-1">Symbol Search</h1><span class="j-time" id="ss-count" style="font-size:15px" aria-live="polite">Prêt</span></div>' +
-      '<div class="j-prog" aria-hidden="true"><div id="ss-bar"></div></div></header>' +
-      '<main class="ss-main" id="ss-stage"></main>' +
-      '<div class="foot"><button type="button" class="btn ghost" data-act="ss-stop">Arrêter</button></div>';
+    return '<header><div class="j-runhead"><h1 tabindex="-1">Symbol Search</h1><span class="j-time" id="rn-count" style="font-size:15px" aria-live="polite">Prêt</span></div>' +
+      '<div class="j-prog" aria-hidden="true"><div id="rn-bar"></div></div></header>' +
+      '<main class="ss-main" id="rn-stage"></main>' +
+      '<div class="foot"><button type="button" class="btn ghost" data-act="run-stop">Arrêter</button></div>';
   }
 
   function vSsPrac() {
@@ -1048,6 +1355,317 @@
       '<div class="ss-sec"><h3>Précision · Hypothèse à mesurer</h3><p>Le chronomètre part à l’image où les cartes s’affichent : précision d’une image environ (17 ms), non vérifiée sur ton téléphone.</p></div></details>' +
       '<p class="j-p">Un seul passage ne dit presque rien : c’est la répétition sur plusieurs jours qui compte. Pas de seuil de santé ici.</p></main>' +
       '<div class="foot"><button type="button" class="btn primary" data-act="ss-save">Enregistrer le test</button>' +
+      '<button type="button" class="btn ghost" data-act="discard">Ne pas enregistrer</button></div>';
+  }
+
+  /* ---------- Écrans communs : Rotation span, Hand Swype, Flanker ---------- */
+  // Le déroulé, les consignes, la référence et la lecture du résultat suivent les maquettes du 14/10. Les classes « ss-* » sont les styles partagés des tests.
+  function secHtml(title, label, text) { return '<div class="ss-sec"><h3>' + title + ' · ' + label + '</h3><p>' + text + '</p></div>'; }
+  function metric(v, label) { return '<div><b>' + v + '</b><span>' + label + '</span></div>'; }
+  function factRow(dt, dd) { return '<div><dt>' + dt + '</dt><dd>' + dd + '</dd></div>'; }
+  function factsCard(rows) { return '<section class="j-card"><dl class="ss-facts" style="margin:0">' + rows.join('') + '</dl></section>'; }
+  function tTable(heads, rows, note) {
+    return '<details class="j-det"><summary>Voir les essais en tableau</summary><div class="ss-tabwrap"><table class="ss-tab"><thead><tr>' +
+      heads.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' + (note ? '<p class="j-fhint">' + note + '</p>' : '') + '</details>';
+  }
+  function costTxt(c) { return c === null || c === undefined ? '·' : (c >= 0 ? '+' : '−') + Math.round(Math.abs(c)) + ' ms'; }
+  function pctTxt(v) { return v === null || v === undefined ? '·' : Math.round(v * 100) + ' %'; }
+  function readCompare(extra) {
+    return secHtml('Comparé à quoi', 'À ajuster', 'À toi-même : la médiane de tes passages précédents sur ce test, faits aux moments du plan, avec les mêmes réglages, sur cet appareil' + (extra || '') +
+      '. Les tests libres ne comptent pas. Rien n’est affiché avant 3 passages.');
+  }
+  function readPrec(what) {
+    return secHtml('Précision', 'Hypothèse à mesurer', 'Le chronomètre part à l’image où ' + what + ' : précision d’une image environ (17 ms), non vérifiée sur ton téléphone.');
+  }
+  function link(url, label) { return '<a href="' + url + '" target="_blank" rel="noopener">' + label + '</a>'; }
+  var ms2 = function (d) { var a = Math.round(Math.abs(d)); return a === 0 ? 'aucun écart' : a + ' ms ' + (d > 0 ? 'plus lent' : 'plus rapide'); };
+
+  // --- Rotation span : dessins
+  function rsArrowSvg(id) {
+    var long = id < 8, dir = id % 8, tip = long ? 12 : 27.5, tail = long ? 88 : 72.5, h = 15;
+    return '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><g transform="rotate(' + (dir * 45) + ' 50 50)" fill="currentColor" stroke="currentColor">' +
+      '<line x1="50" y1="' + tail + '" x2="50" y2="' + (tip + h - 2) + '" stroke-width="7" stroke-linecap="round"/>' +
+      '<polygon points="50,' + tip + ' 40,' + (tip + h + 2) + ' 60,' + (tip + h + 2) + '" stroke-width="2" stroke-linejoin="round"/></g></svg>';
+  }
+  function rsLetterHtml(s, cls) {
+    return '<div class="rs-box' + (cls ? ' ' + cls : '') + '"><svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><g transform="rotate(' + s.angle + ' 50 50)">' +
+      '<g' + (s.mirror ? ' transform="translate(100 0) scale(-1 1)"' : '') + '><text x="50" y="78" text-anchor="middle" font-size="80" font-weight="600">' + s.ch + '</text></g></g></svg></div>';
+  }
+  // --- Hand Swype : dessins (vaisseaux : un avant et un arrière nets, donc un sens de pointage sans ambiguïté)
+  function hsDefs() {
+    return '<svg class="hs-defs" aria-hidden="true" focusable="false"><defs><symbol id="hs-el-ship" viewBox="0 0 100 100">' +
+      '<path d="M50 4 C63 20 67 38 67 60 L67 78 L33 78 L33 60 C33 38 37 20 50 4 Z" fill="currentColor"/>' +
+      '<path d="M33 54 L16 82 L33 76 Z M67 54 L84 82 L67 76 Z" fill="currentColor"/>' +
+      '<rect x="41" y="78" width="18" height="10" rx="2" fill="currentColor"/>' +
+      '<circle cx="50" cy="40" r="8" style="fill: var(--card)"/></symbol></defs></svg>';
+  }
+  function hsElSvg(cls) { return '<svg' + (cls ? ' class="' + cls + '"' : '') + ' viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use href="#hs-el-ship"/></svg>'; }
+  function hsArrowSvg(dir) {
+    var rot = { U: 0, R: 90, D: 180, L: 270 }[dir] || 0;
+    return '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><g transform="rotate(' + rot + ' 50 50)" fill="currentColor" stroke="currentColor">' +
+      '<line x1="50" y1="86" x2="50" y2="34" stroke-width="9" stroke-linecap="round"/><polygon points="50,12 28,42 72,42" stroke-width="3" stroke-linejoin="round"/></g></svg>';
+  }
+  function hsRuleHtml(rule) {
+    var icon = rule === 'point' ? hsElSvg('') :
+      '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="M50 10 L78 44 H59 V90 H41 V44 H22 Z" fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round"/></svg>';
+    return icon + '<span>Les vaisseaux <b>' + (rule === 'point' ? 'pointent' : 'se déplacent') + '</b></span>';
+  }
+  function hsBeltHtml(point, move) { // 20 vaisseaux (5 × 4) ; la zone en montre 3 × 2. Tous pointent d'un côté et avancent d'un autre.
+    var cells = '';
+    for (var i = 0; i < 20; i++) cells += hsElSvg('h');
+    return '<div class="hs-belt mv-' + move + '" data-point="' + point + '">' + cells + '</div>';
+  }
+  // --- Flanker : dessins
+  function flArrowSvg(dir) {
+    return '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><g fill="currentColor" stroke="currentColor"' + (dir === 'L' ? ' transform="translate(100 0) scale(-1 1)"' : '') + '>' +
+      '<line x1="14" y1="50" x2="68" y2="50" stroke-width="9" stroke-linecap="round"/><polygon points="90,50 62,30 62,70" stroke-width="3" stroke-linejoin="round"/></g></svg>';
+  }
+  function flStimHtml(t) { // cinq flèches ; un triangle sous celle du milieu, la cible
+    var flank = t.cong ? t.dir : (t.dir === 'L' ? 'R' : 'L'), out = '';
+    for (var k = 0; k < 5; k++) out += '<div class="fl-a' + (k === 2 ? ' tg' : '') + '">' + flArrowSvg(k === 2 ? t.dir : flank) + '</div>';
+    return out;
+  }
+  function flFixHtml() {
+    return '<div class="fl-a"><svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="M50 36v28M36 50h28" stroke="currentColor" stroke-width="7" stroke-linecap="round" fill="none"/></svg></div>';
+  }
+  function flWord(d) { return d === 'L' ? 'gauche' : 'droite'; }
+
+  /* Descripteurs */
+  TD.rs = { name: 'Rotation span', cog: 'Mémoire de travail', estSec: RS.estSec, pracDur: '≈ 1 min', cfg: RS_CFG,
+    chipMain: 'Établi · Hakun 2023', chipHy: 'À ajuster · entraînement et réglages de LUNA',
+    demo: function () {
+      return '<div class="rs-demo"><figure role="img" aria-label="Exemple : la lettre G, en miroir et penchée">' + rsLetterHtml({ ch: 'G', mirror: true, angle: 45 }, 'small') + '<figcaption>Lettre : normale ou miroir ?</figcaption></figure>' +
+        '<figure role="img" aria-label="Exemple : une longue flèche vers le haut à droite"><div class="rs-box small">' + rsArrowSvg(1) + '</div><figcaption>Flèche à retenir</figcaption></figure></div>';
+    },
+    steps: function () {
+      return ['Une lettre apparaît, penchée. Normale ou en miroir ?', 'Une flèche apparaît 1 seconde. Retiens-la.',
+        'Ça recommence, puis tu retouches les flèches dans l’ordre.',
+        RS.trials + ' essais de ' + RS.size + ' flèches, sans temps limite pour juger les lettres. ' + (DEVICE === 'tel' ? 'Téléphone posé, même main, mode silencieux.' : 'Même souris ou trackpad, notifications coupées.')];
+    },
+    about: 'Le protocole (flèche à retenir 1 s entre des lettres à juger, rappel parmi 16 flèches, 3 essais de 5 flèches sans temps limite) vient de la version téléphone lue (Hakun 2023). L’entraînement est plus court que celui du manuel (5 lettres, puis 1 essai de 2 flèches). Aucune flèche n’est répétée dans un essai. Durée de ≈ ' + ssDur(RS.estSec * 1000) + ' estimée d’après les pauses et le manuel (environ 30 s par essai), non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.',
+    pracTitle: function (p) { return 'Dernier essai : ' + p.cp + ' sur ' + p.size + ' flèches'; },
+    pracNote: function () { return '<p class="lead">L’entraînement n’est pas noté dans les passages.</p><p>Tu peux le refaire autant que tu veux.</p>'; },
+    fig: function (r) { return r.sc.cp; }, figE: function (p) { return p.cp; },
+    ref: { fmt: fmtN1, diff: function (d) { var a = Math.abs(d); return a < 0.05 ? 'aucun écart' : fmtN1(a) + (a >= 2 ? ' flèches' : ' flèche') + (d > 0 ? ' de plus' : ' de moins'); },
+           above: 'Plus de flèches à la bonne place que dans tous tes passages précédents.', below: 'Moins de flèches à la bonne place que dans tous tes passages précédents.',
+           axLo: '← moins de flèches', axHi: 'plus de flèches →', none: 'Pas de chiffre principal pour ce passage.' },
+    mainTxt: 'les flèches à la bonne place (le premier chiffre). Plus haut = mieux retenu.',
+    metrics: function (r) {
+      var s = r.sc;
+      return metric(s.cp + '<small> / ' + s.max + '</small>', 'Flèches à la bonne place') + metric(s.ap + '<small> / ' + s.max + '</small>', 'Retrouvées, ordre ignoré') + metric(s.lc + '<small> / ' + s.lt + '</small>', 'Lettres justes');
+    },
+    facts: function (r) {
+      var s = r.sc, rows = r.rec.trials.map(function (t, i) {
+        var cells = s.marks[i].map(function (m) {
+          return '<i class="rs-m ' + m + '" title="' + (m === 'cp' ? 'à la bonne place' : m === 'ap' ? 'retrouvée ailleurs' : 'non retrouvée') + '"></i>';
+        }).join('');
+        return '<div class="rs-row"><span>Essai ' + (i + 1) + '</span><span class="rs-cells">' + cells + '</span></div>';
+      }).join('');
+      return '<section class="j-card"><div class="rs-marks">' + rows + '</div>' +
+        '<div class="rs-leg"><span><i class="rs-m cp"></i> bonne place</span><span><i class="rs-m ap"></i> retrouvée ailleurs</span><span><i class="rs-m no"></i> non retrouvée</span></div>' +
+        '<dl class="ss-facts" style="margin:0">' + factRow('Temps moyen par lettre', s.avgRt === null ? '·' : (s.avgRt / 1000).toFixed(1).replace('.', ',') + ' s') + '</dl></section>';
+    },
+    read: function () {
+      return secHtml('Le chiffre qui compte', 'Établi', 'Flèches à la bonne place, sur 15. Plus haut = mieux retenu. C’est le score partiel du protocole. Les autres lignes du résultat (flèches retrouvées ailleurs, lettres jugées, temps par lettre) sont des repères à côté.') +
+        readCompare() +
+        secHtml('Pas de barème', 'Établi', 'Dans les sources lues, aucune norme ni seuil « bon / mauvais » pour cette version téléphone. LUNA n’en invente pas. Aucun seuil de santé non plus : un professionnel décide.') +
+        secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Chez les étudiants de l’étude (Hakun 2023), la part de variation d’un passage à l’autre qui est un vrai changement, et non du hasard, est de 0,37 (0,48 d’un jour à l’autre), sur une échelle où 1 = tout est fiable. Environ 57 % de la variation du score vient de l’erreur de mesure. Un passage hors de la fourchette n’est donc pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.') +
+        secHtml('Sources', 'Établi', link('https://pmc.ncbi.nlm.nih.gov/articles/PMC9919550/', 'Hakun et al. 2023, version téléphone') + ' · ' + link('https://www.millisecond.com/library/v7/rotationspantask/rotationspantask/rotationspantask.manual', 'Manuel du Rotation Span, Millisecond') + '. Non lus : Kane et al. 2004 et Shah et Miyake 1996, le protocole d’origine.');
+    },
+    histLine: function (p) { return p.cp + '/' + p.max + ' flèches à la bonne place'; },
+    pack: function (r) { return CL.rs(r.rec); } };
+
+  TD.hs = { name: 'Hand Swype', cog: 'Flexibilité', estSec: HS.estSec, pracDur: '≈ 30 s', cfg: HS_CFG,
+    chipMain: 'Établi · NeuroUX, Paolillo 2024', chipHy: 'À ajuster · vaisseaux et réglages de LUNA',
+    demo: function () {
+      return hsDefs() + '<div class="hs-rule demo" data-rule="point">' + hsRuleHtml('point') + '</div>' +
+        '<div class="hs-pad demo" role="img" aria-label="Exemple : des vaisseaux pointent vers la droite et se déplacent vers le haut">' + hsBeltHtml('R', 'U') + '</div>' +
+        '<p class="ss-note">Ici, les vaisseaux pointent vers la droite et se déplacent vers le haut.</p>';
+    },
+    steps: function () {
+      return ['Des vaisseaux défilent. Chacun pointe d’un côté, et tous avancent d’un autre côté.',
+        'Une consigne, au-dessus, dit lequel suivre : « pointent » (cadre plein) ou « se déplacent » (cadre en tirets).',
+        'Balaye la zone du doigt dans ce sens, vite et sans te tromper. Ici, la consigne dit « pointent » : il faut balayer vers la droite. Avec « se déplacent », ce serait vers le haut.',
+        'La consigne est tirée au hasard à chaque essai : elle peut rester la même ou changer, sans ordre. Le test dure 60 secondes.' +
+          (DEVICE === 'ord' ? ' Sur ordinateur : souris ou touches ← ↑ → ↓ (le temps n’est alors pas comparable à celui d’un balayage).' : ''),
+        DEVICE === 'tel' ? 'Téléphone posé, même main, mode silencieux.' : 'Même souris ou trackpad, notifications coupées.'];
+    },
+    about: 'Le protocole lu (des mains défilent, la consigne « pointent » ou « se déplacent » change, le test s’arrête après 60 s) vient de NeuroUX (Paolillo 2024). La source ne donne ni le nombre d’éléments, ni la vitesse, ni le rythme des changements, ni la distance du balayage, ni la façon de mesurer le temps : ce sont des choix de LUNA, et les éléments sont des vaisseaux dessinés pour LUNA (pas des mains). Le temps part de l’image où les éléments s’affichent et comprend le geste : il ne se compare pas à ceux de l’étude. Durée fixe de 60 s. On te compare à toi-même, <b>sur le même appareil et avec la même façon de répondre</b> (doigt, souris ou clavier).',
+    pracTitle: function (p) { return p.good + (p.good > 1 ? ' bonnes réponses' : ' bonne réponse') + ' sur ' + HS.practice; },
+    pracNote: function () { return '<p class="lead">L’entraînement n’est pas noté dans les passages.</p><p>Aucune source lue sur l’entraînement de ce test. Tu peux le refaire autant que tu veux.</p>'; },
+    fig: function (r) { return r.sc.med; }, figE: function (p) { return p.med; },
+    ref: { fmt: ssMs, diff: ms2, above: 'Plus lent que tous tes passages précédents.', below: 'Plus rapide que tous tes passages précédents.',
+           axLo: '← plus rapide', axHi: 'plus lent →', none: 'Pas de chiffre principal pour ce passage : aucune réponse juste n’a pu être comptée.' },
+    mainTxt: 'le temps médian des réponses justes (le premier chiffre), à lire avec les erreurs. Plus bas = plus rapide.',
+    metrics: function (r) {
+      var s = r.sc;
+      return metric(s.med === null ? '—' : Math.round(s.med) + '<small> ms</small>', 'Temps médian, réponses justes') + metric(s.errors + '<small> / ' + s.n + '</small>', 'Erreurs') + metric(String(s.n), 'Essais faits en 60\u00a0s');
+    },
+    facts: function (r) {
+      var s = r.sc;
+      return factsCard([factRow('Taux d’erreurs', pctTxt(s.errRate)),
+        factRow('Temps médian, consigne changée (' + s.okSw + ' justes sur ' + s.nSw + ')', ssMs(s.medSw)),
+        factRow('Temps médian, même consigne (' + s.okRep + ' justes sur ' + s.nRep + ')', ssMs(s.medRep)),
+        factRow('Écart : changée moins répétée (lecture de LUNA)', costTxt(s.swCost)),
+        factRow('Façon de répondre', esc(INPUT_TXT[r.input] || r.input))]);
+    },
+    table: function (r) {
+      var rows = hsExpand(r.rec.trials).map(function (t, i) {
+        return '<tr><td>' + (i + 1) + '</td><td>' + (t.rule === 'point' ? 'pointent' : 'avancent') + '</td><td>' + (i === 0 ? '—' : (t.sw ? 'oui' : 'non')) + '</td><td>' + HS_WORD[t.ans] + '</td><td>' + HS_WORD[t.resp] + '</td><td>' + t.rt + ' ms</td></tr>';
+      }).join('');
+      return tTable(['#', 'Règle', 'Chgt', 'Attendu', 'Choix', 'Temps'], rows, 'Règle : ce que suit la consigne. Chgt : la consigne a changé depuis l’essai d’avant.');
+    },
+    read: function () {
+      return secHtml('Le chiffre qui compte', 'À ajuster', 'Temps médian des réponses justes, en ms. Plus bas = plus rapide. Le temps part de l’apparition des éléments et s’arrête quand ton doigt a parcouru 28 px (ou à la touche, sur ordinateur). À lire avec les erreurs : la source suit les deux (ICC 0,86 pour le temps, 0,86 pour les erreurs). Un temps plus court avec plus d’erreurs peut vouloir dire que tu as seulement été plus vite, pas plus juste : c’est la lecture de LUNA, pas un chiffre lu. Pas de score qui les mélange. À côté, pour information : le nombre d’essais faits (la durée est fixe, donc il varie) et l’écart de temps entre un essai où la consigne change et un essai où elle se répète ; ce dernier est la lecture de LUNA, aucun chiffre lu pour ce test. Dans l’étude, un passage dont le temps médian est sous 0,5 s était écarté (effort supposé faible) ; LUNA le garde, avec ses erreurs.') +
+        readCompare(' et avec la même façon de répondre (doigt, souris ou clavier)') +
+        secHtml('Pas de barème', 'Établi', 'L’étude lue ne donne ni barème ni seuil pour ce test. Elle écrit que les chercheurs sont invités à utiliser leur propre groupe témoin pour comparer. Ses moyennes par âge décrivent un groupe, pas toi, et ne valent pas pour LUNA (autre mesure du temps, autres images). Aucun seuil de santé : un professionnel décide.') +
+        secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Dans l’étude, le temps d’une même personne varie en moyenne de 340 ms (écart-type) d’un passage à l’autre, pour un temps moyen de 1 809 ms. Les ICC (0,86) classent des personnes entre elles : ils ne disent pas si ton propre temps varie de façon fiable. D’un passage à l’autre, les erreurs baissent et le temps monte : les premiers passages peuvent bouger. Dans ce qui a été lu, aucun lien significatif avec l’heure n’est rapporté pour ce test. Un passage hors de la fourchette n’est pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte. Chiffres repris de la page par extraction automatique du texte, pas revérifiés sur les tableaux eux-mêmes.') +
+        readPrec('les éléments s’affichent') +
+        secHtml('Sources', 'Établi', link('https://www.jmir.org/2024/1/e51978', 'Paolillo et al. 2024, NeuroUX, J Med Internet Res 26:e51978') + '. Non lus : les trois annexes de l’article (fichiers DOCX), ses tableaux et figures vus seulement par extraction du texte, la page de l’éditeur de NeuroUX. Pas de description plus détaillée du protocole de Hand Swype trouvée.');
+    },
+    histLine: function (p) { return (p.med === null ? 'pas de mesure' : ssMs(p.med)) + ' · ' + ssPlural(p.errors, 'erreur', 'erreurs') + ' · ' + ssPlural(p.n, 'essai', 'essais'); },
+    pack: function (r) { return CL.hs(r.rec); } };
+
+  TD.fl = { name: 'Flanker', cog: 'Inhibition', estSec: FL.estSec, pracDur: '≈ 30 s', cfg: FL_CFG,
+    chipMain: 'Établi · NIH Toolbox, Zelazo 2014', chipHy: 'À ajuster · réglages de LUNA',
+    demo: function () {
+      return '<div class="fl-stim" role="img" aria-label="Exemple : une flèche vers la droite, marquée d’un triangle, entourée de flèches vers la gauche">' + flStimHtml({ cong: false, dir: 'R' }) + '</div>' +
+        '<p class="ss-cue">Flèche au-dessus du triangle</p>';
+    },
+    steps: function () {
+      return ['Cinq flèches apparaissent. Un triangle marque celle à juger : ici, toujours celle du milieu.',
+        'Touche « Gauche » ou « Droite » selon son sens, vite et sans te tromper' + (DEVICE === 'ord' ? ' (ou touches ← et →)' : '') + '.',
+        'Celles autour peuvent pointer à l’opposé : ignore-les. Ici, il faudrait toucher « Droite ».',
+        FL.trials + ' essais. ' + (DEVICE === 'tel' ? 'Téléphone posé, même main, mode silencieux.' : 'Même souris ou trackpad, notifications coupées.')];
+    },
+    about: 'Le protocole (flèche du milieu à juger, entourée de flèches qui pointent du même côté ou à l’opposé) vient du NIH Toolbox (Zelazo 2014) ; la fixation, les pauses et l’entraînement viennent du manuel du Flanker ABCD sur téléphone. Le nombre d’essais (40), le temps limite (3 s) et le calcul du temps (médiane des réponses justes de 100 ms ou plus) sont des choix de LUNA. Durée de ≈ ' + ssDur(FL.estSec * 1000) + ' estimée d’après les pauses, non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.',
+    pracTitle: function (p) { return p.good + (p.good > 1 ? ' bonnes réponses' : ' bonne réponse') + ' sur ' + FL.practice + ' au dernier bloc'; },
+    pracNote: function (p) {
+      return '<p class="lead">L’entraînement n’est pas noté dans les passages.</p><p>' + (p.passed ? 'Le seuil du manuel (3 sur 4) est atteint.' : 'Le manuel passe au test après 3 blocs, même sans atteindre 3 sur 4.') + ' Tu peux le refaire autant que tu veux.</p>';
+    },
+    fig: function (r) { return r.sc.medIncong; }, figE: function (p) { return p.medIncong; },
+    ref: { fmt: ssMs, diff: ms2, above: 'Plus lent que tous tes passages précédents.', below: 'Plus rapide que tous tes passages précédents.',
+           axLo: '← plus rapide', axHi: 'plus lent →', none: 'Pas de chiffre principal pour ce passage : aucun essai incongruent juste n’a pu être compté.' },
+    mainTxt: 'le temps médian des essais incongruents (le premier chiffre). Plus bas = plus rapide. Le chiffre à suivre n’est pas encore tranché : le coût d’interférence est gardé à côté.',
+    metrics: function (r) {
+      var s = r.sc;
+      return metric(s.medIncong === null ? '—' : Math.round(s.medIncong) + '<small> ms</small>', 'Temps médian, essais incongruents') + metric(costTxt(s.cost).replace(' ', '\u00a0'), 'Coût d’interférence') + metric(s.correct + '<small> / ' + s.n + '</small>', 'Réponses justes');
+    },
+    facts: function (r) {
+      var s = r.sc;
+      return factsCard([factRow('Temps médian, essais congruents', ssMs(s.medCong)),
+        factRow('Essais comptés dans les temps (cong. / incong.)', s.usedCong + ' / ' + s.usedIncong),
+        factRow('Justes : congruents, incongruents', s.okCong + '/' + s.nCong + ', ' + s.okIncong + '/' + s.nIncong),
+        factRow('Justes trop rapides (moins de 100 ms), écartées du temps', String(s.fast)),
+        factRow('Sans réponse dans les 3 s', String(s.none))]);
+    },
+    table: function (r) {
+      var rows = flExpand(r.rec.trials).map(function (t, i) {
+        return '<tr><td>' + (i + 1) + '</td><td>' + (t.cong ? 'cong.' : 'incong.') + '</td><td>' + flWord(t.dir) + '</td><td>' + (t.resp === null ? '—' : flWord(t.resp)) + '</td><td>' + (t.rt === null ? '—' : t.rt + ' ms') + '</td></tr>';
+      }).join('');
+      return tTable(['#', 'Condition', 'Cible', 'Choix', 'Temps'], rows, 'Cong. : les flèches autour pointent du même côté que la cible. Incong. : à l’opposé.');
+    },
+    read: function () {
+      return secHtml('Le chiffre qui compte', 'À ajuster', 'Temps médian des essais incongruents, en ms : ceux où les flèches autour pointent à l’opposé de la cible. Plus bas = plus rapide. Seules les réponses justes de 100 ms ou plus comptent. À côté : les réponses justes, et le coût d’interférence (incongruent moins congruent). Ce choix est celui de LUNA. Le temps incongruent est plus stable (ICC 0,66) mais mêle vitesse générale et inhibition. Le coût isole mieux l’inhibition mais est plus fragile (ICC 0,4). Le chiffre à suivre reste à décider : LUNA garde de quoi calculer les deux.') +
+        readCompare() +
+        secHtml('Pas de barème', 'Établi', 'Le NIH Toolbox standardise son score (moyenne 10, écart-type 3) avec ses propres normes. Elles situent une personne parmi la population : elles ne disent pas à quelle heure tu es à ton meilleur, et elles ne s’appliquent pas à LUNA (autres durées, autres images). Aucun autre barème ni seuil dans les sources lues, et aucun seuil de santé : un professionnel décide.') +
+        secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Les ICC lus (0,83 pour le score NIH) classent des personnes entre elles : ils ne disent pas si ton propre temps varie de façon fiable d’un passage à l’autre, chiffre non lu pour ce test. L’effet d’apprentissage est petit (d = 0,27), mais les premiers passages peuvent bouger. Ces chiffres valent pour la cible au milieu. Un passage hors de la fourchette n’est pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.') +
+        readPrec('la cible s’affiche') +
+        secHtml('Sources', 'Établi', link('https://pmc.ncbi.nlm.nih.gov/articles/PMC4601803', 'Zelazo et al. 2014, NIH Toolbox') + ' · ' + link('https://www.millisecond.com/library/v7/flankertask/abcdarrowflankertest/abcdarrowflankertest_smartphone/abcdarrowflankertest_smartphone.manual', 'Manuel du Flanker ABCD sur téléphone') + ' · ' + link('https://link.springer.com/article/10.3758/s13428-017-0935-1', 'Hedge, Powell et Sumner 2018') + '. Non lus : Eriksen et Eriksen 1974 (l’origine du test), la figure 2 de Zelazo (les durées), les tableaux de Hedge.');
+    },
+    histLine: function (p) { return (p.medIncong === null ? 'pas de mesure' : 'incongruent ' + ssMs(p.medIncong)) + ' · ' + p.correct + '/' + p.n + ' justes'; },
+    pack: function (r) { return CL.fl(r.rec); } };
+
+  RUN.rs = { practice: rsRunPractice, test: rsRunTest };
+  RUN.hs = { practice: hsRunPractice, test: hsRunTest };
+  RUN.fl = { practice: flRunPractice, test: flRunTest };
+
+  // Référence personnelle : médiane des passages PRÉVUS précédents, mêmes réglages, même appareil (et, pour Hand Swype, même façon de répondre).
+  // Un test libre y est comparé mais n'y entre pas.
+  function tRefPrev(id, r) {
+    var td = TD[id];
+    return entries.filter(function (e) {
+      return e.test === id && e.plan === 'prevu' && e[id] && e[id].cfg === r.cfg && e.device === r.device && (id !== 'hs' || e.input === r.input);
+    }).map(function (e) { return td.figE(e[id]); }).filter(function (v) { return v !== null && v !== undefined && isFinite(v); });
+  }
+  function tRefHtml(id, r, libre) {
+    var td = TD[id], R = td.ref, cur = td.fig(r);
+    var h = '<section class="j-card"><h2 class="j-kick">TA RÉFÉRENCE</h2><div class="chips" style="margin:0"><span class="chip hy">À ajuster</span></div>';
+    if (libre) h += '<p>Test libre : il est comparé à ta référence mais n’y entre pas (« libre : hors référence »).</p>';
+    if (cur === null || cur === undefined) return h + '<p>' + R.none + '</p></section>';
+    var c = ssRefCompare(tRefPrev(id, r), cur);
+    if (!c.ok) {
+      return h + '<p>Pas encore de référence : il faut au moins ' + c.need + ' passages comparables (mêmes réglages, même appareil' + (id === 'hs' ? ', même façon de répondre' : '') + ', faits aux moments du plan, hors « test libre »). Il y en a ' + c.n + '.</p>' +
+        (c.n === 0 ? '<p>Les moments du plan, qui fourniront ces passages, arrivent dans une prochaine version de l’appli.</p>' : '') + '</section>';
+    }
+    var p = ssScale(c), lo = p(c.lo), hi = p(c.hi);
+    var verdict = c.pos === 'inside' ? 'Dans la fourchette de tes passages précédents.' : (c.pos === 'above' ? R.above : R.below);
+    var label = 'Ce passage : ' + R.fmt(c.cur) + '. Ta médiane : ' + R.fmt(c.ref) + '. Fourchette de tes passages précédents : ' + R.fmt(c.lo) + ' à ' + R.fmt(c.hi) + '.';
+    return h + '<p class="lead" style="font-size:14px">' + verdict + '</p>' +
+      '<div class="ss-strip" role="img" aria-label="' + label + '"><i class="band" style="left:' + lo.toFixed(1) + '%;width:' + (hi - lo).toFixed(1) + '%"></i>' +
+      '<i class="med" style="left:' + p(c.ref).toFixed(1) + '%"></i><i class="cur" style="left:' + p(c.cur).toFixed(1) + '%"></i></div>' +
+      '<div class="ss-ax" aria-hidden="true"><span>' + R.axLo + '</span><span>' + R.axHi + '</span></div>' +
+      '<p class="j-fhint">Bande : fourchette de tes passages · trait : ta médiane · rond : ce passage.</p>' +
+      '<dl class="ss-facts"><div><dt>Ce passage</dt><dd>' + R.fmt(c.cur) + '</dd></div>' +
+      '<div><dt>Ta médiane, ' + ssPlural(c.n, 'passage', 'passages') + ' avant</dt><dd>' + R.fmt(c.ref) + '</dd></div>' +
+      '<div><dt>Fourchette de ces passages</dt><dd>' + R.fmt(c.lo) + ' à ' + R.fmt(c.hi) + '</dd></div>' +
+      '<div><dt>Écart avec ta médiane</dt><dd>' + R.diff(c.diff) + '</dd></div></dl>' +
+      (c.n < 10 ? '<p class="j-fhint">Moins de 10 passages avant : la fourchette est encore approximative.</p>' : '') + '</section>';
+  }
+
+  function vTIntro() {
+    var id = flow.test, td = TD[id], m = flow.slot != null ? PLAN[flow.slot] : null, practiced = tPracticed(id), est = ssDur(td.estSec * 1000);
+    var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : 'Test libre : il sera enregistré, hors des moments du plan et hors de ta référence.';
+    if (!m && L.mod(minOf(new Date()) - L.getWake()) < 120) msg += ' Avant R+2h, il sera noté « avant R+2h » (l’inertie du réveil peut durer 2 à 4 h : Jewett 1999).';
+    return '<header class="subhead"><div class="top">' + (m ? back('home', 'Journal') : back('tests', 'Tests')) +
+      '<span class="module">' + (m ? rLabel(m.r) + ' · prévu' : 'Test libre') + '</span></div>' +
+      '<h1 tabindex="-1">' + esc(td.name) + '</h1><p class="sub">' + esc(td.cog) + ' · ≈ ' + est + '</p></header>' +
+      '<main style="padding-top:14px;gap:12px">' +
+      (notice ? '<p class="j-warn" role="alert">' + esc(notice) + '</p>' : '') +
+      td.demo() +
+      '<section class="j-card"><h2 class="j-kick">AVANT DE COMMENCER</h2><ol class="j-list">' + td.steps().map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ol></section>' +
+      '<div class="chips"><div class="chips" style="margin:0"><span class="chip main">' + td.chipMain + '</span><span class="chip hy">' + td.chipHy + '</span></div></div>' +
+      '<p class="j-p">' + td.about + '</p>' +
+      '<p class="j-p">' + esc(msg) + '</p></main>' +
+      '<div class="foot">' +
+      (practiced
+        ? '<button type="button" class="btn primary" data-act="' + id + '-test">Commencer (≈ ' + est + ')</button><button type="button" class="btn secondary" data-act="' + id + '-practice">Refaire l’entraînement</button>'
+        : '<button type="button" class="btn primary" data-act="' + id + '-practice">Entraînement (' + td.pracDur + ', une fois)</button><button type="button" class="btn secondary" data-act="' + id + '-test">Passer directement au test</button>') +
+      '</div>';
+  }
+  function vTRun() {
+    var td = TD[flow.test];
+    return '<header><div class="j-runhead"><h1 tabindex="-1">' + esc(td.name) + '</h1><span class="j-time" id="rn-count" style="font-size:15px" aria-live="polite">Prêt</span></div>' +
+      '<div class="j-prog" aria-hidden="true"><div id="rn-bar"></div></div></header>' +
+      '<main class="ss-main" id="rn-stage"></main>' +
+      '<div class="foot"><button type="button" class="btn ghost" data-act="run-stop">Arrêter</button></div>';
+  }
+  function vTPrac() {
+    var id = flow.test, td = TD[id], p = flow.prac || {};
+    return '<header><span class="module" style="display:block">Entraînement terminé</span>' +
+      '<h1 tabindex="-1" style="margin-top:4px">' + esc(td.pracTitle(p)) + '</h1></header>' +
+      '<main style="padding-top:14px;gap:12px"><section class="j-card">' + td.pracNote(p) + '</section></main>' +
+      '<div class="foot"><button type="button" class="btn primary" data-act="' + id + '-test">Passer le test</button>' +
+      '<button type="button" class="btn secondary" data-act="' + id + '-practice">Refaire l’entraînement</button>' +
+      '<button type="button" class="btn ghost" data-act="' + id + '-intro">Retour à la consigne</button></div>';
+  }
+  function vTResult() {
+    var id = flow.test, td = TD[id], r = flow.result, rel = relAt(r.ts, r.wake), ph = phaseAt(rel), libre = flow.slot == null, early = libre && rel < 120;
+    var count = entries.filter(function (e) { return e.test === id; }).length + 1;
+    return '<header><span class="module" style="display:block">Fin du test</span><h1 tabindex="-1" style="margin-top:4px">Résultat</h1></header>' +
+      '<main style="padding-top:14px;gap:12px">' +
+      '<section class="j-card"><div class="nowline" style="margin:0"><span class="dot" style="background:' + ph.color + '"></span><span>' + clockOf(r.ts) + ' · ' + esc(ph.name) + '</span></div>' +
+      '<div class="j-metrics">' + td.metrics(r) + '</div>' +
+      '<p class="j-fhint" style="color:var(--text)"><b>Chiffre principal :</b> ' + td.mainTxt + '</p>' +
+      '<p class="j-fhint">Durée du passage : ' + ssDur(r.durationMs) + ' (estimée : ≈ ' + ssDur(td.estSec * 1000) + ')</p>' +
+      '<div class="chips" style="margin:0"><span class="chip main">Mesuré (toi, ' + ssPlural(count, 'test', 'tests') + ')</span><span class="chip hy">' + DEVICE_TXT[r.device] + ' · ' + (INPUT_TXT[r.input] || r.input) + '</span>' +
+      '<span class="chip hy">' + (libre ? 'test libre' : 'prévu') + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
+      tRefHtml(id, r, libre) +
+      td.facts(r) +
+      (td.table ? td.table(r) : '') +
+      '<details class="j-det"><summary>Comment lire ce résultat</summary>' + td.read() + '</details>' +
+      '<p class="j-p">Un seul passage ne dit presque rien : c’est la répétition sur plusieurs jours qui compte. Pas de seuil de santé ici.</p></main>' +
+      '<div class="foot"><button type="button" class="btn primary" data-act="' + id + '-save">Enregistrer le test</button>' +
       '<button type="button" class="btn ghost" data-act="discard">Ne pas enregistrer</button></div>';
   }
 
@@ -1220,9 +1838,9 @@
   /* ---------- Restauration : affichage ---------- */
   function countsText(list) {
     var n = {};
-    list.forEach(function (e) { var k = e.kind === 'releve' && e.pvt ? 'combo' : (e.kind === 'test' && e.test === 'ss' ? 'ss' : e.kind); n[k] = (n[k] || 0) + 1; });
+    list.forEach(function (e) { var k = e.kind === 'releve' && e.pvt ? 'combo' : (e.kind === 'test' && e.test ? e.test : e.kind); n[k] = (n[k] || 0) + 1; });
     var parts = [];
-    [['releve', 'relevé', 'relevés'], ['combo', 'relevé + test', 'relevés + tests'], ['test', 'test', 'tests'], ['ss', 'passage Symbol Search', 'passages Symbol Search'], ['activite', 'activité', 'activités'],
+    [['releve', 'relevé', 'relevés'], ['combo', 'relevé + test', 'relevés + tests'], ['test', 'test', 'tests'], ['rs', 'passage Rotation span', 'passages Rotation span'], ['fl', 'passage Flanker', 'passages Flanker'], ['ss', 'passage Symbol Search', 'passages Symbol Search'], ['hs', 'passage Hand Swype', 'passages Hand Swype'], ['activite', 'activité', 'activités'],
      ['repas', 'repas', 'repas'], ['coucher', 'coucher', 'couchers'], ['note', 'note', 'notes']].forEach(function (t) {
       if (n[t[0]]) parts.push(plural(n[t[0]], t[1], t[2]));
     });
@@ -1282,16 +1900,20 @@
 
   var VIEWS = { home: vHome, feel: vFeel, intro: vIntro, run: vRun, result: vResult, note: vNote, backup: vBackup, restore: vRestore, history: vHistory,
                 reminders: vRemind, 'act-start': vActStart, 'act-end': vActEnd, meal: vMeal, bed: vBed, edit: vEdit,
-                tests: vTests, 'ss-intro': vSsIntro, 'ss-run': vSsRun, 'ss-prac': vSsPrac, 'ss-result': vSsResult };
+                tests: vTests, 'ss-intro': vSsIntro, 'ss-run': vSsRun, 'ss-prac': vSsPrac, 'ss-result': vSsResult,
+                'rs-intro': vTIntro, 'rs-run': vTRun, 'rs-prac': vTPrac, 'rs-result': vTResult,
+                'hs-intro': vTIntro, 'hs-run': vTRun, 'hs-prac': vTPrac, 'hs-result': vTResult,
+                'fl-intro': vTIntro, 'fl-run': vTRun, 'fl-prac': vTPrac, 'fl-result': vTResult };
 
   function render() {
-    if (ssRun && screen !== 'ss-run') { ssRun.why = 'silent'; ssKill(); } // on quitte l'écran du test : on l'arrête sans rien dire
+    var runM = /^(ss|rs|hs|fl)-run$/.exec(screen);
+    if (rnRun && !runM) { rnRun.why = 'silent'; rnKill(); } // on quitte l'écran du test : on l'arrête sans rien dire
     root.innerHTML = (VIEWS[screen] || vHome)();
     L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders');
     if (screen === 'home') { L.bindWake(root.querySelector('.wake-input')); updateHome(); }
     if (screen === 'reminders') L.bindWake(root.querySelector('.wake-input'));
     if (screen === 'run') startPvt();
-    if (screen === 'ss-run') ssStart(flow.ssMode === 'practice' ? ssPractice : ssTest);
+    if (runM) rnStart(RUN[runM[1]][flow.tMode === 'practice' ? 'practice' : 'test']);
     var focus = screen === 'run' ? $('j-area') : root.querySelector('h1');
     if (focus) focus.focus({ preventScroll: true });
     var m = root.querySelector('main');
@@ -1395,64 +2017,64 @@
   }
 
   /* ---------- Test Symbol Search ---------- */
-  // Déroulé porté de la maquette du 14/10 : tout ce qui attend (pause, réponse) passe par ssPend, donc tout peut être annulé d'un coup.
-  var SS_CANCEL = {};
-  var ssRun = null; // { dead, rej, why }
+  // Déroulé porté de la maquette du 14/10 : tout ce qui attend (pause, réponse) passe par rnPend, donc tout peut être annulé d'un coup.
+  var RN_CANCEL = {};
+  var rnRun = null; // { dead, rej, why }
 
-  function ssPracticed() {
-    try { var o = JSON.parse(localStorage.getItem(KEY_PRAC)); return !!(o && o.ss); } catch (e) { return false; }
+  function tPracticed(id) {
+    try { var o = JSON.parse(localStorage.getItem(KEY_PRAC)); return !!(o && o[id]); } catch (e) { return false; }
   }
-  function ssMarkPracticed() {
-    try { var o = JSON.parse(localStorage.getItem(KEY_PRAC)) || {}; o.ss = Date.now(); localStorage.setItem(KEY_PRAC, JSON.stringify(o)); } catch (e) {}
+  function tMarkPracticed(id) {
+    try { var o = JSON.parse(localStorage.getItem(KEY_PRAC)) || {}; o[id] = Date.now(); localStorage.setItem(KEY_PRAC, JSON.stringify(o)); } catch (e) {}
   }
-  function ssPend(setup) {
-    var c = ssRun;
+  function rnPend(setup) {
+    var c = rnRun;
     return new Promise(function (resolve, reject) {
-      if (!c || c.dead) { reject(SS_CANCEL); return; }
+      if (!c || c.dead) { reject(RN_CANCEL); return; }
       var cleanup = null;
-      var killer = function () { if (cleanup) cleanup(); reject(SS_CANCEL); };
+      var killer = function () { if (cleanup) cleanup(); reject(RN_CANCEL); };
       c.rej.add(killer);
       var done = function (v) { c.rej.delete(killer); if (cleanup) cleanup(); resolve(v); };
       cleanup = setup(done) || null;
     });
   }
-  function ssSleep(ms) { return ssPend(function (done) { var t = setTimeout(done, ms); return function () { clearTimeout(t); }; }); }
-  function ssKill() {
-    if (!ssRun) return;
-    ssRun.dead = true;
-    var fns = Array.from(ssRun.rej);
-    ssRun.rej.clear();
+  function rnSleep(ms) { return rnPend(function (done) { var t = setTimeout(done, ms); return function () { clearTimeout(t); }; }); }
+  function rnKill() {
+    if (!rnRun) return;
+    rnRun.dead = true;
+    var fns = Array.from(rnRun.rej);
+    rnRun.rej.clear();
     fns.forEach(function (f) { f(); });
   }
-  function ssVis() { if (document.hidden && ssRun) { ssRun.why = 'hidden'; ssKill(); } }
-  function ssEnd() { ssRun = null; document.removeEventListener('visibilitychange', ssVis); }
-  function ssStop() { if (ssRun) { ssRun.why = 'stop'; ssKill(); } }
-  function ssStart(fn) {
-    ssKill();
-    var c = ssRun = { dead: false, rej: new Set(), why: 'stop' };
-    document.addEventListener('visibilitychange', ssVis);
+  function rnVis() { if (document.hidden && rnRun) { rnRun.why = 'hidden'; rnKill(); } }
+  function rnEnd() { rnRun = null; document.removeEventListener('visibilitychange', rnVis); }
+  function rnStop() { if (rnRun) { rnRun.why = 'stop'; rnKill(); } }
+  function rnStart(fn) {
+    rnKill();
+    var c = rnRun = { dead: false, rej: new Set(), why: 'stop' };
+    document.addEventListener('visibilitychange', rnVis);
     fn().catch(function (e) {
-      if (ssRun !== c) return;
-      ssEnd();
-      var why = e === SS_CANCEL ? c.why : 'error';
-      if (e !== SS_CANCEL && window.console) console.error(e);
+      if (rnRun !== c) return;
+      rnEnd();
+      var why = e === RN_CANCEL ? c.why : 'error';
+      if (e !== RN_CANCEL && window.console) console.error(e);
       if (why === 'silent') return;
       if (why === 'hidden') notice = 'Test interrompu : l’appli a quitté l’écran. Rien n’a été enregistré. Tu peux recommencer.';
       else if (why === 'error') notice = 'Un problème est survenu. Rien n’a été enregistré. Tu peux recommencer.';
-      go('ss-intro');
+      go(flow.test + '-intro');
       notice = '';
     });
   }
 
-  function ssStage(html) { var s = $('ss-stage'); if (s) s.innerHTML = html; }
-  function ssReadout(text, p) {
-    var t = $('ss-count'), b = $('ss-bar');
+  function rnStage(html) { var s = $('rn-stage'); if (s) s.innerHTML = html; }
+  function rnReadout(text, p) {
+    var t = $('rn-count'), b = $('rn-bar');
     if (t) t.textContent = text;
     if (b) b.style.width = Math.round((p || 0) * 100) + '%';
   }
   // Écran d'essai : posé une fois par bloc, seul le contenu des cartes change ensuite.
   function ssTrialScreen() {
-    ssStage('<div class="ss-trial blank" id="ss-trial"><div class="ss-card ss-top" id="ss-top" role="img" aria-label="Carte du haut"></div>' +
+    rnStage('<div class="ss-trial blank" id="ss-trial"><div class="ss-card ss-top" id="ss-top" role="img" aria-label="Carte du haut"></div>' +
       '<p class="ss-cue">Touche la carte du bas identique</p>' +
       '<div class="ss-bottoms"><button type="button" class="ss-card ss-choice" id="ss-cl"></button><button type="button" class="ss-card ss-choice" id="ss-cr"></button></div>' +
       '<p class="ss-fb" id="ss-fb" aria-live="polite"></p></div>');
@@ -1467,7 +2089,7 @@
     top.innerHTML = ssPairHtml(t.top); top.setAttribute('aria-label', 'Carte du haut : ' + ssPairName(t.top));
     cL.innerHTML = ssPairHtml(left); cL.setAttribute('aria-label', 'Carte de gauche : ' + ssPairName(left));
     cR.innerHTML = ssPairHtml(right); cR.setAttribute('aria-label', 'Carte de droite : ' + ssPairName(right));
-    var res = await ssPend(function (done) {
+    var res = await rnPend(function (done) {
       var armed = false, t0 = 0, raf = 0;
       function fin(resp, ev, inp) {
         if (!armed) return;
@@ -1504,17 +2126,17 @@
       fbl.textContent = ok ? 'Correct' : 'Pas cette carte : la bonne était à ' + ssSide(t.side);
       fbl.className = 'ss-fb' + (ok ? ' ok' : '');
     }
-    await ssSleep(SS.hit);
+    await rnSleep(SS.hit);
     btn.classList.remove('hit');
-    if (o.practice) await ssSleep((ok ? SS.fbOk : SS.fbErr) - SS.hit);
+    if (o.practice) await rnSleep((ok ? SS.fbOk : SS.fbErr) - SS.hit);
     tr.classList.add('blank'); fbl.textContent = '';
-    await ssSleep(SS.iti);
+    await rnSleep(SS.iti);
     return { side: t.side, k: t.k, resp: res.resp, rt: Math.round(res.rt), ok: ok, inp: res.inp };
   }
   async function ssRunList(list, o) {
     var out = [];
     for (var i = 0; i < list.length; i++) {
-      ssReadout(o.label + ' ' + (i + 1) + ' sur ' + list.length, i / list.length);
+      rnReadout(o.label + ' ' + (i + 1) + ' sur ' + list.length, i / list.length);
       out.push(await ssTrialOnce(list[i], o));
     }
     return out;
@@ -1522,14 +2144,14 @@
 
   // Entraînement : un bloc de 4 essais avec retour. Pas enregistré.
   async function ssPractice() {
-    ssReadout('Entraînement', 0);
-    ssStage('<p class="ss-between">Entraînement</p><p class="ss-note">' + SS.practice + ' essais, avec un retour après chaque réponse.</p>');
-    await ssSleep(SS.ready);
+    rnReadout('Entraînement', 0);
+    rnStage('<p class="ss-between">Entraînement</p><p class="ss-note">' + SS.practice + ' essais, avec un retour après chaque réponse.</p>');
+    await rnSleep(SS.ready);
     ssTrialScreen();
     var res = await ssRunList(ssMake(SS.practice, Math.random), { practice: true, label: 'Entraînement' });
     var good = res.filter(function (r) { return r.ok; }).length;
-    ssMarkPracticed();
-    ssEnd();
+    tMarkPracticed('ss');
+    rnEnd();
     flow.prac = { good: good };
     go('ss-prac');
   }
@@ -1538,9 +2160,9 @@
     var t0 = performance.now();
     flow.ts = Date.now();
     flow.wake = L.getWake();
-    ssReadout('Prêt', 0);
-    ssStage('<p class="ss-between">Prêt</p><p class="ss-note">' + SS.trials + ' essais. Le plus vite possible, sans te tromper.</p>');
-    await ssSleep(SS.ready);
+    rnReadout('Prêt', 0);
+    rnStage('<p class="ss-between">Prêt</p><p class="ss-note">' + SS.trials + ' essais. Le plus vite possible, sans te tromper.</p>');
+    await rnSleep(SS.ready);
     ssTrialScreen();
     var res = await ssRunList(ssMake(SS.trials, Math.random), { practice: false, label: 'Essai' });
     var sc = ssScore(res), inps = {};
@@ -1549,9 +2171,366 @@
     flow.result = { ver: SS.ver, cfg: SS_CFG, n: sc.n, correct: sc.correct, used: sc.used, excluded: sc.excluded, med: sc.med, acc: sc.acc,
                     durationMs: Math.round(performance.now() - t0), trials: res, device: DEVICE, input: kinds.length === 1 ? kinds[0] : 'mixte',
                     ts: flow.ts, wake: flow.wake };
-    ssEnd();
+    rnEnd();
     go('ss-result');
   }
+
+  /* ---------- Test Rotation span ---------- */
+  // Déroulé porté de la maquette du 14/10 : lettre à juger, pause, flèche (1 s), pause, lettre, … puis rappel des flèches dans l'ordre.
+  // Pas de temps limite pendant le test ; à l'entraînement, les lettres ont 5 s. Tout ce qui attend passe par rnPend, donc tout peut être annulé d'un coup.
+  function rsBlank() { rnStage('<div class="rs-box" aria-hidden="true"></div>'); }
+  async function rsLetter(timeoutMs) {
+    var s = { ch: RS_LETTERS[Math.floor(Math.random() * 3)], mirror: Math.floor(Math.random() * 2) === 1, angle: Math.floor(Math.random() * 8) * 45 };
+    rnStage('<div class="rn-wrap">' + rsLetterHtml(s) + '<p class="ss-q">Cette lettre est-elle normale ou en miroir ?</p>' +
+      '<div class="rs-answers"><button type="button" class="btn secondary rs-big" id="rs-n">Normale</button><button type="button" class="btn secondary rs-big" id="rs-m">Miroir</button></div></div>');
+    var aN = $('rs-n'), aM = $('rs-m');
+    if (!aN || !aM) throw new Error('écran du test absent');
+    var res = await rnPend(function (done) {
+      var armed = false, t0 = 0, raf = 0, timer = 0;
+      function fin(answer, timedOut, ev, inp) {
+        if (!armed) return;
+        armed = false;
+        done({ answer: answer, timedOut: timedOut, rt: Math.max(0, (ev ? tsOf(ev) : performance.now()) - t0), inp: inp });
+      }
+      function mk(answer) { // toucher ou clic = pointerdown ; un « click » sans souris (detail 0) = touche Entrée/Espace sur le bouton
+        return function (ev) {
+          if (ev.type === 'click') { if (ev.detail !== 0) return; fin(answer, false, ev, 'clavier'); }
+          else fin(answer, false, ev, ev.pointerType || 'souris');
+        };
+      }
+      var onN = mk('normale'), onM = mk('miroir');
+      aN.addEventListener('pointerdown', onN); aN.addEventListener('click', onN);
+      aM.addEventListener('pointerdown', onM); aM.addEventListener('click', onM);
+      raf = requestAnimationFrame(function () {
+        t0 = performance.now(); armed = true;
+        if (timeoutMs) timer = setTimeout(function () { fin(null, true, null, ''); }, timeoutMs);
+      });
+      return function () {
+        cancelAnimationFrame(raf); clearTimeout(timer);
+        aN.removeEventListener('pointerdown', onN); aN.removeEventListener('click', onN);
+        aM.removeEventListener('pointerdown', onM); aM.removeEventListener('click', onM);
+      };
+    });
+    res.truth = s.mirror ? 'miroir' : 'normale';
+    res.correct = !res.timedOut && res.answer === res.truth;
+    return res;
+  }
+  async function rsFeedback(r) {
+    var msg = r.timedOut ? 'Temps écoulé' : r.correct ? 'Correct' : 'Réponse attendue : ' + r.truth;
+    rnStage('<p class="ss-fb' + (r.correct ? ' ok' : '') + '">' + msg + '</p>');
+    await rnSleep(RS.feedback);
+  }
+  function rsRecall(size) { // touche les flèches vues, dans l'ordre ; « Valider » reste toujours possible (comme dans la maquette)
+    var sel = [], tiles = '';
+    for (var id = 0; id < 16; id++) tiles += '<button type="button" class="rs-tile" data-id="' + id + '" aria-label="' + rsArrowLabel(id) + '">' + rsArrowSvg(id) + '</button>';
+    rnStage('<div class="rn-wrap"><p class="ss-q">Touche les flèches vues, dans l’ordre.</p><p class="rs-count" id="rs-cnt"></p><div class="rs-grid" id="rs-g">' + tiles + '</div>' +
+      '<div class="rs-answers"><button type="button" class="btn ghost" id="rs-clr">Effacer la dernière</button><button type="button" class="btn primary" id="rs-ok">Valider</button></div></div>');
+    var g = $('rs-g'), cnt = $('rs-cnt'), clr = $('rs-clr'), ok = $('rs-ok');
+    if (!g || !cnt || !clr || !ok) throw new Error('écran du test absent');
+    function paint() {
+      cnt.textContent = sel.length + ' sur ' + size;
+      Array.prototype.forEach.call(g.querySelectorAll('.rs-tile'), function (b) {
+        var i = sel.indexOf(Number(b.getAttribute('data-id'))), n = b.querySelector('.n');
+        b.classList.toggle('sel', i >= 0);
+        if (i >= 0) { if (!n) { n = document.createElement('span'); n.className = 'n'; b.appendChild(n); } n.textContent = String(i + 1); }
+        else if (n) n.parentNode.removeChild(n);
+      });
+      clr.disabled = sel.length === 0;
+    }
+    paint();
+    return rnPend(function (done) {
+      function onTile(e) {
+        var b = e.target.closest ? e.target.closest('.rs-tile') : null;
+        if (!b) return;
+        var id = Number(b.getAttribute('data-id'));
+        if (sel.length >= size || sel.indexOf(id) >= 0) return;
+        sel.push(id); paint();
+      }
+      function onClr() { sel.pop(); paint(); }
+      function onOk() { done(sel.slice()); }
+      g.addEventListener('click', onTile); clr.addEventListener('click', onClr); ok.addEventListener('click', onOk);
+      return function () { g.removeEventListener('click', onTile); clr.removeEventListener('click', onClr); ok.removeEventListener('click', onOk); };
+    });
+  }
+  // Un essai : lettre, pause, flèche, pause, lettre, … puis rappel. o.inps recueille la façon de répondre aux lettres.
+  async function rsTrial(o) {
+    var arrows = rsPick(o.size, Math.random), letters = [];
+    for (var k = 0; k < o.size; k++) {
+      rnReadout(o.label + ' · flèche ' + (k + 1) + ' sur ' + o.size, (o.i + (k + 0.5) / (o.size + 1)) / o.total);
+      rsBlank(); await rnSleep(RS.blank);
+      var r = await rsLetter(o.timeoutMs);
+      letters.push([r.timedOut ? 2 : (r.correct ? 1 : 0), Math.round(r.rt)]);
+      if (r.inp) o.inps[r.inp] = true;
+      if (o.practice) await rsFeedback(r);
+      rsBlank(); await rnSleep(RS.blank);
+      rnStage('<div class="rs-box" role="img" aria-label="Flèche à retenir">' + rsArrowSvg(arrows[k]) + '</div>');
+      await rnSleep(RS.arrow);
+    }
+    rnReadout(o.label + ' · rappel', (o.i + o.size / (o.size + 1)) / o.total);
+    var sel = await rsRecall(o.size);
+    return { a: arrows, s: sel, l: letters };
+  }
+  // Entraînement : 5 lettres avec retour, puis 1 essai de 2 flèches avec retour. Pas enregistré.
+  async function rsRunPractice() {
+    var inps = {};
+    for (var k = 0; k < 5; k++) {
+      rnReadout('Entraînement · lettre ' + (k + 1) + ' sur 5', k / 6);
+      rsBlank(); await rnSleep(RS.blank);
+      var r = await rsLetter(RS.startTimeout);
+      await rsFeedback(r);
+    }
+    var tr = await rsTrial({ i: 5, total: 6, size: 2, timeoutMs: RS.startTimeout, practice: true, label: 'Entraînement', inps: inps });
+    tMarkPracticed('rs');
+    rnEnd();
+    flow.prac = { cp: rsScoreTrial(tr.a, tr.s).cp, size: 2 };
+    go('rs-prac');
+  }
+  // Test : 3 essais de 5 flèches, sans temps limite.
+  async function rsRunTest() {
+    var t0 = performance.now(), trials = [], inps = {};
+    flow.ts = Date.now();
+    flow.wake = L.getWake();
+    for (var i = 0; i < RS.trials; i++) {
+      rnReadout('Essai ' + (i + 1) + ' sur ' + RS.trials, i / RS.trials);
+      rnStage('<p class="ss-between">Essai ' + (i + 1) + ' sur ' + RS.trials + '</p><p class="ss-note">' + RS.size + ' flèches</p>');
+      await rnSleep(RS.between);
+      trials.push(await rsTrial({ i: i, total: RS.trials, size: RS.size, timeoutMs: 0, practice: false, label: 'Essai ' + (i + 1) + ' sur ' + RS.trials, inps: inps }));
+    }
+    var kinds = Object.keys(inps), dur = Math.round(performance.now() - t0);
+    flow.result = { cfg: RS_CFG, rec: { ver: RS.ver, cfg: RS_CFG, durationMs: dur, trials: trials }, sc: rsSummary(trials), durationMs: dur,
+                    device: DEVICE, input: kinds.length === 1 ? kinds[0] : 'mixte', ts: flow.ts, wake: flow.wake };
+    rnEnd();
+    go('rs-result');
+  }
+
+  /* ---------- Test Hand Swype ---------- */
+  // Déroulé porté de la maquette du 14/10 : consigne et vaisseaux apparaissent ensemble ; réponse par balayage (28 px, sans attendre que le doigt se lève)
+  // ou par touche ← ↑ → ↓ ; le sens enregistré s'affiche 150 ms en flèche neutre, puis 150 ms de vide. 60 s ; l'essai en cours à 60 s n'est pas compté.
+  function hsTrialScreen() {
+    rnStage(hsDefs() + '<div class="hs-trial"><div class="hs-rule off" id="hs-rule" data-rule="point">' + hsRuleHtml('point') + '</div>' +
+      '<div class="hs-pad" id="hs-pad" role="img" aria-label="Zone de balayage : des vaisseaux défilent"></div>' +
+      '<p class="ss-cue">Balaye la zone du doigt<span class="hs-keys"> · ou touches ← ↑ → ↓</span></p><p class="ss-fb" id="hs-fb" aria-live="polite"></p></div>');
+  }
+  async function hsTrialOnce(t, o, deadline) {
+    var pad = $('hs-pad'), fbl = $('hs-fb'), rule = $('hs-rule');
+    if (!pad || !fbl || !rule) throw new Error('écran du test absent');
+    fbl.textContent = ''; fbl.className = 'ss-fb';
+    var res = await rnPend(function (done) {
+      var armed = false, t0 = 0, timer = 0, raf = 0, pid = null, sx = 0, sy = 0, ptype = '';
+      function fin(resp, via, ev) {
+        if (!armed) return;
+        armed = false;
+        done({ resp: resp, rt: Math.max(0, tsOf(ev) - t0), via: via });
+      }
+      function stopTrack() {
+        pid = null;
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+      }
+      function onDown(e) {
+        if (!armed || pid !== null) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        pid = e.pointerId; sx = e.clientX; sy = e.clientY; ptype = e.pointerType;
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onUp);
+        if (e.cancelable) e.preventDefault();
+      }
+      function onMove(e) {
+        if (e.pointerId !== pid) return;
+        var d = hsSwipeDir(e.clientX - sx, e.clientY - sy, HS.swipe);
+        if (d) { var via = ptype || 'souris'; stopTrack(); fin(d, via, e); }
+      }
+      function onUp(e) { if (e.pointerId === pid) stopTrack(); }
+      function onKey(e) {
+        if (e.repeat) return;
+        var d = HS_KEYS[e.key];
+        if (d) { e.preventDefault(); fin(d, 'clavier', e); }
+      }
+      pad.addEventListener('pointerdown', onDown);
+      document.addEventListener('keydown', onKey);
+      rule.setAttribute('data-rule', t.rule); rule.className = 'hs-rule'; rule.innerHTML = hsRuleHtml(t.rule);
+      pad.innerHTML = hsBeltHtml(t.point, t.move);
+      raf = requestAnimationFrame(function () {
+        t0 = performance.now(); armed = true;
+        if (deadline) timer = setTimeout(function () { if (armed) { armed = false; done({ timeout: true }); } }, Math.max(0, deadline - performance.now()));
+      });
+      return function () {
+        cancelAnimationFrame(raf); clearTimeout(timer); stopTrack();
+        pad.removeEventListener('pointerdown', onDown);
+        document.removeEventListener('keydown', onKey);
+      };
+    });
+    if (res.timeout) { pad.innerHTML = ''; return null; }
+    var ok = res.resp === t.ans;
+    pad.innerHTML = '<div class="hs-reg">' + hsArrowSvg(res.resp) + '</div>';
+    if (o.practice) {
+      fbl.textContent = ok ? 'Correct' : 'Pas ce sens : les vaisseaux ' + (t.rule === 'point' ? 'pointaient ' : 'se déplaçaient ') + HS_TXT[t.ans];
+      fbl.className = 'ss-fb' + (ok ? ' ok' : '');
+    }
+    await rnSleep(HS.hit);
+    pad.innerHTML = '';
+    if (o.practice) await rnSleep((ok ? HS.fbOk : HS.fbErr) - HS.hit);
+    fbl.textContent = '';
+    await rnSleep(HS.blank);
+    return { rule: t.rule, point: t.point, move: t.move, resp: res.resp, rt: res.rt, ok: ok, via: res.via };
+  }
+  async function hsRunPractice() { // 6 essais tirés au hasard (au moins 2 changements de consigne), retour neutre. Pas enregistré.
+    rnReadout('Entraînement', 0);
+    rnStage('<p class="ss-between">Entraînement</p><p class="ss-note">' + HS.practice + ' essais, avec un retour après chaque réponse. La consigne est tirée au hasard à chaque essai.</p>');
+    await rnSleep(1800);
+    hsTrialScreen();
+    var list = hsPractice(Math.random), good = 0;
+    for (var i = 0; i < list.length; i++) {
+      rnReadout('Entraînement · ' + (i + 1) + ' sur ' + list.length, i / list.length);
+      var r = await hsTrialOnce(list[i], { practice: true }, null);
+      if (r && r.ok) good++;
+    }
+    tMarkPracticed('hs');
+    rnEnd();
+    flow.prac = { good: good };
+    go('hs-prac');
+  }
+  async function hsRunTest() { // 60 s à partir de la première apparition des vaisseaux
+    var t0 = performance.now(), out = [], vias = {};
+    flow.ts = Date.now();
+    flow.wake = L.getWake();
+    rnReadout('Prêt', 0);
+    rnStage('<p class="ss-between">Prêt</p><p class="ss-note">60 secondes. La consigne peut changer à chaque essai : suis celle qui est affichée.</p>');
+    await rnSleep(HS.ready);
+    hsTrialScreen();
+    var list = hsMake(HS.pool, Math.random), deadline = performance.now() + HS.dur, tickId = 0;
+    function tick() { var rem = Math.max(0, deadline - performance.now()); rnReadout('Test · ' + Math.ceil(rem / 1000) + ' s restantes', 1 - rem / HS.dur); }
+    tick();
+    tickId = setInterval(tick, 250);
+    try {
+      for (var i = 0; i < list.length && performance.now() < deadline; i++) {
+        var r = await hsTrialOnce(list[i], { practice: false }, deadline);
+        if (!r) break;
+        out.push(r); vias[r.via] = true;
+      }
+    } finally { clearInterval(tickId); }
+    if (!out.length) {
+      rnEnd();
+      notice = 'Aucun essai n’a été fait en 60 s. Rien n’a été enregistré. Tu peux recommencer.';
+      go('hs-intro');
+      notice = '';
+      return;
+    }
+    var trials = out.map(hsCompact), kinds = Object.keys(vias), dur = Math.round(performance.now() - t0);
+    flow.result = { cfg: HS_CFG, rec: { ver: HS.ver, cfg: HS_CFG, durationMs: dur, trials: trials }, sc: hsScore(trials), durationMs: dur,
+                    device: DEVICE, input: kinds.length === 1 ? kinds[0] : 'mixte', ts: flow.ts, wake: flow.wake };
+    rnEnd();
+    go('hs-result');
+  }
+
+  /* ---------- Test Flanker ---------- */
+  // Déroulé porté de la maquette du 14/10 : fixation (1000, 1250 ou 1500 ms), cinq flèches (jusqu'à la réponse ou 3 s), bouton touché surligné 100 ms, pause 800 ms.
+  function flTrialScreen() {
+    rnStage('<div class="fl-trial"><div class="fl-stim" id="fl-stim" role="img" aria-label="Zone des flèches"></div><p class="ss-cue">Flèche au-dessus du triangle</p><p class="ss-fb" id="fl-fb" aria-live="polite"></p>' +
+      '<div class="fl-resp"><button type="button" class="btn secondary fl-btn" id="fl-l" aria-label="Gauche">' + flArrowSvg('L') + 'Gauche</button>' +
+      '<button type="button" class="btn secondary fl-btn" id="fl-r" aria-label="Droite">Droite' + flArrowSvg('R') + '</button></div></div>');
+  }
+  async function flTrialOnce(t, o) {
+    var st = $('fl-stim'), fbl = $('fl-fb'), bL = $('fl-l'), bR = $('fl-r');
+    if (!st || !fbl || !bL || !bR) throw new Error('écran du test absent');
+    fbl.textContent = ''; fbl.className = 'ss-fb';
+    st.innerHTML = flFixHtml();
+    await rnSleep(FL.fix[Math.floor(Math.random() * FL.fix.length)]);
+    var res = await rnPend(function (done) {
+      var armed = false, t0 = 0, timer = 0, raf = 0;
+      function fin(resp, ev, inp) {
+        if (!armed) return;
+        armed = false;
+        done({ resp: resp, rt: resp ? Math.max(0, tsOf(ev) - t0) : null, inp: inp });
+      }
+      function mk(resp) { // toucher ou clic = pointerdown ; un « click » sans souris (detail 0) = touche Entrée/Espace sur le bouton
+        return function (ev) {
+          if (ev.type === 'click') { if (ev.detail !== 0) return; fin(resp, ev, 'clavier'); }
+          else fin(resp, ev, ev.pointerType || 'souris');
+        };
+      }
+      var onL = mk('L'), onR = mk('R');
+      function onKey(ev) {
+        if (ev.repeat) return;
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); fin('L', ev, 'clavier'); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); fin('R', ev, 'clavier'); }
+      }
+      bL.addEventListener('pointerdown', onL); bL.addEventListener('click', onL);
+      bR.addEventListener('pointerdown', onR); bR.addEventListener('click', onR);
+      document.addEventListener('keydown', onKey);
+      st.innerHTML = flStimHtml(t);
+      raf = requestAnimationFrame(function () {
+        t0 = performance.now(); armed = true;
+        timer = setTimeout(function () { fin(null, null, ''); }, FL.limit);
+      });
+      return function () {
+        cancelAnimationFrame(raf); clearTimeout(timer);
+        bL.removeEventListener('pointerdown', onL); bL.removeEventListener('click', onL);
+        bR.removeEventListener('pointerdown', onR); bR.removeEventListener('click', onR);
+        document.removeEventListener('keydown', onKey);
+      };
+    });
+    var ok = res.resp === t.dir, btn = res.resp ? (res.resp === 'L' ? bL : bR) : null;
+    st.innerHTML = '';
+    if (btn) btn.classList.add('hit');
+    if (o.practice) {
+      fbl.textContent = res.resp === null ? 'Temps écoulé' : ok ? 'Correct' : 'Pas ce côté : la flèche marquée pointait à ' + flWord(t.dir);
+      fbl.className = 'ss-fb' + (ok ? ' ok' : '');
+    }
+    await rnSleep(FL.hit);
+    if (btn) btn.classList.remove('hit');
+    if (o.practice) await rnSleep((ok ? FL.fbOk : FL.fbErr) - FL.hit);
+    fbl.textContent = '';
+    await rnSleep(FL.iti);
+    return { cong: t.cong, dir: t.dir, resp: res.resp, rt: res.rt, ok: ok, inp: res.inp };
+  }
+  async function flRunPractice() { // blocs de 4 essais avec retour ; 3 justes sur 4 pour passer ; 3 blocs au plus. Pas enregistré.
+    var passed = false, runs = 0, good = 0;
+    while (runs < FL.pracBlocks && !passed) {
+      runs++;
+      rnReadout('Entraînement · bloc ' + runs + ' sur ' + FL.pracBlocks + ' au plus', 0);
+      rnStage('<p class="ss-between">' + (runs === 1 ? 'Entraînement' : 'On le refait') + '</p><p class="ss-note">' +
+        (runs === 1 ? FL.practice + ' essais, avec un retour après chaque réponse.' : 'Seule la flèche marquée compte.') + '</p>');
+      await rnSleep(FL.ready);
+      flTrialScreen();
+      var list = flPractice(Math.random), res = [];
+      for (var i = 0; i < list.length; i++) {
+        rnReadout('Entraînement · ' + (i + 1) + ' sur ' + list.length, i / list.length);
+        res.push(await flTrialOnce(list[i], { practice: true }));
+      }
+      good = res.filter(function (r) { return r.ok; }).length;
+      passed = good >= FL.pracPass;
+    }
+    tMarkPracticed('fl');
+    rnEnd();
+    flow.prac = { good: good, passed: passed };
+    go('fl-prac');
+  }
+  async function flRunTest() {
+    var t0 = performance.now(), res = [], inps = {};
+    flow.ts = Date.now();
+    flow.wake = L.getWake();
+    rnReadout('Prêt', 0);
+    rnStage('<p class="ss-between">Prêt</p><p class="ss-note">' + FL.trials + ' essais. Réponds vite, sans te tromper.</p>');
+    await rnSleep(FL.ready);
+    flTrialScreen();
+    var list = flMake(FL.trials, Math.random);
+    for (var i = 0; i < list.length; i++) {
+      rnReadout('Essai ' + (i + 1) + ' sur ' + list.length, i / list.length);
+      var r = await flTrialOnce(list[i], { practice: false });
+      res.push(r);
+      if (r.inp) inps[r.inp] = true;
+    }
+    var trials = res.map(flCompact), kinds = Object.keys(inps), dur = Math.round(performance.now() - t0);
+    flow.result = { cfg: FL_CFG, rec: { ver: FL.ver, cfg: FL_CFG, durationMs: dur, trials: trials }, sc: flScore(trials), durationMs: dur,
+                    device: DEVICE, input: kinds.length === 1 ? kinds[0] : 'mixte', ts: flow.ts, wake: flow.wake };
+    rnEnd();
+    go('fl-result');
+  }
+
+  RUN.ss = { practice: ssPractice, test: ssTest };
 
   /* ---------- Enregistrer ---------- */
   function afterSave(msg) {
@@ -1589,19 +2568,18 @@
     entries.push(t);
     afterSave((flow.mode === 'both' ? 'Relevé et test enregistrés · ' : 'Test enregistré · ') + clockOf(ts) + '.');
   }
-  function saveSs() { // Symbol Search : un test seul (un moment du plan viendra plus tard)
-    var r = flow.result;
-    if (!r || flow.test !== 'ss') return;
-    var prev = entries.filter(function (x) { return x.test === 'ss'; });
+  // Un passage de Symbol Search, Rotation span, Hand Swype ou Flanker : un test seul (les moments du plan à plusieurs tests viendront plus tard).
+  function saveTestN() {
+    var id = flow.test, td = TD[id], r = flow.result;
+    if (!r || !td) return;
+    var prev = entries.filter(function (x) { return x.test === id; });
     var e = baseEntry('test', r.ts, r.wake);
-    e.test = 'ss'; e.slot = flow.slot; e.plan = flow.slot != null ? 'prevu' : 'libre'; e.device = r.device; e.input = r.input;
+    e.test = id; e.slot = flow.slot; e.plan = flow.slot != null ? 'prevu' : 'libre'; e.device = r.device; e.input = r.input;
     e.nth = prev.length + 1; // n-ième passage de ce test (tous passages, libres compris)
     e.nthDay = prev.filter(function (x) { return x.day === e.day; }).length + 1; // n-ième passage de ce test dans la journée
-    e.ss = { ver: r.ver, cfg: r.cfg, n: r.n, correct: r.correct, used: r.used, excluded: r.excluded, med: r.med === null ? null : Math.round(r.med * 10) / 10,
-             durationMs: r.durationMs,
-             trials: r.trials.map(function (t) { return [t.side === 'L' ? 0 : 1, t.k, t.resp === 'L' ? 0 : 1, Math.round(t.rt)]; }) };
+    e[id] = td.pack(r);
     entries.push(e);
-    afterSave('Symbol Search enregistré · ' + clockOf(r.ts) + '.');
+    afterSave(td.name + ' enregistré · ' + clockOf(r.ts) + '.');
   }
   function saveNote() {
     var text = noteText.trim();
@@ -1914,17 +2892,24 @@
   function act(name, el) {
     var id = el.getAttribute('data-id');
     notice = '';
+    var tm = /^(ss|rs|hs|fl)-(intro|practice|test|save)$/.exec(name); // écrans communs à tous les tests (sauf PVT-B)
+    if (tm) {
+      flow.test = tm[1];
+      if (tm[2] === 'intro') go(tm[1] + '-intro');
+      else if (tm[2] === 'practice') { flow.tMode = 'practice'; go(tm[1] + '-run'); }
+      else if (tm[2] === 'test') { flow.tMode = 'test'; go(tm[1] + '-run'); }
+      else saveTestN();
+      return;
+    }
     switch (name) {
       case 'home': pendingDel = null; form = null; manageActs = false; flow = newFlow(); go('home'); break;
       case 'releve': flow = newFlow({ mode: 'releve' }); go('feel'); break;
       case 'test-libre': flow = newFlow({ mode: 'test' }); go('tests'); break;
       case 'tests': flow = newFlow({ mode: 'test' }); go('tests'); break;
-      case 'test-pick': flow = newFlow({ mode: 'test', test: id === 'ss' ? 'ss' : 'pvt' }); go(id === 'ss' ? 'ss-intro' : 'intro'); break;
-      case 'ss-intro': go('ss-intro'); break;
-      case 'ss-practice': flow.ssMode = 'practice'; go('ss-run'); break;
-      case 'ss-test': flow.ssMode = 'test'; go('ss-run'); break;
-      case 'ss-stop': ssStop(); break;
-      case 'ss-save': saveSs(); break;
+      case 'test-pick':
+        var tid = TESTS.some(function (t) { return t.id === id; }) ? id : 'pvt';
+        flow = newFlow({ mode: 'test', test: tid }); go(tid === 'pvt' ? 'intro' : tid + '-intro'); break;
+      case 'run-stop': rnStop(); break;
       case 'moment': startMoment(Number(id)); break;
       case 'feel': go('feel'); break;
       case 'intro': if (screen === 'feel') flow.feelTs = Date.now(); go('intro'); break;
