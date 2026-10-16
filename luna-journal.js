@@ -20,6 +20,10 @@
    Memory List (16/10) : mêmes principes, sans entraînement. 98 listes de mots (12 à retenir + 12 nouveaux), prises dans l'ordre, une par passage (libre ou non) ; une liste est
    « consommée » dès que ses 12 mots s'affichent (clé « luna.mlUsed »). Les mots de la reconnaissance sont gardés avec le passage.
 
+   Plan des tests (16/10, morceau 4a) : le plan de la journée (7 plans qui tournent, ordre mélangé chaque semaine, étapes du PVT-B) est repris sans changement de l'annexe « plan-logique » (14/10) ;
+   réglages dans « luna.plan » (premier jour choisi par l'utilisateur, graine tirée une seule fois, étape + historique des changements). Écran « Plan des tests » et carte d'accueil : affichage seulement,
+   les moments du Journal ne lancent encore que le PVT-B. Sauvegarde v3 : + plan + journal des listes de mots ; les fichiers v1 et v2 se restaurent toujours.
+
    Test PVT-B : protocole de Basner et al. 2011 — 3 min ; intervalle aléatoire de 1 à 4 s entre deux
    stimuli, retour affiché 1 s compris ; lapse = réponse > 355 ms ; faux départ = réponse < 100 ms.
    Adaptations de l'appli (CHOIX de l'appli, pas tirés de l'étude) :
@@ -479,7 +483,35 @@
     '.ml-resp{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}',
     'button.ml-btn{appearance:none;-webkit-appearance:none;min-height:76px;font-size:18px;touch-action:manipulation}',
     'button.ml-btn.hit{background:var(--nav-on);border-color:var(--text)}',
-    '@media (pointer:coarse){.ml-keys{display:none}}'
+    '@media (pointer:coarse){.ml-keys{display:none}}',
+    // Plan des tests (4a)
+    '.pl-nav{display:flex;align-items:center;gap:8px}',
+    '.pl-nav .btn{width:52px;flex-shrink:0;padding:0}',
+    '.btn.secondary:disabled{opacity:.35;cursor:default}',
+    '.pl-navc{flex:1;min-width:0;text-align:center;display:flex;flex-direction:column;gap:2px}',
+    '.pl-navc b{font-size:16px;overflow-wrap:anywhere}',
+    '.pl-navc span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}',
+    '.pl-ms{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}',
+    '.pl-m{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}',
+    '.pl-m:first-child{border-top:none}',
+    '.pl-t{flex:0 0 58px;display:flex;flex-direction:column;gap:2px;font-variant-numeric:tabular-nums}',
+    '.pl-t b{font-size:15px}',
+    '.pl-t span{font-size:11.5px;color:var(--muted)}',
+    '.pl-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}',
+    '.pl-n{font-size:12px;color:var(--muted);overflow-wrap:anywhere}',
+    '.pl-seq{font-size:14px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}',
+    '.pl-it{display:inline-block;white-space:nowrap}',
+    '.pl-it:not(:last-child)::after{content:" ·"}',
+    '.pl-pvt{color:var(--muted);font-weight:600}',
+    '.pl-d{flex-shrink:0;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:2px}',
+    '.pl-tot{font-size:13px;font-weight:600;color:var(--text);padding-top:8px;border-top:1px solid var(--line)}',
+    '.pl-setbody{display:flex;flex-direction:column;gap:10px;padding:2px 0 8px}',
+    '.pl-quick{display:flex;gap:8px}',
+    '.pl-quick .btn{flex:1;min-width:0;min-height:44px;font-size:14px}',
+    '.pl-sep{border:none;border-top:1px solid var(--line);margin:6px 0;width:100%}',
+    '.pl-hist{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}',
+    '.pl-stages{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:1.35;color:var(--muted)}',
+    '.pl-stages b{color:var(--text)}'
   ].join('\n');
   var st = document.createElement('style');
   st.textContent = css;
@@ -813,6 +845,121 @@
     }[name];
     return '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">' + body + '</svg>';
   }
+
+  /* ---------- Plan des tests : logique pure ---------- */
+  // Reprise mot pour mot de `Annexe-plan-logique` (14/10, conversation « Tests cognitifs »), vérifiée là-bas par 4 506 contrôles. Ne pas modifier sans le dire :
+  // le calendrier (7 plans, ordre des semaines, ordre des tests) doit rester le même que dans les maquettes. Seuls l'enveloppe et l'export sont ajoutés.
+  var PL = (function () {
+/* pure:start */
+const DUR = { RS: 90, FL: 110, HS: 60, ML: 120, SS: 45 };   // secondes, estimées d'après les maquettes (À ajuster)
+const PVT = 180;                                             // PVT-B : 3 min
+const NAMES = { RS: 'Rotation span', FL: 'Flanker', HS: 'Hand Swype', ML: 'Memory List', SS: 'Symbol Search' };
+const TEST_R = [2, 3, 4, 5, 8, 10, 11];                      // R+X des 7 moments de test
+// 7 plans de journée : pour chacun, les 2 tests des 7 moments (calendrier vérifié par calcul le 14/10)
+const PLANS = [[["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["RS", "ML"], ["RS", "HS"], ["RS", "HS"], ["FL", "SS"]], [["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["HS", "SS"], ["FL", "SS"], ["RS", "ML"], ["FL", "SS"]], [["RS", "HS"], ["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["HS", "ML"], ["FL", "SS"], ["RS", "HS"]], [["HS", "ML"], ["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["FL", "SS"], ["FL", "SS"], ["RS", "HS"]], [["RS", "HS"], ["FL", "SS"], ["HS", "ML"], ["FL", "SS"], ["RS", "SS"], ["FL", "HS"], ["RS", "SS"]], [["FL", "SS"], ["HS", "ML"], ["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["RS", "HS"], ["FL", "SS"]], [["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["RS", "HS"], ["FL", "HS"], ["FL", "SS"], ["HS", "ML"]]];
+// Étape 2 du PVT-B : en plus de R+2h, 2 moments (index dans TEST_R) qui tournent selon le plan
+const PVT2 = [[1, 4], [2, 5], [3, 6], [1, 5], [2, 6], [3, 4], [2, 4]];
+const NDAYS = 98;                                            // 14 semaines
+// Les 13 moments de la journée (plan codé du 11/10) : relevé seul, test, ou test + relevé
+const SLOTS = [
+  { r: 0.5, kind: 'rel' },
+  { r: 2, kind: 'test', ti: 0 }, { r: 3, kind: 'test', ti: 1 }, { r: 4, kind: 'test', ti: 2 }, { r: 5, kind: 'test', ti: 3 },
+  { r: 6, kind: 'rel' }, { r: 7, kind: 'rel' },
+  { r: 8, kind: 'testrel', ti: 4 }, { r: 9, kind: 'rel' },
+  { r: 10, kind: 'testrel', ti: 5 }, { r: 11, kind: 'testrel', ti: 6 },
+  { r: 12, kind: 'rel' }, { r: 13, kind: 'rel' }
+];
+
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function fmtDur(sec) {
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m + ' min ' + pad2(s) + ' s';
+}
+function fmtMin(sec) { return Math.round(sec / 60) + ' min'; }
+function fmtR(r) {
+  const h = Math.floor(r), m = Math.round((r - h) * 60);
+  return 'R+' + h + 'h' + (m ? pad2(m) : '');
+}
+function clockStr(wakeMin, r) {
+  const t = Math.round(wakeMin + r * 60) % 1440;
+  return pad2(Math.floor(t / 60)) + ':' + pad2(t % 60);
+}
+function parseHM(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s || '');
+  if (!m) return null;
+  const h = +m[1], mi = +m[2];
+  return h < 24 && mi < 60 ? h * 60 + mi : null;
+}
+// Moments (index dans TEST_R) où le PVT-B est passé, selon le plan et l'étape (1, 2 ou 3)
+function pvtMoments(plan, stage) {
+  if (stage === 1) return [0, 1, 2, 3, 4, 5, 6];
+  if (stage === 2) return [0].concat(PVT2[plan]);
+  return [0];
+}
+function momentSec(plan, ti, stage) {
+  const tests = PLANS[plan][ti].reduce((a, t) => a + DUR[t], 0);
+  return tests + (pvtMoments(plan, stage).indexOf(ti) >= 0 ? PVT : 0);
+}
+function daySec(plan, stage) {
+  let s = 0;
+  for (let ti = 0; ti < 7; ti++) s += momentSec(plan, ti, stage);
+  return s;
+}
+function avgDaySec(stage) {
+  let s = 0;
+  for (let p = 0; p < 7; p++) s += daySec(p, stage);
+  return s / 7;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+// Ordre des 7 plans pour une semaine : chaque plan une fois, mélangé de façon reproductible
+function weekOrder(seed, week) {
+  const rnd = mulberry32(seed * 100003 + week * 7919 + 12345);
+  const a = [0, 1, 2, 3, 4, 5, 6];
+  for (let i = 6; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function planForDay(i, seed) { return weekOrder(seed, Math.floor(i / 7))[i % 7]; }
+// Ordre des 2 tests dans un moment : tiré au hasard (reproductible), le PVT-B reste toujours en premier
+function testOrder(i, ti, plan, seed) {
+  const pair = PLANS[plan][ti];
+  const flip = mulberry32(seed * 7919 + i * 131 + ti * 17 + 99)() < 0.5;
+  return flip ? [pair[1], pair[0]] : [pair[0], pair[1]];
+}
+function weekOf(i) { return Math.floor(i / 7) + 1; }
+function isRodage(i) { return weekOf(i) <= 2; }
+function parseISO(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCMonth() === +m[2] - 1 ? d : null;
+}
+function addDays(d, n) { return new Date(d.getTime() + n * 86400000); }
+function daysBetween(a, b) { return Math.round((b.getTime() - a.getTime()) / 86400000); }
+function isoOf(d) { return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate()); }
+function milestone(w) {
+  if (w === 2) return ['Fin du rodage', 'les passages sont gardés, étiquetés « rodage »'];
+  if (w === 4) return ['Revue du PVT-B', 'varie-t-il d\'une heure à l\'autre plus que d\'un jour à l\'autre ? Étape 2 ou 3 selon les résultats'];
+  if (w === 6) return ['Premier point d\'étape', '4 semaines comptées, pour information'];
+  if (w === 10) return ['Second point d\'étape', '8 semaines comptées, pour information'];
+  if (w === 14) return ['Fin du recueil', '12 semaines comptées : les fenêtres'];
+  return null;
+}
+/* pure:end */
+    return { DUR: DUR, PVT: PVT, NAMES: NAMES, TEST_R: TEST_R, PLANS: PLANS, PVT2: PVT2, NDAYS: NDAYS, SLOTS: SLOTS, fmtDur: fmtDur, fmtMin: fmtMin, fmtR: fmtR, clockStr: clockStr,
+             parseHM: parseHM, pvtMoments: pvtMoments, momentSec: momentSec, daySec: daySec, avgDaySec: avgDaySec, mulberry32: mulberry32, weekOrder: weekOrder,
+             planForDay: planForDay, testOrder: testOrder, weekOf: weekOf, isRodage: isRodage, parseISO: parseISO, addDays: addDays, daysBetween: daysBetween,
+             isoOf: isoOf, milestone: milestone };
+  })();
 
   /* ---------- Données ---------- */
   var entries = [], storageOk = true, lastBackup = null, actNames = ACTS_DEFAULT.slice();
@@ -1223,6 +1370,268 @@
       '</span></div>' + body + act + '</div>';
   }
 
+  /* ---------- Plan des tests : réglages et vue « journée » (morceau 4a) ---------- */
+  // Réglages gardés dans « luna.plan » : premier jour (choisi par toi), graine du mélange (tirée une seule fois, jamais changée),
+  // étape du PVT-B (chaque changement est gardé avec sa date : [jour de départ, étape, heure du choix]). L'appli ne change jamais l'étape seule.
+  // Le « jour du plan » suit la journée du Journal (du réveil au réveil suivant), pas minuit ; un jour sauté reste vide.
+  var KEY_PLAN = 'luna.plan';
+  var pcfg = { start: null, seed: 0, stages: [] };
+  var psel = null, pform = null, pnotice = '';
+  var TI_SLOT = PL.TEST_R.map(function (h) { for (var i = 0; i < PLAN.length; i++) if (PLAN[i].r === h * 60) return i; return -1; }); // moment de test -> moment du plan existant
+  var STAGE_TXT = { 1: 'PVT-B aux 7 moments', 2: 'PVT-B à R+2h + 2 moments qui tournent', 3: 'PVT-B à R+2h seulement' };
+
+  function pValidDate(v) {
+    var d = typeof v === 'string' ? PL.parseISO(v) : null;
+    return d && PL.isoOf(d) === v && d.getUTCFullYear() >= 2020 && d.getUTCFullYear() <= 2100 ? d : null;
+  }
+  // Réglages venant du stockage ou d'un fichier : validation stricte, null si illisible.
+  function pClean(o) {
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+    var seed = int(o.seed, 1, 2147483646);
+    if (seed === null) return null;
+    var start = null;
+    if (o.start !== null && o.start !== undefined) { if (!pValidDate(o.start)) return null; start = o.start; }
+    var by = {};
+    if (Array.isArray(o.stages)) o.stages.slice(0, 60).forEach(function (s) {
+      if (!Array.isArray(s) || !pValidDate(s[0])) return;
+      var st = int(s[1], 1, 3), at = Number(s[2]);
+      if (st === null || !isFinite(at) || at < 0) return;
+      by[s[0]] = [s[0], st, Math.floor(at)];
+    });
+    return { start: start, seed: seed, stages: Object.keys(by).sort().map(function (k) { return by[k]; }) };
+  }
+  function pExport() { return { v: 1, start: pcfg.start, seed: pcfg.seed, stages: pcfg.stages.map(function (s) { return s.slice(); }) }; }
+  function pSave() { try { localStorage.setItem(KEY_PLAN, JSON.stringify(pExport())); return true; } catch (e) { return false; } }
+  function pNewSeed() {
+    var n;
+    try { var a = new Uint32Array(1); crypto.getRandomValues(a); n = a[0]; } catch (e) { n = Math.floor(Math.random() * 4294967296); }
+    return 100000 + n % 900000;
+  }
+  function pLoad() {
+    var raw = null, p = null;
+    try { raw = localStorage.getItem(KEY_PLAN); } catch (e) {}
+    if (raw) {
+      try { p = pClean(JSON.parse(raw)); } catch (e) { p = null; }
+      if (!p) { try { localStorage.setItem(KEY_PLAN + '.corrupt', raw); } catch (e2) {} } // illisible : gardé de côté avant d'écrire autre chose par-dessus
+    }
+    if (p) { pcfg = p; return; }
+    pcfg = { start: null, seed: pNewSeed(), stages: [] };
+    pSave();
+  }
+  // Étape du PVT-B en vigueur le jour k : la dernière modification dont le jour de départ est atteint (étape 1 au début).
+  function pStageOf(cfg, k) {
+    var st = 1;
+    cfg.stages.forEach(function (s) { if (s[0] <= k) st = s[1]; });
+    return st;
+  }
+  function pStageOn(k) { return pStageOf(pcfg, k); }
+  function pState(tk) {
+    if (!pcfg.start) return { s: 'none' };
+    var i = PL.daysBetween(PL.parseISO(pcfg.start), PL.parseISO(tk));
+    if (i < 0) return { s: 'wait', days: -i };
+    if (i >= PL.NDAYS) return { s: 'over', i: i };
+    return { s: 'run', i: i };
+  }
+  function pIndex(ps) { // jour affiché : celui choisi avec les flèches, sinon aujourd'hui (ou le premier / le dernier jour hors recueil)
+    var i = psel !== null ? psel : (ps.s === 'run' ? ps.i : (ps.s === 'over' ? PL.NDAYS - 1 : 0));
+    return Math.max(0, Math.min(PL.NDAYS - 1, i));
+  }
+  function pDay(i, tk) { // tout ce qu'il faut pour afficher le jour i du plan
+    var key = pcfg.start ? PL.isoOf(PL.addDays(PL.parseISO(pcfg.start), i)) : null;
+    var st = pStageOn(key || tk), p = PL.planForDay(i, pcfg.seed), pv = PL.pvtMoments(p, st);
+    return { i: i, key: key, plan: p, stage: st, week: PL.weekOf(i), rodage: PL.isRodage(i), sec: PL.daySec(p, st),
+      moments: PL.TEST_R.map(function (h, ti) {
+        return { ti: ti, slot: TI_SLOT[ti], r: h * 60, pvt: pv.indexOf(ti) >= 0, tests: PL.testOrder(i, ti, p, pcfg.seed), sec: PL.momentSec(p, ti, st) };
+      }) };
+  }
+  function pDateText(key, long) {
+    var d = PL.parseISO(key);
+    return d ? d.toLocaleDateString('fr-FR', long ? { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' } : { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '';
+  }
+  function pDur(sec) { return PL.fmtDur(sec).replace(/ /g, '\u00a0'); } // « 5 min 05 s » ne se coupe pas en fin de ligne
+  function pDayMonth(key) { var d = PL.parseISO(key); return d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : ''; }
+
+  // Carte de l'accueil
+  function pBoxHtml(info) {
+    var ps = pState(info.tk), kick = '<span class="j-kick">PLAN DES TESTS</span>';
+    function btn(txt) { return '<div class="btns"><button type="button" class="btn secondary" data-act="plan">' + txt + '</button></div>'; }
+    if (ps.s === 'none') {
+      return '<div class="j-now">' + kick + '<div class="t1">Premier jour pas encore choisi</div>' +
+        '<div class="t2">Le plan donne, pour chaque jour, quels tests à quel moment. Tu choisis son premier jour quand tu es prêt. Tes tests libres restent gardés.</div>' + btn('Régler le plan') + '</div>';
+    }
+    if (ps.s === 'wait') {
+      return '<div class="j-now">' + kick + '<div class="t1">Le recueil commence ' + (ps.days === 1 ? 'demain' : 'le ' + esc(pDateText(pcfg.start, true))) + '</div>' +
+        '<div class="t3">' + (ps.days === 1 ? esc(pDateText(pcfg.start, true)) : 'dans ' + ps.days + ' jours') + '</div>' + btn('Voir le plan') + '</div>';
+    }
+    if (ps.s === 'over') {
+      return '<div class="j-now">' + kick + '<div class="t1">Le recueil est terminé</div>' +
+        '<div class="t2">' + (PL.NDAYS / 7) + ' semaines depuis le premier jour. Les tests libres restent possibles.</div>' + btn('Voir le plan') + '</div>';
+    }
+    var d = pDay(ps.i, info.tk);
+    return '<div class="j-now">' + kick + '<div class="t1">Jour ' + (ps.i + 1) + ' sur ' + PL.NDAYS + ' · semaine ' + d.week + (d.rodage ? ' · rodage' : '') + '</div>' +
+      '<div class="t2">Plan de journée ' + (d.plan + 1) + ' sur 7 · 7 moments de test · ' + pDur(d.sec) + ' en tout</div>' + btn('Voir la journée') + '</div>';
+  }
+
+  // Écran « Plan des tests » : la journée choisie (aujourd'hui par défaut)
+  function pDayHtml(info) {
+    var ps = pState(info.tk), i = pIndex(ps), d = pDay(i, info.tk), tk = info.tk, wake = info.wake;
+    var isToday = ps.s === 'run' && i === ps.i, label, sub, state = '';
+    if (d.key) {
+      var dt = pDateText(d.key), rel = d.key === tk ? 'Aujourd’hui' : (d.key === addDays(tk, 1) ? 'Demain' : (d.key === addDays(tk, -1) ? 'Hier' : ''));
+      label = rel || dt; sub = (rel ? dt + ' · ' : '') + 'jour ' + (i + 1) + ' sur ' + PL.NDAYS;
+    } else {
+      label = 'Jour ' + (i + 1) + ' sur ' + PL.NDAYS; sub = 'Aperçu · premier jour pas encore choisi';
+    }
+    if (ps.s === 'none') state = 'Le premier jour n’est pas encore choisi : voici un aperçu du plan. Le choix se fait dans « Réglages du plan », plus bas.';
+    else if (ps.s === 'wait') state = 'Le recueil commence le ' + pDateText(pcfg.start, true) + ' (' + (ps.days === 1 ? 'demain' : 'dans ' + ps.days + ' jours') + ').';
+    else if (ps.s === 'over') state = 'Le recueil est terminé : ' + (PL.NDAYS / 7) + ' semaines se sont écoulées depuis le premier jour.';
+    var ms = d.moments.map(function (m) {
+      var seq = (m.pvt ? ['<span class="pl-it pl-pvt">PVT-B</span>'] : []).concat(m.tests.map(function (t) { return '<span class="pl-it">' + esc(PL.NAMES[t]) + '</span>'; }));
+      return '<li class="pl-m"><div class="pl-t"><b>' + L.fmtClock(wake + m.r) + '</b><span>' + rLabel(m.r) + '</span></div>' +
+        '<div class="pl-b"><span class="pl-n">' + esc(PLAN[m.slot].name) + '</span><span class="pl-seq">' + seq.join(' ') + '</span></div>' +
+        '<div class="pl-d">' + pDur(m.sec) + '</div></li>';
+    }).join('');
+    return (state ? '<p class="j-p">' + esc(state) + '</p>' : '') +
+      '<div class="pl-nav"><button type="button" class="btn secondary" data-act="pl-prev" aria-label="Jour précédent"' + (i <= 0 ? ' disabled' : '') + '>' + ICON_BACK + '</button>' +
+      '<div class="pl-navc"><b>' + esc(label) + '</b><span>' + esc(sub) + '</span></div>' +
+      '<button type="button" class="btn secondary" data-act="pl-next" aria-label="Jour suivant"' + (i >= PL.NDAYS - 1 ? ' disabled' : '') + '>' + ICON_CHEV + '</button></div>' +
+      (ps.s === 'run' && !isToday ? '<button type="button" class="j-link" style="align-self:center" data-act="pl-today">Revenir à aujourd’hui</button>' : '') +
+      '<section class="j-card"><div class="chips" style="margin:0"><span class="chip main">Plan de journée ' + (d.plan + 1) + ' sur 7</span>' +
+      '<span class="chip hy">Semaine ' + d.week + ' sur ' + (PL.NDAYS / 7) + '</span>' + (d.rodage ? '<span class="chip hy">Rodage</span>' : '') +
+      '<span class="chip hy">PVT-B : étape ' + d.stage + '</span></div>' +
+      '<ol class="pl-ms">' + ms + '</ol>' +
+      '<p class="pl-tot">Journée : ' + pDur(d.sec) + ' en tout, PVT-B compris</p></section>' +
+      '<p class="j-p">Heures calées sur ton réveil de ' + L.fmtClock(wake) + ' (R+ = heures depuis le réveil). Chaque moment : le PVT-B s’il est prévu à cette étape, puis 2 tests dans un ordre tiré au hasard. ' +
+      'Plan et étapes : décidés le 14/10. Durées : estimées d’après les maquettes (à ajuster), pas encore mesurées sur téléphone.</p>' +
+      '<p class="j-ok" role="status">En préparation : pour l’instant, les moments du Journal ne lancent encore que le PVT-B. Les autres tests se passent en « Test libre » et sont gardés. Les enchaîner moment par moment vient à l’étape suivante.</p>';
+  }
+  function pRefreshDay(focusAct) {
+    var box = $('pl-top');
+    if (!box) return;
+    setHtml(box, pDayHtml(todayInfo()));
+    if (focusAct) {
+      var b = box.querySelector('[data-act="' + focusAct + '"]:not([disabled])') || box.querySelector('[data-act="pl-next"]:not([disabled])') || box.querySelector('[data-act="pl-prev"]:not([disabled])');
+      if (b) b.focus({ preventScroll: true });
+    }
+  }
+
+  // Réglages : premier jour et étape du PVT-B
+  function pFormNew() {
+    var tk = todayInfo().tk;
+    return { start: pcfg.start || '', startConfirm: false, stage: pStageOn(addDays(tk, 1)), stageConfirm: false, open: !pcfg.start };
+  }
+  function pStartInfo() {
+    var f = pform, ok = !!pValidDate(f.start), same = ok && f.start === pcfg.start, need = ok && !same && !!pcfg.start;
+    var hint = '';
+    if (same) hint = 'Premier jour enregistré : ' + pDateText(pcfg.start, true) + '.';
+    else if (f.start && !ok) hint = 'Cette date n’est pas valide.';
+    else if (!ok && !pcfg.start) hint = 'Choisis une date, puis enregistre.';
+    else if (need && f.startConfirm) hint = 'Changer le premier jour recalcule tous les jours du plan (le mélange garde la même graine). Les passages déjà gardés ne bougent pas.';
+    return { ok: ok, same: same, need: need, confirm: need && f.startConfirm, disabled: !ok || same, hint: hint,
+             btn: need && f.startConfirm ? 'Oui, changer le premier jour' : (same ? 'Premier jour enregistré' : 'Enregistrer le premier jour') };
+  }
+  function pStageInfo(tk) {
+    var cur = pStageOn(tk), nxt = pStageOn(addDays(tk, 1)), f = pform, same = f.stage === nxt;
+    var hint = '';
+    if (same) hint = 'Étape en vigueur' + (nxt !== cur ? ' dès demain' : '') + ' : ' + nxt + '.';
+    else if (f.stageConfirm) hint = 'À partir de demain, la journée du plan suivra l’étape ' + f.stage + ', jusqu’à un autre choix. Les jours déjà passés gardent la leur.';
+    return { cur: cur, nxt: nxt, same: same, hint: hint,
+             btn: same ? 'Étape ' + nxt + (nxt !== cur ? ' (dès demain)' : ' en vigueur') : (f.stageConfirm ? 'Oui, passer à l’étape ' + f.stage + ' dès demain' : 'Changer l’étape (dès demain)') };
+  }
+  function pHistoryHtml(tk) {
+    var rows = ['<li>Étape 1 · depuis le début</li>'];
+    pcfg.stages.forEach(function (s) {
+      rows.push('<li>Étape ' + s[1] + ' · dès le ' + esc(pDayMonth(s[0])) + ' · choisie le ' + esc(dShort(s[2])) + (s[0] > tk ? ' · à venir' : '') + '</li>');
+    });
+    return '<ul class="pl-hist" aria-label="Historique des étapes">' + rows.join('') + '</ul>';
+  }
+  function pSettingsHtml(tk) {
+    var f = pform, si = pStartInfo(), gi = pStageInfo(tk);
+    var opts = [1, 2, 3].map(function (s) { return '<option value="' + s + '"' + (f.stage === s ? ' selected' : '') + '>Étape ' + s + '</option>'; }).join('');
+    var list = '<ul class="pl-stages">' + [1, 2, 3].map(function (s) {
+      return '<li><b>Étape ' + s + '</b> · ' + STAGE_TXT[s] + ' · ≈ ' + PL.fmtMin(PL.avgDaySec(s)) + ' par jour</li>';
+    }).join('') + '</ul>';
+    return '<div class="pl-setbody">' +
+      '<div class="j-field"><label class="j-lab" for="pl-start">Premier jour du recueil</label>' +
+      '<input id="pl-start" class="j-sel" type="date" value="' + esc(f.start) + '">' +
+      '<span class="j-fhint">Le jour du plan suit ta journée (du réveil au réveil suivant), pas minuit. Un jour sauté reste vide : rien à rattraper. Les tests libres déjà faits restent gardés, en dehors du recueil.</span></div>' +
+      '<div class="pl-quick"><button type="button" class="btn secondary" data-act="pl-start-today">Aujourd’hui</button><button type="button" class="btn secondary" data-act="pl-start-tomorrow">Demain</button></div>' +
+      '<button type="button" class="btn primary" id="pl-start-go" data-act="pl-start-go"' + (si.disabled ? ' disabled' : '') + '>' + si.btn + '</button>' +
+      '<span class="j-hint left" id="pl-start-hint" role="status" aria-live="polite">' + esc(si.hint) + '</span>' +
+      '<hr class="pl-sep">' +
+      '<div class="j-field"><label class="j-lab" for="pl-stage">Étape du PVT-B</label>' +
+      '<select id="pl-stage" class="j-sel">' + opts + '</select>' + list +
+      '<span class="j-fhint">Décidé le 14/10 : étape 1 pendant 4 semaines sans y toucher, puis revue à la semaine 4 ; c’est toi qui choisis la suite. LUNA ne change jamais l’étape toute seule. Durées moyennes : estimées (à ajuster).</span></div>' +
+      '<button type="button" class="btn primary" id="pl-stage-go" data-act="pl-stage-go"' + (gi.same ? ' disabled' : '') + '>' + gi.btn + '</button>' +
+      '<span class="j-hint left" id="pl-stage-hint" role="status" aria-live="polite">' + esc(gi.hint) + '</span>' +
+      pHistoryHtml(tk) +
+      '<hr class="pl-sep">' +
+      '<p class="j-fhint">Graine du mélange : <b>' + pcfg.seed + '</b>. Tirée une seule fois, jamais changée ; elle est dans le fichier de sauvegarde. Avec la même graine et le même premier jour, on retrouve exactement le même calendrier.</p>' +
+      '</div>';
+  }
+  function vPlan() {
+    if (!pform) pform = pFormNew();
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">LUNA</span></div>' +
+      '<div class="titlerow"><h1 tabindex="-1">Plan des tests</h1>' +
+      '<label class="wake">Réveil <input class="wake-input" type="time" aria-label="Heure de réveil" required></label></div>' +
+      '<p class="sub">' + (PL.NDAYS / 7) + ' semaines · 7 moments de test par jour</p></header>' +
+      '<main style="padding-top:14px;gap:12px">' +
+      (pnotice ? '<p class="j-ok" role="status">' + esc(pnotice) + '</p>' : '') +
+      '<div id="pl-top" style="display:flex;flex-direction:column;gap:12px"></div>' +
+      '<details class="j-det" id="pl-set"' + (pform.open ? ' open' : '') + '><summary>Réglages du plan</summary>' + pSettingsHtml(todayInfo().tk) + '</details></main>';
+  }
+  function pOpen() { psel = null; pform = pFormNew(); pnotice = ''; go('plan'); }
+  function pNav(name) {
+    var info = todayInfo(), ps = pState(info.tk), i = pIndex(ps);
+    if (name === 'pl-today') psel = null;
+    else psel = Math.max(0, Math.min(PL.NDAYS - 1, i + (name === 'pl-next' ? 1 : -1)));
+    pRefreshDay(name);
+  }
+  function pSync() { // met à jour boutons et phrases sans toucher aux champs (une saisie en cours reste intacte)
+    if (!pform) return;
+    var si = pStartInfo(), gi = pStageInfo(todayInfo().tk);
+    var b = $('pl-start-go'), h = $('pl-start-hint'), b2 = $('pl-stage-go'), h2 = $('pl-stage-hint');
+    if (b) { b.disabled = si.disabled; b.textContent = si.btn; }
+    if (h) h.textContent = si.hint;
+    if (b2) { b2.disabled = gi.same; b2.textContent = gi.btn; }
+    if (h2) h2.textContent = gi.hint;
+  }
+  function pOnField(t) {
+    if (!pform) return;
+    if (t.id === 'pl-start') { pform.start = t.value; pform.startConfirm = false; pSync(); }
+    else if (t.id === 'pl-stage') { pform.stage = int(t.value, 1, 3) || 1; pform.stageConfirm = false; pSync(); }
+  }
+  function pQuickStart(which) {
+    var tk = todayInfo().tk;
+    pform.start = which === 'tomorrow' ? addDays(tk, 1) : tk; pform.startConfirm = false;
+    var inp = $('pl-start');
+    if (inp) inp.value = pform.start;
+    pSync();
+  }
+  function pStartGo() {
+    var si = pStartInfo();
+    if (!si.ok || si.same) return;
+    if (si.need && !pform.startConfirm) { pform.startConfirm = true; pSync(); return; }
+    pcfg.start = pform.start;
+    var saved = pSave();
+    pform.startConfirm = false; pform.open = true; psel = null;
+    pnotice = 'Premier jour enregistré : ' + pDateText(pcfg.start, true) + '.' + (saved ? '' : ' Attention : l’appareil refuse d’enregistrer ce réglage.');
+    render();
+  }
+  function pStageGo() {
+    var tk = todayInfo().tk, gi = pStageInfo(tk);
+    if (gi.same) return;
+    if (!pform.stageConfirm) { pform.stageConfirm = true; pSync(); return; }
+    var tom = addDays(tk, 1), target = pform.stage;
+    pcfg.stages = pcfg.stages.filter(function (s) { return s[0] <= tk; }); // un choix à venir est remplacé ; l'historique passé reste
+    if (pStageOn(tk) !== target) pcfg.stages.push([tom, target, Date.now()]);
+    var saved = pSave();
+    pform.stageConfirm = false; pform.stage = pStageOn(tom); pform.open = true;
+    pnotice = (pStageOn(tk) === target ? 'Changement annulé : l’étape ' + target + ' reste en vigueur.' : 'Étape ' + target + ' choisie, en vigueur dès demain.') +
+      (saved ? '' : ' Attention : l’appareil refuse d’enregistrer ce réglage.');
+    render();
+  }
+
   /* ---------- Accueil ---------- */
   function momentCard(info, ps) {
     if (ps.open >= 0) {
@@ -1277,6 +1686,7 @@
     var info = todayInfo(), ps = slotStates(info), ca = currentAct();
     var typing = document.activeElement && top.contains(document.activeElement) && document.activeElement.tagName === 'INPUT';
     if (!typing) setHtml(top, momentCard(info, ps) + (ca ? actCard(ca, info) : '') + (needBed(info) ? bedCard() : ''));
+    setHtml($('j-planbox'), pBoxHtml(info));
 
     var nDone = ps.list.filter(function (s) { return s.kind === 'done'; }).length;
     $('j-plansum').textContent = 'Plan du jour · ' + PLAN.length + ' moments · ' + nDone + ' fait' + (nDone > 1 ? 's' : '');
@@ -1307,6 +1717,7 @@
       (storageOk ? '' : '<p class="j-warn" role="alert">Cet appareil refuse d’enregistrer les données (navigation privée ?). Sauvegarde ton fichier avant de quitter.</p>') +
       (notice ? '<p class="j-ok" role="status">' + esc(notice) + '</p>' : '') +
       '<div id="j-top" style="display:flex;flex-direction:column;gap:10px"></div>' +
+      '<div id="j-planbox"></div>' +
       '<details class="j-det" id="j-plan"><summary id="j-plansum"></summary><ol class="j-points" id="j-points"></ol></details>' +
       '<div class="j-sect"><span class="j-kick">À TOUT MOMENT</span></div>' +
       '<div class="j-grid">' +
@@ -2054,10 +2465,11 @@
 
   function vBackup() {
     return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">LUNA</span></div>' +
-      '<h1 tabindex="-1">Sauvegarde</h1><p class="sub">Un fichier : tout ton Journal et ton réveil</p></header>' +
+      '<h1 tabindex="-1">Sauvegarde</h1><p class="sub">Un fichier : tout ton Journal, ton réveil et ton plan</p></header>' +
       '<main style="padding-top:14px;gap:12px"><section class="j-card">' +
       '<p class="lead">Au quotidien, rien à faire : tes relevés, tests, notes, activités, repas et couchers se gardent tout seuls sur cet appareil, d’un jour à l’autre.</p>' +
       '<p>La sauvegarde est une assurance : si l’appli est supprimée, si les données du navigateur sont effacées ou si tu changes d’appareil, le fichier permet de tout retrouver. Le téléphone et l’ordinateur ne se partagent rien : « Restaurer » en mode « Fusionner » réunit leurs données.</p>' +
+      '<p>Le fichier garde aussi les réglages du plan (premier jour, graine du mélange, étape du PVT-B) et la liste des mots déjà vus à la Memory List. Les fichiers faits avant cette version se restaurent toujours.</p>' +
       '<p>Suggestion, pas une règle : une fois par semaine.</p>' +
       '<p style="font-size:12.5px">Le fichier contient tes notes, tes repas et tes activités : range-le dans un endroit privé.</p>' +
       '<p class="last">' + lastBackupText() + '</p></section>' +
@@ -2122,6 +2534,11 @@
   }
   function dShort(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
 
+  function restorePlanLine(r) {
+    if (r.plan === undefined) return '<p>Sauvegarde d’une ancienne version : sans réglages du plan (ceux de cet appareil sont gardés).</p>';
+    if (!r.plan) return '';
+    return '<p>Plan : ' + (r.plan.start ? 'premier jour le ' + esc(pDateText(r.plan.start, true)) : 'premier jour pas encore choisi') + ' · étape ' + pStageOf(r.plan, todayInfo().tk) + '</p>';
+  }
   function vRestore() {
     var r = restore, body = '', btn, canGo = !!r;
     if (r) {
@@ -2131,13 +2548,14 @@
         '<p class="lead" style="font-size:14px;font-weight:700;overflow-wrap:anywhere">' + esc(r.name || 'Texte collé') + '</p>' +
         '<p>' + (r.exportedAt ? 'Sauvegarde du ' + esc(dShort(r.exportedAt)) + ', ' + clockOf(r.exportedAt) : 'Date de sauvegarde inconnue') + '</p>' +
         '<p>' + esc(countsText(r.entries)) + (s.from ? ' · du ' + esc(dShort(s.from)) + ' au ' + esc(dShort(s.to)) : '') + '</p>' +
+        restorePlanLine(r) +
         '<p>' + plural(s.fresh.length, 'élément nouveau', 'éléments nouveaux') + ' pour cet appareil · ' + plural(s.dup, 'déjà présent', 'déjà présents') + '</p></section>' +
         '<section class="j-sec" style="gap:8px"><h2>COMMENT LE RESTAURER ?</h2>' +
         '<label class="j-opt' + (r.mode === 'merge' ? ' on' : '') + '"><input type="radio" name="rmode" value="merge"' + (r.mode === 'merge' ? ' checked' : '') + '>' +
-        '<span class="t"><b>Fusionner <small>· recommandé</small></b><span class="d">Ajoute ce qui manque sur cet appareil. Rien n’est effacé, les doublons sont ignorés, ton réveil actuel est gardé.</span></span></label>' +
+        '<span class="t"><b>Fusionner <small>· recommandé</small></b><span class="d">Ajoute ce qui manque sur cet appareil. Rien n’est effacé, les doublons sont ignorés, ton réveil actuel est gardé. Le plan de cet appareil est gardé, sauf s’il n’a pas encore de premier jour.</span></span></label>' +
         '<label class="j-opt' + (r.mode === 'replace' ? ' on' : '') + '"><input type="radio" name="rmode" value="replace"' + (r.mode === 'replace' ? ' checked' : '') + '>' +
-        '<span class="t"><b>Remplacer</b><span class="d">Efface le Journal de cet appareil, et met celui du fichier à la place (réveil compris). Ce qui a été fait après la sauvegarde est perdu.</span></span></label></section>' +
-        (r.mode === 'replace' && r.confirm ? '<p class="j-warn" role="alert">Cela efface le contenu du Journal de cet appareil (' + esc(countsText(entries)) + ') pour mettre celui du fichier à la place.</p>' : '');
+        '<span class="t"><b>Remplacer</b><span class="d">Efface le Journal de cet appareil, et met celui du fichier à la place (réveil' + (r.plan ? ' et plan' : '') + ' compris). Ce qui a été fait après la sauvegarde est perdu.</span></span></label></section>' +
+        (r.mode === 'replace' && r.confirm ? '<p class="j-warn" role="alert">Cela efface le contenu du Journal de cet appareil (' + esc(countsText(entries)) + ') pour mettre celui du fichier à la place.' + (r.plan ? ' Le plan (premier jour, graine, étape) est aussi remplacé.' : '') + '</p>' : '');
     } else {
       btn = 'Restaurer';
       body = '<section class="j-card"><p class="lead">Choisis le fichier <b>luna-sauvegarde-….json</b> enregistré plus tôt. L’appli te montre ce qu’il contient avant de toucher à quoi que ce soit.</p>' +
@@ -2165,7 +2583,7 @@
   }
 
   var VIEWS = { home: vHome, feel: vFeel, intro: vIntro, run: vRun, result: vResult, note: vNote, backup: vBackup, restore: vRestore, history: vHistory,
-                reminders: vRemind, 'act-start': vActStart, 'act-end': vActEnd, meal: vMeal, bed: vBed, edit: vEdit,
+                reminders: vRemind, plan: vPlan, 'act-start': vActStart, 'act-end': vActEnd, meal: vMeal, bed: vBed, edit: vEdit,
                 tests: vTests, 'ss-intro': vSsIntro, 'ss-run': vSsRun, 'ss-prac': vSsPrac, 'ss-result': vSsResult,
                 'rs-intro': vTIntro, 'rs-run': vTRun, 'rs-prac': vTPrac, 'rs-result': vTResult,
                 'hs-intro': vTIntro, 'hs-run': vTRun, 'hs-prac': vTPrac, 'hs-result': vTResult,
@@ -2176,9 +2594,10 @@
     var runM = /^(ss|rs|hs|fl|ml)-run$/.exec(screen);
     if (rnRun && !runM) { rnRun.why = 'silent'; rnKill(); } // on quitte l'écran du test : on l'arrête sans rien dire
     root.innerHTML = (VIEWS[screen] || vHome)();
-    L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders');
+    L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders' || screen === 'plan');
     if (screen === 'home') { L.bindWake(root.querySelector('.wake-input')); updateHome(); }
     if (screen === 'reminders') L.bindWake(root.querySelector('.wake-input'));
+    if (screen === 'plan') { L.bindWake(root.querySelector('.wake-input')); pRefreshDay(); }
     if (screen === 'run') startPvt();
     if (runM) rnStart(RUN[runM[1]][flow.tMode === 'practice' ? 'practice' : 'test']);
     var focus = screen === 'run' ? $('j-area') : root.querySelector('h1');
@@ -3148,8 +3567,16 @@
   }
 
   /* ---------- Sauvegarde ---------- */
+  // Journal des listes de mots (Memory List) rapporté d'un fichier : fusionné (sans doublon) ou, en mode « Remplacer », mis à la place de celui de l'appareil.
+  function mlLogRestore(list, replace) {
+    var all = replace ? [] : mlLogRead(), seen = {}, out = [];
+    all.concat(list).forEach(function (x) { var k = x[0] + '|' + x[1]; if (!seen[k]) { seen[k] = true; out.push([x[0], x[1]]); } });
+    out.sort(function (a, b) { return a[1] - b[1]; });
+    try { localStorage.setItem(KEY_ML, JSON.stringify(out.slice(-400))); } catch (e) {}
+  }
+  // Format v3 : + réglages du plan (premier jour, graine, étapes) + journal des listes de mots. Les fichiers v1 et v2 restent lisibles.
   function buildBackup() {
-    return JSON.stringify({ app: 'LUNA', v: 2, exportedAt: Date.now(), wake: L.wakeStr(L.getWake()), activities: actNames, entries: entries });
+    return JSON.stringify({ app: 'LUNA', v: 3, exportedAt: Date.now(), wake: L.wakeStr(L.getWake()), activities: actNames, entries: entries, plan: pExport(), mlUsed: mlLogRead() });
   }
   function setStatus(msg) {
     backupStatus = msg;
@@ -3281,20 +3708,28 @@
     if (typeof text !== 'string' || text.length > 20e6) return 'Ce fichier est trop gros ou illisible.';
     try { o = JSON.parse(text); } catch (e) { return 'Ce fichier n’est pas une sauvegarde LUNA (texte illisible).'; }
     if (!o || o.app !== 'LUNA' || !Array.isArray(o.entries)) return 'Ce fichier n’est pas une sauvegarde LUNA.';
+    if (Number(o.v) > 3) return 'Cette sauvegarde vient d’une version plus récente de LUNA : mets d’abord l’appli à jour.';
     if (o.entries.length > 50000) return 'Ce fichier contient trop d’entrées.';
     var list = o.entries.map(clean).filter(Boolean);
     var seen = {};
     list = list.filter(function (e) { if (seen[e.id]) return false; seen[e.id] = true; return true; }).sort(byTs);
     var skipped = o.entries.length - list.length;
     var acts = Array.isArray(o.activities) ? o.activities.filter(function (x) { return typeof x === 'string' && x.trim() && x.length <= 40; }).map(function (x) { return x.trim(); }).slice(0, 30) : [];
+    // plan : undefined = fichier sans plan (v1, v2) ; null = réglages illisibles (ignorés) ; sinon réglages validés
+    var pl = o.plan === undefined ? undefined : pClean(o.plan);
+    var mlu = Array.isArray(o.mlUsed) ? o.mlUsed.filter(function (x) { return Array.isArray(x) && int(x[0], 1, ML_BANK.length) !== null && isFinite(x[1]) && x[1] > 0; })
+      .map(function (x) { return [Number(x[0]), Math.floor(x[1])]; }).slice(-400) : undefined;
     return { name: name, entries: list, wake: typeof o.wake === 'string' ? o.wake : null, exportedAt: Number(o.exportedAt) > 0 ? Number(o.exportedAt) : 0,
-             acts: acts, mode: 'merge', confirm: false, skipped: skipped };
+             acts: acts, mode: 'merge', confirm: false, skipped: skipped, plan: pl, mlUsed: mlu };
   }
   function loadRestore(text, name) {
     var r = parseBackup(text, name);
     if (typeof r === 'string') { restore = null; restoreError = r; }
     else if (!r.entries.length) { restore = null; restoreError = 'Cette sauvegarde ne contient aucune entrée.'; }
-    else { restore = r; restoreError = r.skipped ? plural(r.skipped, 'entrée illisible ignorée', 'entrées illisibles ignorées') + '.' : ''; }
+    else {
+      restore = r; restoreError = r.skipped ? plural(r.skipped, 'entrée illisible ignorée', 'entrées illisibles ignorées') + '.' : '';
+      if (r.plan === null) restoreError += (restoreError ? ' ' : '') + 'Les réglages du plan de ce fichier sont illisibles : ils sont ignorés.';
+    }
     render();
   }
   function applyRestore() {
@@ -3307,6 +3742,15 @@
       if (r.wake && L.parseWake(r.wake) !== null) L.setWake(r.wake, null);
       msg = 'Restauré : cet appareil contient maintenant ' + countsText(r.entries) + ' du fichier.';
     }
+    // journal des listes de mots et réglages du plan (sauvegardes v3) : le plan de l'appareil n'est remplacé que s'il n'a pas encore de premier jour, ou en mode « Remplacer »
+    if (r.mlUsed) mlLogRestore(r.mlUsed, r.mode === 'replace');
+    if (r.plan) {
+      if (r.mode === 'replace' || !pcfg.start) {
+        pcfg = r.plan; pSave();
+        if (r.plan.start) msg += ' Plan : premier jour, graine et étape repris du fichier.';
+      } else if (r.plan.start !== pcfg.start || r.plan.seed !== pcfg.seed) msg += ' Le plan de cet appareil est gardé.';
+    }
+    pform = null; psel = null;
     // les noms d'activités du fichier, et ceux des activités restaurées, rejoignent la liste rapide
     r.acts.forEach(rememberAct);
     r.entries.forEach(function (e) { if (e.kind === 'activite') rememberAct(e.name); });
@@ -3369,6 +3813,12 @@
       case 'edit-go': doEdit(); break;
       case 'backup': restore = null; restoreError = ''; go('backup'); break;
       case 'do-backup': doBackup(); break;
+      case 'plan': pOpen(); break;
+      case 'pl-prev': case 'pl-next': case 'pl-today': pNav(name); break;
+      case 'pl-start-today': pQuickStart('today'); break;
+      case 'pl-start-tomorrow': pQuickStart('tomorrow'); break;
+      case 'pl-start-go': pStartGo(); break;
+      case 'pl-stage-go': pStageGo(); break;
       case 'remind': remStatus = ''; go('reminders'); break;
       case 'make-ics': doIcs(); break;
       case 'copy': doCopy(); break;
@@ -3422,6 +3872,8 @@
       }
       var mk = $('j-mk');
       if (mk) mk.disabled = !(rem.moments || rem.phases);
+    } else if (t.id === 'pl-start' || t.id === 'pl-stage') {
+      pOnField(t);
     } else if (t.id === 'j-file' && t.files && t.files[0]) {
       var f = t.files[0], rd = new FileReader();
       rd.onload = function () { loadRestore(String(rd.result), f.name); };
@@ -3439,6 +3891,8 @@
       if (b) b.disabled = !noteText.trim();
     } else if (t.id === 'j-detail') {
       flow.detail = t.value;
+    } else if (t.id === 'pl-start') {
+      pOnField(t);
     } else if (t.getAttribute && t.getAttribute('data-field')) {
       onField(t);
     }
@@ -3449,6 +3903,7 @@
     if (t.id === 'j-det' && t.open) { var ta = $('j-copy'); if (ta) ta.value = buildBackup(); }
     else if (t.id === 'f-feel' && form) form.feelOpen = t.open;
     else if (t.id === 'f-feel2' && form) form.feelOpen2 = t.open;
+    else if (t.id === 'pl-set' && pform) pform.open = t.open;
   }, true);
 
   /* ---------- Alerte sur la Roue : activité en cours depuis longtemps ---------- */
@@ -3464,6 +3919,7 @@
     updateAlert();
     if (root.hidden) return;
     if (screen === 'home') updateHome();
+    if (screen === 'plan') pRefreshDay();
     if (screen === 'reminders') { var w = $('j-rwake'); if (w) w.textContent = L.fmtClock(L.getWake()); }
   }
   L.on('tick', maybeUpdate);
@@ -3471,10 +3927,11 @@
   L.journal = {
     onShow: function () {
       notice = '';
-      if (['home', 'backup', 'history', 'reminders'].indexOf(screen) < 0) { flow = newFlow(); form = null; manageActs = false; screen = 'home'; }
+      if (['home', 'backup', 'history', 'reminders', 'plan'].indexOf(screen) < 0) { flow = newFlow(); form = null; manageActs = false; screen = 'home'; }
       render();
     }
   };
   readAll();
+  pLoad();
   updateAlert();
 })();
