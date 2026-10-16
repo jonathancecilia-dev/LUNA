@@ -6,7 +6,7 @@
    Deux choses séparées (décision du 11/10) :
    - RELEVÉ = ressenti seulement (5 questions + détail facultatif). « prévu » (un moment du plan) ou « libre » (à tout moment) ;
    - TEST   = PVT-B (vigilance soutenue), 3 min, ou un test cognitif : Symbol Search (vitesse de traitement, ≈ 45 s),
-              Rotation span (mémoire de travail, ≈ 90 s), Hand Swype (vitesse de réaction/choix, 60 s), Flanker (attention/inhibition, ≈ 110 s). « prévu » ou « libre ».
+              Rotation span (mémoire de travail, ≈ 90 s), Hand Swype (flexibilité, 60 s), Flanker (inhibition, ≈ 110 s), Memory List (mémoire épisodique, ≈ 2 min). « prévu » ou « libre ».
    Le plan de la journée (PLAN) est une simple liste en « réveil + X » : on peut ajouter ou changer des moments sans toucher au reste.
 
    Symbol Search (14/10) : protocole lu chez Hernandez et al. 2023 (20 essais, carte du bas identique à celle du haut) ;
@@ -16,6 +16,9 @@
    Rotation span, Hand Swype, Flanker (15/10) : même principe — réglages = ceux des maquettes du 14/10, figés pendant le recueil
    (versions « v1 »), entraînement montré la première fois seulement et jamais enregistré, essai interrompu = rien d'enregistré.
    Chaque passage garde ses essais (compacts) ; tous les chiffres affichés sont recalculés à partir d'eux. Tous « libres » pour l'instant.
+
+   Memory List (16/10) : mêmes principes, sans entraînement. 98 listes de mots (12 à retenir + 12 nouveaux), prises dans l'ordre, une par passage (libre ou non) ; une liste est
+   « consommée » dès que ses 12 mots s'affichent (clé « luna.mlUsed »). Les mots de la reconnaissance sont gardés avec le passage.
 
    Test PVT-B : protocole de Basner et al. 2011 — 3 min ; intervalle aléatoire de 1 à 4 s entre deux
    stimuli, retour affiché 1 s compris ; lapse = réponse > 355 ms ; faux départ = réponse < 100 ms.
@@ -118,13 +121,118 @@
   // fix = fixation (une des trois durées, tirée au hasard) ; iti = pause entre essais ; hit = bouton touché surligné ; limit = temps limite d'un essai ;
   // minRt = en dessous, une réponse juste n'est pas comptée dans les temps ; entraînement : blocs de 4 essais, 3 justes pour passer, 3 blocs au plus.
   var FL = { ver: 1, trials: 40, fix: [1000, 1250, 1500], iti: 800, hit: 100, limit: 3000, fbOk: 1000, fbErr: 1500, minRt: 100, practice: 4, pracBlocks: 3, pracPass: 3, ready: 1600, refMin: 3, estSec: 110 };
-  // Les tests qu'on peut lancer librement (Journal → « Test libre »). Memory List viendra s'ajouter ici.
+  // Memory List : RÉGLAGES FIGÉS (maquette du 14/10 ; test NeuroUX, Paolillo 2024). study = affichage des 12 mots ; odd = tâche intercalaire « touche la forme différente » ;
+  // gap = écrans « Autre tâche » et « Reconnaissance » ; blank = pause après chaque mot ; hit = bouton touché surligné ; oddBlank = pause entre deux formes ; ready = écran « Prêt ».
+  // Pas d'entraînement. Les 98 listes de mots sont prises dans l'ordre : la liste n sert au n-ième passage (voir mlPick). Ne pas les changer en cours de recueil.
+  var ML = { ver: 1, study: 30000, odd: 30000, gap: 2200, blank: 300, hit: 100, oddBlank: 150, ready: 1600, nT: 12, nD: 12, refMin: 3, estSec: 120 };
+  var ML_BANK = [ // liste n° 1 à 98 : « 12 mots à retenir | 12 mots nouveaux » (voir Banque-mots-Memory-List)
+    'barbecue lama terrine vigne champignon guérite mélèze ombrelle savon astéroïde poulain guêtre|sirop parmesan cabriolet touriste blason lecteur charrette raie étable silex pinceau rascasse',
+    'visière gypse passoire main tuile ruche auberge smoothie hirondelle calendrier digicode borne|melon boulanger chaise iris pavillon profiterole ortie beffroi morse chimpanzé toboggan serre',
+    'opossum couturière palier acacia ours infusion aiguille baromètre mantille sceau grange huile|clémentine épinard gazon cymbale okapi porcelet matelas piolet volière bleuet bandana luzerne',
+    'gazelle cible olive bras brindille placard levain mètre autocuiseur fondue marguerite écaille|bouchon furet améthyste caramel source péninsule galoche truite douche averse pilote coulisse',
+    'tandem pesto épouvantail basket sentier tête kangourou sureau meule cafetière pistil rutabaga|crête mezzanine baignoire lampion rossignol verrou baleine carte mangeoire pneu aulne lasagne',
+    'partition télescope gouge léopard mauve camionnette cajou litchi béret soupière reine planète|chipolata tableau dépendance épuisette jungle drap racine hanneton rondin lynx bourg bracelet',
+    'réveil basilic topaze veston lamantin pince composteur gourde fourrure rive entrepôt musicien|cyprès vitrine houblon peluche wombat chenille levure perron banquise route épicerie vignoble',
+    'râtelier givre guéridon kumquat terrasse coyote fleuriste plancher brebis thuya péage médecin|boue ventouse diamant poupée frites céleri crapaud registre excavatrice trottoir lutin isthme',
+    'araignée lavoir salière estragon marée puzzle bougeoir collant oasis ocelot trèfle marronnier|boucherie fouet prisme bécasse valve suricate kayak toast abricot calanque continent paupière',
+    'arche yourte bretelle chalumeau fourgon flocons martinet peuplier pupitre église bassin steak|bermuda enseigne limon coussin genette mayonnaise trône proue copeau kiosque interphone figue',
+    'luciole tournevis atelier polenta cadran radiateur plomb belette kimono chaudron évier aurore|housse baobab librairie spectateur pinson mangue barrage équerre faisan laitue dossier congère',
+    'haricot rouage marmite pollen trousse caillou boucle parquet chalutier émeraude tente génisse|monastère hérisson front paillasson igloo gnocchi dragée bahut hache colombier antilope grêle',
+    'lait blouson tiroir dentelle calebasse stalactite quai endive fumée présentoir buffle cigogne|banque policier espadon monospace tisane tamaris guacamole peigne maquereau satin canal algue',
+    'mansarde frigo tanière amande champ bronze martre ukulélé parchemin éclair jongleur redingote|spaghetti gousse mulet fermier boulevard snowboard corde tresse cèpe pilier peignoir tondeuse',
+    'toucan flamme égouttoir poste mouflon fanfare grimoire artichaut pécan graine cube télévision|ruisseau boîte échelle roquefort chiffon sirène perle carrosse scorpion fuseau méduse brioche',
+    'limace mouette surligneur bocage salopette tremplin girolle onyx cuillère mairie paella paume|ruban dauphin autobus dompteur fusain persil clavecin jetée croquette fleuve toile espadrille',
+    'elfe poteau glacier assiette fossile bulldozer tornade rôti praline tenaille fauvette couloir|donjon zèbre crevette baudrier vermicelle sillon taxi salsifis lavabo oriflamme poing chardon',
+    'pompe faitout bannière mitaine sauterelle roue lentille mikado curry citrouille gravier puits|tunique sucette potager filet bidon mangouste soupe nénuphar bécassine dune cordonnier éponge',
+    'nouilles établi argile bouillotte truffe maison émeu soupirail cloche détroit lavande pelouse|braise asperge hochet religieuse louche pantalon croc serpent genouillère cône port aérodrome',
+    'nèfle clairière ancre maillet houx brume dromadaire sucrier essoreuse cartable poireau fennec|lacet haie berceau vache cinéma purée buanderie tourterelle alphabet roquette hortensia piège',
+    'gland botte gomme flotteur perche ficelle mousse éprouvette chamois soja nectarine jardinière|dragon cerceau vestibule thermomètre jabot guépard pois côtelette sable aquarium plume futaie',
+    'rivage acrobate planeur orme cochon montre caniveau nageoire raclette trombone besace sablier|vernis bruine passerelle hamac forgeron crocodile ravioli guichet datte perceuse manoir fourmi',
+    'mocassin guêpe basilique cocotte râteau serpe emmental repaire parking tulipe billard goéland|étudiant lampadaire poule bobine torche paquebot merle courgette tarot macaron saphir cordage',
+    'faubourg clôture mozzarella pivoine bison atlas menuisier salon thym étiquette pantoufle geai|colle tablier nonnette pochette bourdon square bosquet digue cresson lièvre dînette moustache',
+    'merguez jasmin carafe hameçon hautbois steppe short tarentule banane pompier terrier bourgeon|menthe ruelle haltère pirate lucarne pivert fourrage truie jade chaudière camembert autoroute',
+    'toupie chorale églantier rayon girafe physalis truelle classeur goujon bandeau école moutarde|fougère bureau cigale ibis géranium archipel voile tonnelle pizza embarcadère palmier sceptre',
+    'raton potier talus fresque chaussette paprika antenne mouchoir échalote congre archet éclipse|béton comptoir mûre veilleuse ravin chevreuil burnous wagon podium violette yaourt tapisserie',
+    'langouste ogre rôtissoire balise porridge hyène sauteuse colline parasol coton liane faucille|moisson caille tisonnier acier toque restaurant fève danseur putois règle boulgour dentifrice',
+    'globe écran tournesol crabe péniche langue herbier airelle saxophone muscade ressort escabeau|pichet buvard poivron coquillage agneau bambou électricien récif séquoia quille miche commode',
+    'métronome ampoule velours mosaïque iguane pistache soucoupe fjord pastille chambre lune lotte|linotte allumette coriandre potage bretzel berge halle daurade ramure sorcière cuvette mouche',
+    'cardigan monocle seiche secrétaire parc bouc macadamia vague coquelicot géant fougasse bourse|shampooing persienne voûte maïs houe héron renne torrent chêne xylophone gabardine projecteur',
+    'tiramisu villa sculpture alouette dent sablé lagune aubergine quenouille comète buffet pétale|éteignoir glycine couleuvre pion babouin jerrican vitre vase chevalier pull marin tagliatelle',
+    'engrenage licorne mousson glace parfum céréale cuivre oursin bouquetin meunier paravent laine|hêtre gigot pintade fauteuil lime résine cuvier tambourin bouilloire hangar bibelot croissant',
+    'météorite cerisier goyave ouistiti cage aquarelle frange tailleur sterne stade pâtes broderie|barrette clef popcorn hibiscus traîneau rocher paille hermine rempart serviette lupin enclume',
+    'abri yacht abécédaire saucière fanion sabot panais dindon herbe bergerie confiture hippocampe|plastique bêche orange cloison estuaire tapir tajine micro cobaye pâturage acteur violoncelle',
+    'jeton benne poutre vent limonade trottinette vanille jument chandelier skieur marbre pangolin|lierre barrière tipi écrevisse feuille chapelle pépin cloporte galette gardon andouille tamis',
+    'eucalyptus granit bouton piquet poire horloger clarinette triton blouse morille hameau casier|noyau avenue moteur grenier coiffeur gingembre éléphant épine lotion plaid vilebrequin quinoa',
+    'flanelle huître four arcade châtaignier verger pelote guirlande jambon veau cocotier tapenade|pylône vaisselier lande rubis stylo millet papillon faucon opale rondelle casquette mandoline',
+    'serrure baba batterie dépanneuse terrarium panda cheminée myrtille tilleul saumon craie gerbe|grillon sandwich buisson moulinet queue girouette abbaye palme jambe penderie jardinier chips',
+    'fagot agenda grive hamburger frelon moto bassine pelle cartouche romarin skateboard noisetier|cormoran accordéon tirelire ponceuse tanche gruyère médaille boule feutre rose pain chapelure',
+    'harmonica microscope blaireau échafaudage bille origan papier coing étang manette nasse lotus|pouce méridienne saladier damier chien anchois foulard lard gouttière piste chantilly sorbier',
+    'tricycle pêche hôtel instituteur broche cornemuse mare lanterne rasoir glaçon fouine scarabée|platane beurre mulot éleveur landau égout curcuma pèlerine gargouille cadeau mérou ordinateur',
+    'madeleine sole scarole galet primevère rallonge hélice perforateur timbre oreille cime moufle|iceberg toundra marmotte semoule tonnerre patin bolet carnet aéroport gnome échiquier corbeau',
+    'ingénieur tonneau vinaigre marionnette plaine taureau loir crêpe gratin manège entonnoir foin|marqueur lilas tampon clavier encornet contrebasse grenade natte poupe hamster quartz potiron',
+    'marais mimosa thermostat grue beignet jarre théière poulie groseille poncho cavalier autocar|cèdre pagode brochet risotto zesteur facteur confetti sommier neige boulette multiprise koala',
+    'étal betterave esplanade duvet grille flan branche homard pardessus vipère clématite ramequin|daim carrelage potion pendentif cuisinier hachis aigle sécateur sève tapioca banlieue amphore',
+    'singe pergola amulette caserne orchidée museau trapèze rail avoine vestiaire topinambour brie|bois périscope commerçant escargot sarcelle gondole kaki pendule flaque câpre échoppe spatule',
+    'élan cristal serveur édredon couverture vautour poivre bouillon plectre rapporteur hutte robe|moustique mollet fraise flacon sémaphore palourde anis cocon économe lorgnon nichoir raquette',
+    'réglisse sanglier caméra érable garrigue comté écrou portail turquoise masque réverbère moule|gymnase trésor plateau blette manivelle flamant locomotive cumin gerboise pomme bocal verglas',
+    'étamine balayette sarrasin radeau nuée toit barrique perruche fenouil carton diadème autruche|ananas tourelle étourneau pied pioche cacao flipper randonneur rouleau turbot jacinthe canapé',
+    'ricotta princesse sucre cerf trophée perruque allée hareng frêne apiculteur sommet fourchette|brique usine emballage savane griffe table cadenas hippopotame barque patate roseau châtaigne',
+    'mixeur canari blanquette sandale buis pipette tigre imprimante oseille scie ronce cathédrale|veste arène anguille jumelles cahier hotte troglodyte pignon ketchup biscuit pissenlit tempe',
+    'chronomètre narval nageur balance voiture pagne taïga bruyère encrier pingouin cisaille tarte|câble maçon pouf vallée serpillière fricassée hanche sardine noix enceinte imperméable grenat',
+    'costume muesli pétanque libellule nougat brosse cycliste sciure taupe fusible garage mangrove|infirmier luge munster pâquerette chou tourteau huilier balai pluie albatros éventail turbine',
+    'loutre banderole casserole sapin ouvrier safran annuaire épaulette pierre morue ragoût canyon|orge chouette jonquille bûcheron volant index plinthe pâtisserie traversin kiwi réchaud bouée',
+    'devanture rosée balançoire coffre ventre sauce omelette coccinelle humus pédale maillot patte|poulailler tricot malle funambule ardoise feta taillis vitrail cave biscotte écureuil gorille',
+    'framboise ambre nappe estrade chinchilla charbon peintre gouache gorge aile balustrade quiche|limande phoque tuba talisman architecte cape brasier lustre gaufre pilon brouillard reblochon',
+    'lichen satellite seau véranda pressoir diligence bigorneau coulis gouffre plumeau navet lapin|moulin laurier saule cannelle mèche piston gobelet tabouret bungalow golfe barracuda carapace',
+    'brodequin cabine houmous tasse lessive mécanicien tamanoir genêt baguette épicéa écurie photo|perroquet pieuvre baquet éboulis croûton anémone macaroni magicien chariot niveau silo levier',
+    'immeuble torchon macaque pigeon seigle souche appentis brocoli gilet chanteur transat charrue|étain barbe coléoptère pharmacie orchestre chapiteau sorbet thon pastel brouette môle girofle',
+    'mannequin salade bâton ciboulette rhinocéros versant lèvre collier loupe pâté timbale poussin|soufflet épingle mandrill magasin banc agate pastèque tempête agriculteur café orgue escarpin',
+    'rame beurrier sauge horodateur anorak cabanon forteresse cendre prune littoral termite murène|lion mortier bouleau pélican héliport tartine volet bouche palais sifflet meringue crépuscule',
+    'plafond écorce verre boutique compote toge fiole mousqueton mésange obsidienne berlingot paon|canif remorque banjo arrosoir sonnette hublot promenade chat rillettes soleil tamarin artisan',
+    'poubelle impasse cornichon écumoire triangle cactus moineau piment divan étincelle soie appât|fronton tuyau rhubarbe brownie parterre cravate rongeur olivier bélier téléphone delta écluse',
+    'bague rabot poussette mineur glaïeul coucou congélateur palette escalope baril loup limousine|papaye fromagerie radio joue gouvernail saucisse tronc carpe lémurien enclos fiacre corbeille',
+    'robinet abreuvoir noyer panneau fossé bordure mirabelle jarretière voyageur gare cygne otarie|aspirateur patinoire concombre baie muguet étui étau tremble soda perdrix salamandre crêpière',
+    'chocolat brousse tourbe orque mandarine diapason tulle fontaine râpe gecko poissonnier boulon|panthère dirigeable chèvre ongle carrousel radis étendard épeautre basson tige piscine agrafe',
+    'poulpe cacahuète drapeau sacoche cruche uniforme hôpital aneth hélicoptère galaxie zinc ajonc|javelot rocaille financier viaduc porte campagnol burin bûche domino guimauve manchot papyrus',
+    'détroit aiguille hirondelle mikado kimono frigo nèfle trèfle chaumière parquet fanfare mauve|chignon plume tisane route dauphin oriflamme corail interphone diamant source parmesan aulne',
+    'composteur auberge rôti reine combe poulain baromètre levain salière trousse planeur dentelle|fleuve pilier enseigne brioche librairie cric guépard baleine soupe hortensia ventouse hochet',
+    'amande fondue bassin tremplin repaire casque smoothie stalactite perche guêtre ours partition|caisse houblon grêle asperge poupée méduse taxi mezzanine boucherie spectateur chacal berceau',
+    'glacier flamme faitout orme arche salon dromadaire caméléon blouson basilic éprouvette truffe|lynx ciment valve lasagne gazon gnocchi tondeuse péninsule cordage mangue rascasse espadrille',
+    'chantier compas jardinière poteau ruche givre limace short mozzarella planète mansarde topaze|haie kayak crudités bouchon aérodrome igloo rossignol touriste peigne bandana sucette genette',
+    'besace crevasse parking pompe argile rive étiquette girafe flotteur girolle steak charpentier|bahut mangeoire laitue galoche alphabet maquereau volière paupière racine lavabo boue criquet',
+    'fresque gazelle assiette guéridon brume infusion cachalot sureau lentille ukulélé montre quai|fusain perle archipel colombier poule vestibule bermuda chenille serre braise suricate menthe',
+    'tuile placard bourgeon surligneur médecin rouage guérite lavande ocelot thym redingote chemin|dossier futaie cintre hamac vache vermicelle épuisette scorpion baignoire kiosque fève calèche',
+    'tiroir passoire luciole ancre ciboule savon banane mouflon nouilles bocage églantier entrepôt|potager registre truite aquarium forgeron châle lampion quille violette coussin épinard mulet',
+    'sauterelle estragon canoë pelouse bronze terrasse talus raclette lotte fossile haricot yourte|récif lièvre autobus melon canal géranium roquefort chevet moisson saphir pinceau thermomètre',
+    'clôture mocassin langouste géant barbecue pollen gomme hameçon huile éclipse kangourou cageot|pinson donjon miche buanderie excavatrice améthyste pantalon filet linotte jungle ortie cadre',
+    'fauvette faubourg cartable globe vigne calendrier soja graine léopard boucle radiateur endive|boulgour datte allumette voile lampadaire torrent éponge perron vitre chevreuil luzerne furet',
+    'tanière couturière gourde brebis ampoule échalote écaille botte mélèze dent airelle cafetière|port profiterole ibis dragée tableau zèbre jetée étudiant restaurant calanque guichet bibelot',
+    'cuillère bretelle parasol citrouille toucan trombone gland atelier écran mosaïque olive meule|square lime bécasse tapisserie camembert snowboard drap xylophone paille peluche raie macaron',
+    'fumée sablier toupie collant coque macadamia puits bergerie évier musicien sculpture porridge|sirène isthme rempart ruban crête yaourt tourterelle fourrage hangar bracelet potage hérisson',
+    'jasmin martinet paprika poste digicode basket colonne aurore balise râteau génisse champignon|piolet séquoia sable feuille embarcadère cabas bretzel louche fermier estuaire toast hanneton',
+    'maison mousson réveil artichaut limonade borne onyx pastille télescope villa crinière goéland|hibiscus pizza trottoir violoncelle satin castor commode veilleuse pneu baobab moteur abricot',
+    'steppe litchi antenne astéroïde colline pupitre roue morille tulipe huître bouquetin couronne|boîte jerrican chêne épicerie baudrier religieuse gardon tablier sceptre mouche tajine pichet',
+    'bougeoir stade mouette gypse jeton mouchoir truelle nageoire plancher cheminée éclair céréale|avenue shampooing pirate pâturage toque clémentine ramure levure digue babouin buvard serpent',
+    'flocons dindon émeu araignée paravent tiramisu mètre ombrelle liane granit chambre skateboard|sillon hermine jade tamaris tonnelle vitrine dînette galette coureur corde mandoline sandwich',
+    'citerne abécédaire pétale muscade puzzle nectarine mairie oursin tête frelon ogre coquelicot|guacamole salsifis barrage douche saladier berge clef rondin mangouste pivert tarot jardinier',
+    'lune cajou elfe chiffonnier fourrure nasse trottinette brindille panda lagune goyave râtelier|autoroute fouet règle hêtre houe monastère roquette clavecin mayonnaise faisan éleveur blason',
+    'visière télévision sablé sentier ressort terrier jongleur parfum congre marronnier vague lait|purée bosquet acteur millet housse grenier accordéon étable banquise chevalet fourmi crevette',
+    'poireau couloir peuplier glaçon jambon faucille moufle compteur école engrenage triton martre|bécassine clavier vignoble nonnette dragon banque tipi antilope équerre gabardine rose frites',
+    'tournesol microscope sceau geai plomb laine curry égouttoir groseille lavoir bouillotte hôtel|monospace jabot rocher buisson trône hamster toboggan couscous stylo iceberg pilote spaghetti',
+    'grue emmental abri vinaigre soupirail marmite fagot homard licorne météorite grange bulldozer|gargouille crédence pochette carte épine aéroport ruisseau averse ravioli queue lutin daurade',
+    'praline guêpe vipère bille marbre fleuriste épouvantail tente clou courroie velours menuisier|fougère ordinateur tambourin passerelle comptoir toile pois abbaye espadon vase opale spatule',
+    'monocle ouistiti vent galet église couvercle soupière alouette péage sucrier branche pistache|gigot charrette dentifrice éléphant coulisse dune jambe pèlerine torche béton gruyère sorbier',
+    'thermostat billard madeleine fjord buffet avoine hyène rutabaga grimoire frange acacia cuivre|cacatoès tirelire boulevard lacet wagon prisme voûte figue genouillère plateau capucine sirop',
+    'tricycle singe émeraude raton rôtissoire mitaine pompier bassine gerbe pâtes cassoulet fanion|aigle échelle gymnase électricien anis carrefour piste lotion fauteuil bourdon crampon gousse'
+  ];
+  // Les tests qu'on peut lancer librement (Journal → « Test libre »).
   var TESTS = [
     { id: 'pvt', name: 'PVT-B', cog: 'Vigilance soutenue', dur: '3 min' },
     { id: 'rs',  name: 'Rotation span', cog: 'Mémoire de travail', dur: '≈ ' + ssDur(RS.estSec * 1000) },
     { id: 'fl',  name: 'Flanker', cog: 'Inhibition', dur: '≈ ' + ssDur(FL.estSec * 1000) },
     { id: 'ss',  name: 'Symbol Search', cog: 'Vitesse de traitement', dur: '≈ ' + SS.estSec + ' s' },
-    { id: 'hs',  name: 'Hand Swype', cog: 'Flexibilité', dur: ssDur(HS.estSec * 1000) }
+    { id: 'hs',  name: 'Hand Swype', cog: 'Flexibilité', dur: ssDur(HS.estSec * 1000) },
+    { id: 'ml',  name: 'Memory List', cog: 'Mémoire épisodique', dur: '≈ ' + ssDur(ML.estSec * 1000) }
   ];
 
   var ICON_CHEV = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -359,7 +467,19 @@
     '.fl-resp{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}',
     'button.fl-btn{appearance:none;-webkit-appearance:none;min-height:76px;font-size:16px;display:flex;align-items:center;justify-content:center;gap:10px;touch-action:manipulation}',
     'button.fl-btn svg{width:34px;height:34px;flex:none}',
-    'button.fl-btn.hit{background:var(--nav-on);border-color:var(--text)}'
+    'button.fl-btn.hit{background:var(--nav-on);border-color:var(--text)}',
+    // Memory List
+    '.ml-trial{width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;margin:auto 0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}',
+    '.ml-words{list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px;width:100%;padding:0;margin:0}',
+    '.ml-words li{font-size:19px;font-weight:700;line-height:1.2;padding:10px 6px;background:var(--card);border:1px solid var(--line2);border-radius:10px;text-align:center;overflow-wrap:anywhere}',
+    '.ml-word{font-size:clamp(2rem,9vw,2.8rem);font-weight:700;line-height:1.1;min-height:4.4rem;width:100%;display:grid;place-items:center;text-align:center;overflow-wrap:anywhere}',
+    '.ml-odd{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12px;width:min(100%,17rem);aspect-ratio:1}',
+    'button.ml-cell{appearance:none;-webkit-appearance:none;display:grid;place-items:center;padding:16px;background:var(--card);border:1px solid var(--line2);border-radius:10px;color:var(--text);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}',
+    '.ml-cell svg{width:100%;height:100%;display:block}',
+    '.ml-resp{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}',
+    'button.ml-btn{appearance:none;-webkit-appearance:none;min-height:76px;font-size:18px;touch-action:manipulation}',
+    'button.ml-btn.hit{background:var(--nav-on);border-color:var(--text)}',
+    '@media (pointer:coarse){.ml-keys{display:none}}'
   ].join('\n');
   var st = document.createElement('style');
   st.textContent = css;
@@ -504,6 +624,7 @@
   var RS_CFG = 'v' + RS.ver + '/' + RS.trials + 'x' + RS.size + '/free';
   var HS_CFG = 'v' + HS.ver + '/' + (HS.dur / 1000) + 's/random/' + HS.el + '/sw' + HS.swipe;
   var FL_CFG = 'v' + FL.ver + '/n' + FL.trials + '/mid/rt' + FL.minRt + '/lim' + FL.limit;
+  var ML_CFG = 'v' + ML.ver + '/' + ML.nT + '+' + ML.nD + '/study' + (ML.study / 1000) + '/odd' + (ML.odd / 1000);
   function fmtN1(v) { return (Math.round(v * 10) / 10).toString().replace('.', ','); }
 
   // Rotation span. Un essai = { a: flèches vues (0 à 15), s: flèches touchées, l: [[1 juste | 0 fausse | 2 temps écoulé, ms], …] }.
@@ -629,6 +750,68 @@
     var mc = ssMedian(rc), mi = ssMedian(ri);
     return { n: tr.length, correct: correct, none: none, fast: fast, nCong: nC, nIncong: nI, okCong: okC, okIncong: okI,
              medCong: mc, medIncong: mi, cost: (mc !== null && mi !== null) ? mi - mc : null, usedCong: rc.length, usedIncong: ri.length };
+  }
+
+  // Memory List. Un mot de la reconnaissance (stocké) = [mot, dans la liste 1 | nouveau 0, réponse oui 1 | non 0, ms]. Les mots sont gardés avec le passage
+  // (si un mot de la banque est remplacé un jour, les anciens passages gardent les leurs).
+  function mlList(no) { // liste n° no (1 à 98) : 12 mots à retenir, 12 mots nouveaux
+    var p = ML_BANK[no - 1].split('|');
+    return { targets: p[0].split(' '), foils: p[1].split(' ') };
+  }
+  var ML_SEEN = (function () { // pour chaque liste : combien de ses mots figuraient déjà dans une liste précédente (0 pour les 68 premières)
+    var seen = {}, out = [0];
+    ML_BANK.forEach(function (s) {
+      var ws = s.replace('|', ' ').split(' '), n = 0;
+      ws.forEach(function (w) { if (seen[w]) n++; });
+      ws.forEach(function (w) { seen[w] = true; });
+      out.push(n);
+    });
+    return out;
+  })();
+  function mlMake(targets, foils, rnd) { // reconnaissance : les 24 mots mélangés, jamais plus de 3 mots du même type (liste / nouveau) d'affilée (boucle bornée)
+    var all = targets.map(function (w) { return { word: w, target: true }; }).concat(foils.map(function (w) { return { word: w, target: false }; }));
+    for (var attempt = 0; attempt < 500; attempt++) {
+      var s = ssShuffle(all.slice(), rnd), ok = true;
+      for (var i = 3; i < s.length; i++) {
+        if (s[i].target === s[i - 1].target && s[i].target === s[i - 2].target && s[i].target === s[i - 3].target) { ok = false; break; }
+      }
+      if (ok) return s;
+    }
+    var t = ssShuffle(targets.slice(), rnd), f = ssShuffle(foils.slice(), rnd), out = [];
+    for (var j = 0; j < Math.max(t.length, f.length); j++) {
+      var pair = [];
+      if (j < t.length) pair.push({ word: t[j], target: true });
+      if (j < f.length) pair.push({ word: f[j], target: false });
+      out.push.apply(out, rnd() < 0.5 ? pair : pair.reverse());
+    }
+    return out;
+  }
+  function mlExpand(list) {
+    return list.map(function (t) { return { word: t[0], target: t[1] === 1, resp: t[2] === 1 ? 'Y' : 'N', rt: t[3], ok: t[1] === t[2] }; });
+  }
+  function mlCompact(t) { return [t.word, t.target ? 1 : 0, t.resp === 'Y' ? 1 : 0, Math.min(999999, Math.round(t.rt))]; }
+  function mlScore(list) { // score de la source : mots de la liste reconnus (oui) + mots nouveaux refusés (non), de 0 à 24
+    var tr = mlExpand(list), hits = 0, cr = 0, nT = 0, nD = 0, rts = [];
+    tr.forEach(function (t) {
+      rts.push(t.rt);
+      if (t.target) { nT++; if (t.resp === 'Y') hits++; } else { nD++; if (t.resp === 'N') cr++; }
+    });
+    return { n: tr.length, nT: nT, nD: nD, hits: hits, misses: nT - hits, cr: cr, fa: nD - cr, score: hits + cr, medRt: ssMedian(rts) };
+  }
+  var ML_SHAPES = ['circle', 'square', 'triangle', 'plus'];
+  function mlOddMake(rnd) { // tâche intercalaire : quatre formes, trois pareilles et une différente (sa place : 0 à 3)
+    var base = ML_SHAPES[Math.floor(rnd() * ML_SHAPES.length)];
+    var others = ML_SHAPES.filter(function (s) { return s !== base; });
+    return { base: base, odd: others[Math.floor(rnd() * others.length)], pos: Math.floor(rnd() * 4) };
+  }
+  function mlShapeSvg(name) {
+    var body = {
+      circle: '<circle cx="50" cy="50" r="38" fill="currentColor"/>',
+      square: '<rect x="14" y="14" width="72" height="72" rx="3" fill="currentColor"/>',
+      triangle: '<polygon points="50,10 92,86 8,86" fill="currentColor"/>',
+      plus: '<path d="M40 10h20v30h30v20H60v30H40V60H10V40h30z" fill="currentColor"/>'
+    }[name];
+    return '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">' + body + '</svg>';
   }
 
   /* ---------- Données ---------- */
@@ -802,7 +985,26 @@
     return { ver: ver, cfg: typeof s.cfg === 'string' ? s.cfg.slice(0, 80) : '', n: sc.n, correct: sc.correct, none: sc.none, fast: sc.fast,
              medCong: round1(sc.medCong), medIncong: round1(sc.medIncong), durationMs: int(s.durationMs, 0, 1e7) || 0, trials: tr };
   }
-  var CL = { ss: cleanSs, rs: cleanRs, hs: cleanHs, fl: cleanFl }; // un validateur par test enregistré
+  // Memory List : la liste utilisée, ses mots de reconnaissance (mot, type, réponse, ms) et la tâche intercalaire ; tous les chiffres sont recalculés à partir des mots.
+  function cleanMl(s) {
+    s = s && typeof s === 'object' ? s : {};
+    var ver = int(s.ver, 1, 99), no = int(s.listNo, 1, 9999), seen = int(s.seen, 0, 200);
+    if (ver === null || no === null || seen === null || !Array.isArray(s.items) || s.items.length < 1 || s.items.length > 60) return null;
+    var items = [];
+    for (var i = 0; i < s.items.length; i++) {
+      var t = s.items[i];
+      if (!Array.isArray(t) || t.length !== 4 || typeof t[0] !== 'string') return null;
+      var w = t[0].trim().slice(0, 30), tg = int(t[1], 0, 1), r = int(t[2], 0, 1), rt = Number(t[3]);
+      if (!w || tg === null || r === null || !isFinite(rt) || rt < 0 || rt >= 1e6) return null;
+      items.push([w, tg, r, Math.round(rt)]);
+    }
+    var od = s.odd && typeof s.odd === 'object' ? s.odd : {}, on = int(od.n, 0, 100000), ok = int(od.ok, 0, 100000);
+    if (on === null || ok === null || ok > on) return null;
+    var sc = mlScore(items);
+    return { ver: ver, cfg: typeof s.cfg === 'string' ? s.cfg.slice(0, 80) : '', listNo: no, seen: seen, reprise: !!s.reprise, odd: { n: on, ok: ok },
+             n: sc.n, score: sc.score, hits: sc.hits, fa: sc.fa, medRt: round1(sc.medRt), durationMs: int(s.durationMs, 0, 1e7) || 0, items: items };
+  }
+  var CL = { ss: cleanSs, rs: cleanRs, hs: cleanHs, fl: cleanFl, ml: cleanMl }; // un validateur par test enregistré
   function clean(e) {
     if (!e || typeof e !== 'object') return null;
     var ts = Number(e.ts);
@@ -1232,7 +1434,7 @@
   }
 
   /* ---------- Tests : descripteurs ---------- */
-  // Un descripteur par test enregistré (Symbol Search, Rotation span, Hand Swype, Flanker). Les écrans de Symbol Search sont écrits à part (version validée le 15/10) ;
+  // Un descripteur par test enregistré (Symbol Search, Rotation span, Hand Swype, Flanker, Memory List). Les écrans de Symbol Search sont écrits à part (version validée le 15/10) ;
   // les autres sont fabriqués à partir de leur descripteur (voir « Écrans communs »).
   var TD = {};
   TD.ss = { name: 'Symbol Search',
@@ -1364,8 +1566,8 @@
   function metric(v, label) { return '<div><b>' + v + '</b><span>' + label + '</span></div>'; }
   function factRow(dt, dd) { return '<div><dt>' + dt + '</dt><dd>' + dd + '</dd></div>'; }
   function factsCard(rows) { return '<section class="j-card"><dl class="ss-facts" style="margin:0">' + rows.join('') + '</dl></section>'; }
-  function tTable(heads, rows, note) {
-    return '<details class="j-det"><summary>Voir les essais en tableau</summary><div class="ss-tabwrap"><table class="ss-tab"><thead><tr>' +
+  function tTable(heads, rows, note, what) {
+    return '<details class="j-det"><summary>Voir les ' + (what || 'essais') + ' en tableau</summary><div class="ss-tabwrap"><table class="ss-tab"><thead><tr>' +
       heads.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' + (note ? '<p class="j-fhint">' + note + '</p>' : '') + '</details>';
   }
   function costTxt(c) { return c === null || c === undefined ? '·' : (c >= 0 ? '+' : '−') + Math.round(Math.abs(c)) + ' ms'; }
@@ -1576,9 +1778,70 @@
     histLine: function (p) { return (p.medIncong === null ? 'pas de mesure' : 'incongruent ' + ssMs(p.medIncong)) + ' · ' + p.correct + '/' + p.n + ' justes'; },
     pack: function (r) { return CL.fl(r.rec); } };
 
+  TD.ml = { name: 'Memory List', cog: 'Mémoire épisodique', estSec: ML.estSec, noPractice: true, cfg: ML_CFG,
+    chipMain: 'Établi · NeuroUX, Paolillo 2024', chipHy: 'À ajuster · mots et tâche intercalaire de LUNA',
+    demo: function () { return ''; },
+    steps: function () {
+      return [ML.nT + ' mots s’affichent ensemble pendant ' + (ML.study / 1000) + ' secondes. Retiens-les.',
+        'Une courte tâche visuelle de ' + (ML.odd / 1000) + ' secondes : touche la forme différente des trois autres.',
+        'Des mots arrivent un par un. Touche « Oui » si le mot était dans la liste, « Non » s’il est nouveau' + (DEVICE === 'ord' ? ' (ou touches ← et →)' : '') + '. La moitié sont nouveaux.',
+        'Pas d’entraînement : les mots ne se répètent pas à vide. Une autre liste de mots est utilisée à chaque passage. ' +
+          (DEVICE === 'tel' ? 'Téléphone posé, même main, mode silencieux.' : 'Même souris ou trackpad, notifications coupées.')];
+    },
+    about: 'Le protocole (12 mots affichés ensemble pendant 30 s, une autre tâche entre-temps, puis 24 mots à reconnaître, « Oui » ou « Non ») vient de NeuroUX (Paolillo 2024). La source ne donne ni les mots, ni le délai, ni la façon de répondre : les 98 listes de mots, la tâche intercalaire de 30 s (« touche la forme différente »), l’absence de temps limite et la mesure du temps de réponse sont des choix de LUNA. Les listes ne sont pas appariées selon des normes (fréquence, imagerie). Durée de ≈ ' + ssDur(ML.estSec * 1000) + ' estimée d’après la source (environ 1 min de reconnaissance) et les pauses, non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.',
+    introNote: function () {
+      var last = mlToday();
+      if (!last) return '';
+      return 'Tu as déjà vu une liste de mots aujourd’hui (à ' + clockOf(last) + '). Dans l’étude lue, il n’y avait qu’un passage par jour, avec des listes différentes, et le score baissait d’un passage à l’autre (pente de −0,175 mot ; les auteurs évoquent une interférence entre les listes) : un passage de plus peut fausser la mesure. On ne sait pas ce que donnent plusieurs passages par jour. Rien n’est bloqué : une autre liste sera utilisée, et le passage sera noté comme un passage de plus dans la journée.';
+    },
+    fig: function (r) { return r.sc.score; }, figE: function (p) { return p.score; },
+    ref: { fmt: function (v) { return fmtN1(v) + ' / 24'; },
+           diff: function (d) { var a = Math.abs(d); return a < 0.05 ? 'aucun écart' : fmtN1(a) + (a >= 2 ? ' mots' : ' mot') + (d > 0 ? ' de plus' : ' de moins'); },
+           above: 'Plus de mots bien classés que dans tous tes passages précédents.', below: 'Moins de mots bien classés que dans tous tes passages précédents.',
+           axLo: '← moins de mots', axHi: 'plus de mots →', none: 'Pas de chiffre principal pour ce passage.' },
+    mainTxt: 'les mots bien classés sur 24 (le premier chiffre) : les mots de la liste reconnus plus les mots nouveaux refusés. Plus haut = mieux reconnu.',
+    metrics: function (r) {
+      var s = r.sc;
+      return metric(s.score + '<small> / ' + s.n + '</small>', 'Mots bien classés') + metric(s.hits + '<small> / ' + s.nT + '</small>', 'Mots de la liste reconnus') +
+        metric(s.fa + '<small> / ' + s.nD + '</small>', 'Mots nouveaux acceptés à tort');
+    },
+    facts: function (r) {
+      var s = r.sc, rec = r.rec, forgot = [], falseA = [];
+      mlExpand(rec.items).forEach(function (t) { if (!t.ok) (t.target ? forgot : falseA).push(t.word); });
+      return '<section class="j-card"><dl class="ss-facts" style="margin:0">' +
+        factRow('Mots nouveaux refusés', s.cr + ' / ' + s.nD) +
+        factRow('Temps de réponse médian (lecture de LUNA)', ssMs(s.medRt)) +
+        factRow('Tâche intercalaire : formes trouvées (non notée)', rec.odd.ok + ' / ' + rec.odd.n) +
+        factRow('Liste de mots utilisée', 'n° ' + rec.listNo + ' sur ' + ML_BANK.length) +
+        factRow('Mots déjà vus à un passage précédent', rec.seen + ' / ' + s.n) + '</dl>' +
+        '<p class="j-fhint"><b>Mots de la liste non reconnus :</b> ' + (forgot.length ? esc(forgot.join(', ')) : 'aucun') + '</p>' +
+        '<p class="j-fhint"><b>Mots nouveaux acceptés à tort :</b> ' + (falseA.length ? esc(falseA.join(', ')) : 'aucun') + '</p>' +
+        (rec.seen > 0 ? '<p class="j-fhint">' + (rec.reprise ? 'Toute la banque de listes a déjà servi : cette liste est une reprise. ' : 'Cette liste reprend des mots déjà vus à un passage précédent, chacun dans le même rôle. ') +
+          'L’effet sur le score n’est pas connu (hypothèse à mesurer) : le nombre de mots déjà vus est gardé avec le passage pour pouvoir le traiter à part.</p>' : '') + '</section>';
+    },
+    table: function (r) {
+      var rows = mlExpand(r.rec.items).map(function (t, i) {
+        return '<tr><td>' + (i + 1) + '</td><td>' + esc(t.word) + '</td><td>' + (t.target ? 'liste' : 'nouveau') + '</td><td>' + (t.resp === 'Y' ? 'oui' : 'non') + '</td><td>' + (t.ok ? 'juste' : 'erreur') + '</td><td>' + t.rt + ' ms</td></tr>';
+      }).join('');
+      return tTable(['#', 'Mot', 'Type', 'Réponse', 'Résultat', 'Temps'], rows, 'Type : « liste » = un mot de la liste du début, « nouveau » = un mot ajouté.', 'mots');
+    },
+    read: function () {
+      return secHtml('Le chiffre qui compte', 'Établi', 'Le score, sur 24 : les mots de la liste que tu as reconnus (« Oui ») plus les mots nouveaux que tu as refusés (« Non »). C’est le score de la source. Plus haut = mieux reconnu. À côté, pour information : les mots reconnus sur 12, les mots nouveaux acceptés à tort sur 12 et le temps de réponse médian. Ce dernier est la lecture de LUNA : la source ne le donne pas.') +
+        readCompare(', avec des listes de mots qui tournent d’un passage à l’autre (elles comptent comme des versions parallèles, comme dans l’étude)') +
+        secHtml('Les listes de mots', 'À ajuster', '98 listes écrites pour LUNA (12 mots à retenir + 12 mots nouveaux), prises dans l’ordre, une par passage, tests libres compris. Les 68 premières n’ont aucun mot en commun. Les suivantes reprennent 21 à 24 mots déjà vus, chacun dans le même rôle et au moins 48 passages plus tard. Un mot déjà vu garde peut-être un peu de familiarité : l’effet n’est pas connu (aucune source trouvée), c’est pourquoi le nombre de mots déjà vus est gardé avec chaque passage. Les listes ne sont pas appariées selon la fréquence des mots ni leur imagerie. Si un mot ne te dit rien, note-le : il sera remplacé.') +
+        secHtml('Pas de barème', 'Établi', 'L’étude lue ne donne ni norme ni seuil pour ce test, et le score n’y est pas lié à l’âge de façon significative. Sa moyenne (19,8 sur 24) décrit un groupe, pas toi, avec d’autres mots : ce n’est pas un objectif. Aucun seuil de santé : un professionnel décide.') +
+        secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Dans l’étude, le score d’une même personne varie en moyenne de 2,1 mots (écart-type) d’un passage à l’autre : un écart de deux mots d’un moment à l’autre n’a rien d’exceptionnel. Le score baisse aussi au fil des passages (pente de −0,175, unité exacte non revérifiée), ce que les auteurs rapprochent d’une interférence entre les listes successives. Lecture de LUNA, non sourcée : répété plusieurs fois dans la journée, ce test risque de baisser pour cette seule raison, ce qui ressemblerait à un effet d’heure ; dans l’étude, il n’y avait qu’un passage par jour. Un passage hors de la fourchette n’est pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.') +
+        secHtml('Chiffres lus', 'Établi', 'ICC du score 0,762 sur 5 passages avec des listes différentes (type d’ICC non précisé), score moyen 19,8 sur 24, écart-type entre personnes 2,3 ; 393 adultes de 20 à 79 ans. Chiffres repris de la page par extraction automatique du texte, pas revérifiés sur les tableaux eux-mêmes.') +
+        readPrec('le mot s’affiche') +
+        secHtml('Sources', 'Établi', link('https://www.jmir.org/2024/1/e51978', 'Paolillo et al. 2024, NeuroUX, J Med Internet Res 26:e51978') + '. Non lus : les trois annexes de l’article (fichiers DOCX), ses tableaux et figures vus seulement par extraction du texte, la page de l’éditeur de NeuroUX. Pas de description plus détaillée du protocole de la Memory List trouvée, ni la liste de ses mots.');
+    },
+    histLine: function (p) { return p.score + '/' + p.n + ' bien classés · ' + p.hits + '/' + ML.nT + ' reconnus · ' + p.fa + '/' + ML.nD + ' faux · liste n° ' + p.listNo; },
+    pack: function (r) { return CL.ml(r.rec); } };
+
   RUN.rs = { practice: rsRunPractice, test: rsRunTest };
   RUN.hs = { practice: hsRunPractice, test: hsRunTest };
   RUN.fl = { practice: flRunPractice, test: flRunTest };
+  RUN.ml = { practice: null, test: mlRunTest }; // pas d'entraînement
 
   // Référence personnelle : médiane des passages PRÉVUS précédents, mêmes réglages, même appareil (et, pour Hand Swype, même façon de répondre).
   // Un test libre y est comparé mais n'y entre pas.
@@ -1622,13 +1885,16 @@
       '<h1 tabindex="-1">' + esc(td.name) + '</h1><p class="sub">' + esc(td.cog) + ' · ≈ ' + est + '</p></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       (notice ? '<p class="j-warn" role="alert">' + esc(notice) + '</p>' : '') +
+      (td.introNote && td.introNote() ? '<p class="j-ok" role="status">' + esc(td.introNote()) + '</p>' : '') +
       td.demo() +
       '<section class="j-card"><h2 class="j-kick">AVANT DE COMMENCER</h2><ol class="j-list">' + td.steps().map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ol></section>' +
       '<div class="chips"><div class="chips" style="margin:0"><span class="chip main">' + td.chipMain + '</span><span class="chip hy">' + td.chipHy + '</span></div></div>' +
       '<p class="j-p">' + td.about + '</p>' +
       '<p class="j-p">' + esc(msg) + '</p></main>' +
       '<div class="foot">' +
-      (practiced
+      (td.noPractice
+        ? '<button type="button" class="btn primary" data-act="' + id + '-test">Commencer (≈ ' + est + ')</button>'
+        : practiced
         ? '<button type="button" class="btn primary" data-act="' + id + '-test">Commencer (≈ ' + est + ')</button><button type="button" class="btn secondary" data-act="' + id + '-practice">Refaire l’entraînement</button>'
         : '<button type="button" class="btn primary" data-act="' + id + '-practice">Entraînement (' + td.pracDur + ', une fois)</button><button type="button" class="btn secondary" data-act="' + id + '-test">Passer directement au test</button>') +
       '</div>';
@@ -1840,7 +2106,7 @@
     var n = {};
     list.forEach(function (e) { var k = e.kind === 'releve' && e.pvt ? 'combo' : (e.kind === 'test' && e.test ? e.test : e.kind); n[k] = (n[k] || 0) + 1; });
     var parts = [];
-    [['releve', 'relevé', 'relevés'], ['combo', 'relevé + test', 'relevés + tests'], ['test', 'test', 'tests'], ['rs', 'passage Rotation span', 'passages Rotation span'], ['fl', 'passage Flanker', 'passages Flanker'], ['ss', 'passage Symbol Search', 'passages Symbol Search'], ['hs', 'passage Hand Swype', 'passages Hand Swype'], ['activite', 'activité', 'activités'],
+    [['releve', 'relevé', 'relevés'], ['combo', 'relevé + test', 'relevés + tests'], ['test', 'test', 'tests'], ['rs', 'passage Rotation span', 'passages Rotation span'], ['fl', 'passage Flanker', 'passages Flanker'], ['ss', 'passage Symbol Search', 'passages Symbol Search'], ['hs', 'passage Hand Swype', 'passages Hand Swype'], ['ml', 'passage Memory List', 'passages Memory List'], ['activite', 'activité', 'activités'],
      ['repas', 'repas', 'repas'], ['coucher', 'coucher', 'couchers'], ['note', 'note', 'notes']].forEach(function (t) {
       if (n[t[0]]) parts.push(plural(n[t[0]], t[1], t[2]));
     });
@@ -1903,10 +2169,11 @@
                 tests: vTests, 'ss-intro': vSsIntro, 'ss-run': vSsRun, 'ss-prac': vSsPrac, 'ss-result': vSsResult,
                 'rs-intro': vTIntro, 'rs-run': vTRun, 'rs-prac': vTPrac, 'rs-result': vTResult,
                 'hs-intro': vTIntro, 'hs-run': vTRun, 'hs-prac': vTPrac, 'hs-result': vTResult,
-                'fl-intro': vTIntro, 'fl-run': vTRun, 'fl-prac': vTPrac, 'fl-result': vTResult };
+                'fl-intro': vTIntro, 'fl-run': vTRun, 'fl-prac': vTPrac, 'fl-result': vTResult,
+                'ml-intro': vTIntro, 'ml-run': vTRun, 'ml-result': vTResult };
 
   function render() {
-    var runM = /^(ss|rs|hs|fl)-run$/.exec(screen);
+    var runM = /^(ss|rs|hs|fl|ml)-run$/.exec(screen);
     if (rnRun && !runM) { rnRun.why = 'silent'; rnKill(); } // on quitte l'écran du test : on l'arrête sans rien dire
     root.innerHTML = (VIEWS[screen] || vHome)();
     L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders');
@@ -2061,6 +2328,7 @@
       if (why === 'silent') return;
       if (why === 'hidden') notice = 'Test interrompu : l’appli a quitté l’écran. Rien n’a été enregistré. Tu peux recommencer.';
       else if (why === 'error') notice = 'Un problème est survenu. Rien n’a été enregistré. Tu peux recommencer.';
+      if (notice && flow.test === 'ml' && flow.mlNo) notice += ' Les mots de la liste n° ' + flow.mlNo + ' ont été montrés : une autre liste sera utilisée au prochain passage.';
       go(flow.test + '-intro');
       notice = '';
     });
@@ -2530,6 +2798,168 @@
     go('fl-result');
   }
 
+  /* ---------- Test Memory List ---------- */
+  // Déroulé porté de la maquette du 14/10 : « Prêt », les 12 mots pendant 30 s, tâche intercalaire de 30 s (« touche la forme différente »), puis 24 mots à reconnaître
+  // (Non / Oui, sans temps limite ni retour juste / erreur). Pas d'entraînement. Rien n'est enregistré si le passage est interrompu.
+  var KEY_ML = 'luna.mlUsed';
+  // Journal des listes de mots montrées : une liste est « consommée » dès que ses 12 mots s'affichent, même si le passage est interrompu et non enregistré (les mots ont été vus).
+  function mlLogRead() {
+    try {
+      var a = JSON.parse(localStorage.getItem(KEY_ML));
+      return Array.isArray(a) ? a.filter(function (x) { return Array.isArray(x) && isFinite(x[0]) && isFinite(x[1]); }) : [];
+    } catch (e) { return []; }
+  }
+  function mlLogAdd(no, ts) {
+    try { var a = mlLogRead(); a.push([no, ts]); localStorage.setItem(KEY_ML, JSON.stringify(a.slice(-400))); } catch (e) {}
+  }
+  function mlUsage() { // numéro de liste → heure de sa dernière fois (journal des listes montrées + passages enregistrés, restaurés compris)
+    var u = {};
+    mlLogRead().forEach(function (x) { if (!u[x[0]] || x[1] > u[x[0]]) u[x[0]] = x[1]; });
+    entries.forEach(function (e) { if (e.test === 'ml' && e.ml && (!u[e.ml.listNo] || e.ts > u[e.ml.listNo])) u[e.ml.listNo] = e.ts; });
+    return u;
+  }
+  // Liste suivante : la première jamais montrée ; si les 98 ont servi, la plus anciennement montrée (jamais une liste déjà montrée le même jour, sauf impossibilité).
+  function mlPick(now, wake) {
+    var u = mlUsage(), n, N = ML_BANK.length;
+    for (n = 1; n <= N; n++) if (!u[n]) return { no: n, seen: ML_SEEN[n], reprise: false };
+    var today = dayKey(now, wake), best = 0;
+    for (n = 1; n <= N; n++) if (dayKey(u[n], wake) !== today && (!best || u[n] < u[best])) best = n;
+    if (!best) for (n = 1; n <= N; n++) if (!best || u[n] < u[best]) best = n;
+    return { no: best, seen: ML.nT + ML.nD, reprise: true };
+  }
+  function mlToday() { // heure de la dernière liste montrée aujourd'hui (journée du Journal : du réveil au réveil), 0 s'il n'y en a pas
+    var u = mlUsage(), tk = dayKey(Date.now(), L.getWake()), last = 0;
+    Object.keys(u).forEach(function (n) { if (dayKey(u[n], L.getWake()) === tk && u[n] > last) last = u[n]; });
+    return last;
+  }
+
+  async function mlCountdown(label, ms) { // compte à rebours : la barre avance, le texte change toutes les 250 ms
+    var end = performance.now() + ms;
+    for (;;) {
+      var rem = end - performance.now();
+      if (rem <= 0) break;
+      rnReadout(label + ' · ' + Math.ceil(rem / 1000) + ' s', 1 - rem / ms);
+      await rnSleep(Math.min(250, rem));
+    }
+  }
+  // Tâche intercalaire : une forme différente parmi quatre ; on la touche. Chaque forme attend au plus la fin du temps (deadline).
+  async function mlOddOnce(deadline) {
+    var host = $('ml-odd');
+    if (!host) throw new Error('écran du test absent');
+    var t = mlOddMake(Math.random), cells = '';
+    for (var i = 0; i < 4; i++) cells += '<button type="button" class="ml-cell" data-i="' + i + '" aria-label="Forme ' + (i + 1) + '">' + mlShapeSvg(i === t.pos ? t.odd : t.base) + '</button>';
+    var res = await rnPend(function (done) {
+      var armed = true, timer = setTimeout(function () { if (armed) { armed = false; done({ timeout: true }); } }, Math.max(0, deadline - performance.now()));
+      host.innerHTML = cells;
+      var btns = Array.prototype.slice.call(host.querySelectorAll('.ml-cell'));
+      function on(ev) {
+        if (ev.type === 'click' && ev.detail !== 0) return; // un « click » sans souris (detail 0) = touche Entrée/Espace sur le bouton
+        if (!armed) return;
+        armed = false;
+        done({ i: Number(ev.currentTarget.getAttribute('data-i')) });
+      }
+      btns.forEach(function (b) { b.addEventListener('pointerdown', on); b.addEventListener('click', on); });
+      return function () { armed = false; clearTimeout(timer); btns.forEach(function (b) { b.removeEventListener('pointerdown', on); b.removeEventListener('click', on); }); };
+    });
+    host.innerHTML = '';
+    if (res.timeout) return null;
+    await rnSleep(ML.oddBlank);
+    return { ok: res.i === t.pos };
+  }
+  // Un mot à reconnaître : Non ou Oui, sans temps limite. Le temps part de l'image où le mot s'affiche (comme les autres tests).
+  async function mlRecogOnce(item) {
+    var w = $('ml-word'), bN = $('ml-n'), bY = $('ml-y');
+    if (!w || !bN || !bY) throw new Error('écran du test absent');
+    w.textContent = '';
+    var res = await rnPend(function (done) {
+      var armed = false, t0 = 0, raf = 0;
+      function fin(resp, ev, inp) {
+        if (!armed) return;
+        armed = false;
+        done({ resp: resp, rt: Math.max(0, tsOf(ev) - t0), inp: inp });
+      }
+      function mk(resp) { // toucher ou clic = pointerdown ; un « click » sans souris (detail 0) = touche Entrée/Espace sur le bouton
+        return function (ev) {
+          if (ev.type === 'click') { if (ev.detail !== 0) return; fin(resp, ev, 'clavier'); }
+          else fin(resp, ev, ev.pointerType || 'souris');
+        };
+      }
+      var onN = mk('N'), onY = mk('Y');
+      function onKey(ev) {
+        if (ev.repeat) return;
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); fin('N', ev, 'clavier'); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); fin('Y', ev, 'clavier'); }
+      }
+      bN.addEventListener('pointerdown', onN); bN.addEventListener('click', onN);
+      bY.addEventListener('pointerdown', onY); bY.addEventListener('click', onY);
+      document.addEventListener('keydown', onKey);
+      w.textContent = item.word;
+      raf = requestAnimationFrame(function () { t0 = performance.now(); armed = true; });
+      return function () {
+        armed = false; cancelAnimationFrame(raf);
+        bN.removeEventListener('pointerdown', onN); bN.removeEventListener('click', onN);
+        bY.removeEventListener('pointerdown', onY); bY.removeEventListener('click', onY);
+        document.removeEventListener('keydown', onKey);
+      };
+    });
+    w.textContent = '';
+    var btn = res.resp === 'Y' ? bY : bN;
+    btn.classList.add('hit');
+    await rnSleep(ML.hit);
+    btn.classList.remove('hit');
+    await rnSleep(ML.blank - ML.hit);
+    return { word: item.word, target: item.target, resp: res.resp, rt: res.rt, inp: res.inp };
+  }
+  async function mlRunTest() {
+    var t0 = performance.now(), inps = {}, oddN = 0, oddOk = 0, i;
+    flow.ts = Date.now();
+    flow.wake = L.getWake();
+    flow.mlNo = 0;
+    var pick = mlPick(flow.ts, flow.wake), words = mlList(pick.no);
+    rnReadout('Prêt', 0);
+    rnStage('<p class="ss-between">Prêt</p><p class="ss-note">' + ML.nT + ' mots à retenir, pendant ' + (ML.study / 1000) + ' secondes.</p>');
+    await rnSleep(ML.ready);
+    // Étude : la liste est consommée dès que les mots s'affichent
+    rnStage('<div class="ml-trial"><p class="ss-cue">Retiens ces ' + ML.nT + ' mots</p><ul class="ml-words">' +
+      ssShuffle(words.targets.slice(), Math.random).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>');
+    mlLogAdd(pick.no, Date.now());
+    flow.mlNo = pick.no;
+    await mlCountdown('Étude', ML.study);
+    // Tâche intercalaire (non notée)
+    rnReadout('Tâche intercalaire', 0);
+    rnStage('<p class="ss-between">Autre tâche</p><p class="ss-note">Touche la forme différente des trois autres, le plus vite possible. ' + (ML.odd / 1000) + ' secondes.</p>');
+    await rnSleep(ML.gap);
+    rnStage('<div class="ml-trial"><p class="ss-cue">Touche la forme différente</p><div class="ml-odd" id="ml-odd" role="group" aria-label="Quatre formes"></div></div>');
+    var oddEnd = performance.now() + ML.odd;
+    var tick = setInterval(function () { var rem = Math.max(0, oddEnd - performance.now()); rnReadout('Tâche intercalaire · ' + Math.ceil(rem / 1000) + ' s', 1 - rem / ML.odd); }, 250);
+    try {
+      while (performance.now() < oddEnd) {
+        var o = await mlOddOnce(oddEnd);
+        if (!o) break;
+        oddN++; if (o.ok) oddOk++;
+      }
+    } finally { clearInterval(tick); }
+    // Reconnaissance : les 12 mots de la liste mélangés avec 12 mots nouveaux
+    rnReadout('Reconnaissance', 0);
+    rnStage('<p class="ss-between">Reconnaissance</p><p class="ss-note">Des mots arrivent un par un. Ce mot était-il dans la liste du début ?</p>');
+    await rnSleep(ML.gap);
+    rnStage('<div class="ml-trial"><p class="ss-cue">Ce mot était-il dans la liste ?</p><div class="ml-word" id="ml-word" aria-live="polite"></div>' +
+      '<div class="ml-resp"><button type="button" class="btn secondary ml-btn" id="ml-n">Non</button><button type="button" class="btn secondary ml-btn" id="ml-y">Oui</button></div>' +
+      '<p class="ss-note ml-keys">← Non · Oui →</p></div>');
+    var items = mlMake(words.targets, words.foils, Math.random), res = [];
+    for (i = 0; i < items.length; i++) {
+      rnReadout('Reconnaissance · ' + (i + 1) + ' sur ' + items.length, i / items.length);
+      var r = await mlRecogOnce(items[i]);
+      res.push(r);
+      if (r.inp) inps[r.inp] = true;
+    }
+    var comp = res.map(mlCompact), kinds = Object.keys(inps), dur = Math.round(performance.now() - t0);
+    var rec = { ver: ML.ver, cfg: ML_CFG, listNo: pick.no, seen: pick.seen, reprise: pick.reprise, odd: { n: oddN, ok: oddOk }, durationMs: dur, items: comp };
+    flow.result = { cfg: ML_CFG, rec: rec, sc: mlScore(comp), durationMs: dur, device: DEVICE, input: kinds.length === 1 ? kinds[0] : 'mixte', ts: flow.ts, wake: flow.wake };
+    rnEnd();
+    go('ml-result');
+  }
+
   RUN.ss = { practice: ssPractice, test: ssTest };
 
   /* ---------- Enregistrer ---------- */
@@ -2892,7 +3322,7 @@
   function act(name, el) {
     var id = el.getAttribute('data-id');
     notice = '';
-    var tm = /^(ss|rs|hs|fl)-(intro|practice|test|save)$/.exec(name); // écrans communs à tous les tests (sauf PVT-B)
+    var tm = /^(ss|rs|hs|fl|ml)-(intro|practice|test|save)$/.exec(name); // écrans communs à tous les tests (sauf PVT-B)
     if (tm) {
       flow.test = tm[1];
       if (tm[2] === 'intro') go(tm[1] + '-intro');
