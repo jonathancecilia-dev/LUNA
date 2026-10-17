@@ -511,7 +511,19 @@
     '.pl-sep{border:none;border-top:1px solid var(--line);margin:6px 0;width:100%}',
     '.pl-hist{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}',
     '.pl-stages{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:1.35;color:var(--muted)}',
-    '.pl-stages b{color:var(--text)}'
+    '.pl-stages b{color:var(--text)}',
+    '.ch-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}',
+    '.ch-it{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);font-size:15px;line-height:1.3}',
+    '.ch-it:first-child{border-top:none}',
+    '.ch-n{width:28px;height:28px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:1px dashed var(--dash);color:var(--muted)}',
+    '.ch-it.done .ch-n{border:1px solid var(--dash);color:var(--text)}',
+    '.ch-it.next .ch-n{border:1px solid var(--text);color:var(--text)}',
+    '.ch-it.next .ch-t{font-weight:700}',
+    '.ch-it.done .ch-t{color:var(--muted)}',
+    '.ch-t{flex:1;min-width:0;overflow-wrap:anywhere}',
+    '.ch-d{flex-shrink:0;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}',
+    '.j-ptw{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}',
+    '.j-ptl{align-self:flex-start;padding:0;min-height:44px;text-align:left}'
   ].join('\n');
   var st = document.createElement('style');
   st.textContent = css;
@@ -963,7 +975,7 @@ function milestone(w) {
 
   /* ---------- Données ---------- */
   var entries = [], storageOk = true, lastBackup = null, actNames = ACTS_DEFAULT.slice();
-  var KINDS = ['releve', 'test', 'note', 'activite', 'repas', 'coucher'];
+  var KINDS = ['releve', 'test', 'note', 'activite', 'repas', 'coucher', 'pas'];
 
   function lite(e) {
     return e && typeof e === 'object' && typeof e.id === 'string' && KINDS.indexOf(e.kind) >= 0 && isFinite(e.ts) ? e : null;
@@ -1151,6 +1163,16 @@ function milestone(w) {
     return { ver: ver, cfg: typeof s.cfg === 'string' ? s.cfg.slice(0, 80) : '', listNo: no, seen: seen, reprise: !!s.reprise, odd: { n: on, ok: ok },
              n: sc.n, score: sc.score, hits: sc.hits, fa: sc.fa, medRt: round1(sc.medRt), durationMs: int(s.durationMs, 0, 1e7) || 0, items: items };
   }
+  // Étiquettes d'un passage du plan (morceau 4b) : d = jour du plan (0 = premier jour), p = plan de journée (0 à 6), st = étape du PVT-B,
+  // k = rang d'enregistrement du passage dans le moment (1 = premier), n = nombre de passages prévus dans le moment. Illisible : ignoré, l'entrée reste lisible.
+  function cleanPj(p) {
+    if (!p || typeof p !== 'object') return null;
+    var d = int(p.d, 0, 999), pl = int(p.p, 0, 6), st = int(p.st, 1, 3);
+    if (d === null || pl === null || st === null) return null;
+    var o = { d: d, p: pl, st: st }, k = int(p.k, 1, 3), n = int(p.n, 1, 3);
+    if (k !== null && n !== null) { o.k = k; o.n = n; }
+    return o;
+  }
   var CL = { ss: cleanSs, rs: cleanRs, hs: cleanHs, fl: cleanFl, ml: cleanMl }; // un validateur par test enregistré
   function clean(e) {
     if (!e || typeof e !== 'object') return null;
@@ -1165,6 +1187,15 @@ function milestone(w) {
     if (k === 'note' || k === 'repas') {
       if (typeof e.text !== 'string' || !e.text.trim()) return null;
       o.text = e.text.slice(0, k === 'note' ? 5000 : 1000);
+      return o;
+    }
+    if (k === 'pas') { // « Pas ce moment » : un moment du plan laissé de côté, avec un mot facultatif
+      o.slot = int(e.slot, 0, PLAN.length - 1);
+      if (o.slot === null) return null;
+      var px = typeof e.text === 'string' ? e.text.trim().slice(0, 300) : '';
+      if (px) o.text = px;
+      var pj0 = cleanPj(e.pj);
+      if (pj0) { delete pj0.k; delete pj0.n; o.pj = pj0; }
       return o;
     }
     if (k === 'coucher') {
@@ -1212,6 +1243,7 @@ function milestone(w) {
       var nth = int(e.nth, 1, 100000), nd = int(e.nthDay, 1, 1000);
       if (nth !== null) o.nth = nth;
       if (nd !== null) o.nthDay = nd;
+      if (o.plan === 'prevu') { var pjt = cleanPj(e.pj); if (pjt) o.pj = pjt; }
       return o;
     }
     var pv2 = cleanPvt(e.pvt); // test
@@ -1219,6 +1251,7 @@ function milestone(w) {
     o.pvt = pv2;
     o.device = e.device === 'tel' ? 'tel' : 'ord';
     o.input = typeof e.input === 'string' ? e.input.slice(0, 12) : '';
+    if (o.plan === 'prevu') { var pjp = cleanPj(e.pj); if (pjp) o.pj = pjp; }
     return o;
   }
 
@@ -1236,41 +1269,73 @@ function milestone(w) {
   function newFlow(o) {
     o = o || {};
     return { mode: o.mode || 'releve', test: o.test || 'pvt', slot: o.slot == null ? null : o.slot, feel: {}, detail: '', feelTs: 0, ts: 0, wake: 0, result: null,
-             tMode: 'test', prac: null };
+             tMode: 'test', prac: null, chain: null, chainMsg: '' };
   }
 
   /* ---------- Aujourd'hui : moments du plan ---------- */
+  // Quand le recueil est en cours (plan « run »), les 7 moments de test du plan sont des moments ENCHAÎNÉS : le PVT-B (selon l'étape),
+  // puis 2 tests dans l'ordre du jour (PL.testOrder). Avant le premier jour et après la fin, un moment garde son rôle d'avant (PVT-B seul).
+  // Fenêtre : le moment doit être COMMENCÉ dans sa fenêtre (−10 / +30 min) ; une fois commencé, l'enchaînement peut la dépasser (choix de Claude, À ajuster).
+  var STEP_NAME = { pvt: 'PVT-B', rs: 'Rotation span', fl: 'Flanker', hs: 'Hand Swype', ml: 'Memory List', ss: 'Symbol Search' };
+  function stepSec(t) { return t === 'pvt' ? PL.PVT : PL.DUR[t.toUpperCase()]; }
+  function stepsText(list) { return list.map(function (t) { return STEP_NAME[t]; }).join(' · '); }
+
   function todayInfo() {
-    var now = new Date(), wake = L.getWake(), tk = dayKey(now.getTime(), wake), done = {};
+    var now = new Date(), wake = L.getWake(), tk = dayKey(now.getTime(), wake), done = {}, skip = {};
     entries.forEach(function (e) {
-      if (e.day !== tk || e.slot == null || (e.kind !== 'releve' && e.kind !== 'test')) return;
-      if (e.test) return; // les moments du plan ne comptent que le PVT-B jusqu'à l'arrivée des moments à plusieurs tests
-      var d = done[e.slot] || (done[e.slot] = {});
+      if (e.day !== tk || e.slot == null) return;
+      if (e.kind === 'pas') { if (!skip[e.slot] || e.ts > skip[e.slot].ts) skip[e.slot] = e; return; }
+      if (e.kind !== 'releve' && e.kind !== 'test') return;
+      var d = done[e.slot] || (done[e.slot] = { tests: {} });
+      if (e.test) { if (!d.tests[e.test] || e.ts < d.tests[e.test].ts) d.tests[e.test] = e; return; } // les autres tests ne comptent que dans un moment enchaîné
       if (!d[e.kind] || e.ts < d[e.kind].ts) d[e.kind] = e;
     });
-    return { now: now, wake: wake, tk: tk, rel: L.mod(minOf(now) - wake), done: done };
+    return { now: now, wake: wake, tk: tk, rel: L.mod(minOf(now) - wake), done: done, skip: skip };
   }
   function slotStates(info) {
-    var open = -1, next = -1;
+    var open = -1, next = -1, ps = pState(info.tk), pd = ps.s === 'run' ? pDay(ps.i, info.tk) : null;
     var list = PLAN.map(function (m, i) {
-      var d = info.done[i] || {}, part = !!(d.releve || d.test);
-      var needR = m.kind !== 'test' && !d.releve, needT = m.kind !== 'releve' && !d.test;
-      var s = m.r - WIN.before, e = m.r + WIN.after, kind, status;
-      if (!needR && !needT) { kind = 'done'; status = 'Fait · ' + clockOf(Math.max((d.releve || { ts: 0 }).ts, (d.test || { ts: 0 }).ts)); }
-      else if (info.rel >= s && info.rel <= e) { kind = 'open'; status = part ? (d.releve ? 'Relevé fait' : 'Test fait') : 'Créneau ouvert'; if (open < 0) open = i; }
+      var d = info.done[i] || { tests: {} }, sk = info.skip[i] || null, s = m.r - WIN.before, e = m.r + WIN.after, kind, status;
+      var ti = pd ? TI_SLOT.indexOf(i) : -1, ch = null, part, needR, needT, last;
+      if (ti >= 0) {
+        var mo = pd.moments[ti], steps = (mo.pvt ? ['pvt'] : []).concat(mo.tests.map(function (t) { return t.toLowerCase(); }));
+        var todo = steps.filter(function (t) { return !(t === 'pvt' ? d.test : d.tests[t]); });
+        var hasR = m.kind !== 'test', total = steps.length + (hasR ? 1 : 0), nDone = steps.length - todo.length + (hasR && d.releve ? 1 : 0);
+        needR = hasR && !d.releve; needT = todo.length > 0; part = nDone > 0;
+        ch = { ti: ti, steps: steps, todo: todo, total: total, nDone: nDone, d: pd.i, plan: pd.plan, stage: pd.stage,
+               sec: todo.reduce(function (a, t) { return a + stepSec(t); }, 0) };
+      } else {
+        part = !!(d.releve || d.test);
+        needR = m.kind !== 'test' && !d.releve; needT = m.kind !== 'releve' && !d.test;
+      }
+      last = Math.max((d.releve || { ts: 0 }).ts, (d.test || { ts: 0 }).ts);
+      Object.keys(d.tests).forEach(function (k) { last = Math.max(last, d.tests[k].ts); });
+      if (!needR && !needT) { kind = 'done'; status = 'Fait · ' + clockOf(last); }
+      else if (ch && sk && !part) { kind = 'past'; status = 'Pas ce moment'; }
+      else if (info.rel >= s && info.rel <= e) {
+        kind = 'open'; status = part ? (ch ? 'En cours' : (d.releve ? 'Relevé fait' : 'Test fait')) : 'Créneau ouvert'; if (open < 0) open = i;
+      }
       else if (info.rel > e) { kind = 'past'; status = part ? 'Incomplet' : 'Passé'; }
       else { kind = 'soon'; status = 'À venir'; if (next < 0) next = i; }
-      return { kind: kind, status: status, needR: needR, needT: needT, win: L.fmt(info.wake + s) + ' – ' + L.fmt(info.wake + e), at: L.fmtClock(info.wake + m.r) };
+      return { kind: kind, status: status, needR: needR, needT: needT, part: part, chain: ch, skip: sk, canNote: kind === 'past' && !!ch && !sk,
+               win: L.fmt(info.wake + s) + ' – ' + L.fmt(info.wake + e), at: L.fmtClock(info.wake + m.r), endAt: L.fmt(info.wake + e) };
     });
     return { list: list, open: open, next: next };
   }
   function actionLabel(s) {
+    if (s.chain) return s.part ? 'Continuer le moment' : (s.needR ? 'Relevé puis tests' : 'Commencer');
     if (s.needR && s.needT) return 'Relevé puis test';
     return s.needR ? 'Faire le relevé' : 'Faire le test (3 min)';
   }
   function startMoment(i) {
     var s = slotStates(todayInfo()).list[i];
     if (!s || (!s.needR && !s.needT)) return;
+    if (s.chain) { // moment enchaîné : le parcours garde le plan du jour (jour, plan, étape) et la suite des tests
+      flow = newFlow({ slot: i, mode: 'test' });
+      flow.chain = { slot: i, d: s.chain.d, plan: s.chain.plan, stage: s.chain.stage, steps: s.chain.steps.slice(), n: s.chain.steps.length };
+      if (s.needR) go('feel'); else chainGo();
+      return;
+    }
     flow = newFlow({ slot: i, mode: s.needR && s.needT ? 'both' : (s.needR ? 'releve' : 'test') });
     go(s.needR ? 'feel' : 'intro');
   }
@@ -1304,11 +1369,11 @@ function milestone(w) {
   function feelComplete() { return FEEL.every(function (f) { return flow.feel[f.id]; }); }
 
   /* ---------- Historique ---------- */
-  var KIND_LABEL = { releve: 'Relevé', test: 'Test', note: 'Note', activite: 'Activité', repas: 'Repas', coucher: 'Coucher' };
+  var KIND_LABEL = { releve: 'Relevé', test: 'Test', note: 'Note', activite: 'Activité', repas: 'Repas', coucher: 'Coucher', pas: 'Pas ce moment' };
   function planTxt(e) {
     if (e.plan !== 'prevu') return 'libre';
     var m = PLAN[e.slot];
-    return 'prévu' + (m ? ' · ' + rLabel(m.r) : '');
+    return 'prévu' + (m ? ' · ' + rLabel(m.r) : '') + (e.pj && PL.isRodage(e.pj.d) ? ' · rodage' : '');
   }
   function bedText(c) {
     var end = nightEnd(c);
@@ -1331,20 +1396,26 @@ function milestone(w) {
       body = (e.comment ? '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.comment) + '</div>' : '') +
         (e.feelStart ? '<div class="body">Début : ' + esc(feelShort(e.feelStart)) + (e.feelStartLate ? ' (noté après coup)' : '') + '</div>' : '') +
         (e.feelEnd ? '<div class="body">Fin : ' + esc(feelShort(e.feelEnd)) + (e.feelEndLate ? ' (noté après coup)' : '') + '</div>' : '');
+    } else if (e.kind === 'pas') {
+      var pm = PLAN[e.slot];
+      line = ph.name + (pm ? ' · ' + rLabel(pm.r) : '');
+      body = e.text ? '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.text) + '</div>' : '<div class="body">Sans précision.</div>';
+      kindTxt = 'Pas ce moment' + (e.pj && PL.isRodage(e.pj.d) ? ' · rodage' : '');
     } else if (e.test === 'ss') {
       var sv = e.ss, early = e.plan !== 'prevu' && e.rel < 120;
       line = ph.name + ' · ' + (sv.med === null ? 'pas de mesure' : ssMs(sv.med)) + ' · ' + sv.correct + '/' + sv.n + ' justes · ' + DEVICE_TXT[e.device];
       kindTxt = 'Symbol Search · ' + planTxt(e) + (early ? ' · avant R+2h' : '');
-      if (e.nth) body = '<div class="body">Passage n° ' + e.nth + (e.nthDay ? ' · ' + (e.nthDay === 1 ? '1er' : e.nthDay + 'ᵉ') + ' de la journée' : '') + '</div>';
+      body = passBody(e);
     } else if (e.test && TD[e.test] && TD[e.test].histLine) { // Rotation span, Hand Swype, Flanker
       var td3 = TD[e.test], early3 = e.plan !== 'prevu' && e.rel < 120;
       line = ph.name + ' · ' + td3.histLine(e[e.test]) + ' · ' + DEVICE_TXT[e.device];
       kindTxt = td3.name + ' · ' + planTxt(e) + (early3 ? ' · avant R+2h' : '');
-      if (e.nth) body = '<div class="body">Passage n° ' + e.nth + (e.nthDay ? ' · ' + (e.nthDay === 1 ? '1er' : e.nthDay + 'ᵉ') + ' de la journée' : '') + '</div>';
+      body = passBody(e);
     } else if (e.kind === 'test') {
       var p = e.pvt;
       line = ph.name + ' · ' + (p.mean === null ? 'pas de mesure' : p.mean + ' ms') + ' · ' + plural(p.lapses, 'lapse', 'lapses') + ' · ' + DEVICE_TXT[e.device];
       kindTxt = 'Test · ' + planTxt(e);
+      body = passBody(e);
     } else if (e.pvt) { // ancien relevé combiné (avant le 11/10)
       var q = e.pvt;
       line = ph.name + ' · ' + (q.mean === null ? 'pas de mesure' : q.mean + ' ms') + ' · ' + plural(q.lapses, 'lapse', 'lapses') + ' · ' + DEVICE_TXT[e.device];
@@ -1503,7 +1574,9 @@ function milestone(w) {
       '<p class="pl-tot">Journée : ' + pDur(d.sec) + ' en tout, PVT-B compris</p></section>' +
       '<p class="j-p">Heures calées sur ton réveil de ' + L.fmtClock(wake) + ' (R+ = heures depuis le réveil). Chaque moment : le PVT-B s’il est prévu à cette étape, puis 2 tests dans un ordre tiré au hasard. ' +
       'Plan et étapes : décidés le 14/10. Durées : estimées d’après les maquettes (à ajuster), pas encore mesurées sur téléphone.</p>' +
-      '<p class="j-ok" role="status">En préparation : pour l’instant, les moments du Journal ne lancent encore que le PVT-B. Les autres tests se passent en « Test libre » et sont gardés. Les enchaîner moment par moment vient à l’étape suivante.</p>';
+      '<p class="j-ok" role="status">' + esc(ps.s === 'run'
+        ? 'Depuis l’accueil, chaque moment de test enchaîne ses tests : un seul bouton « Commencer ». Tu peux t’arrêter entre deux tests ; ce qui est fait est gardé. Un moment passé reste « Passé », sans rattrapage.'
+        : 'Tant que le recueil n’a pas commencé (ou s’il est terminé), les moments du Journal ne lancent que le PVT-B ; les autres tests se passent en « Test libre » et sont gardés. Dès le premier jour, chaque moment de test enchaîne ses tests.') + '</p>';
   }
   function pRefreshDay(focusAct) {
     var box = $('pl-top');
@@ -1633,24 +1706,29 @@ function milestone(w) {
   }
 
   /* ---------- Accueil ---------- */
+  function programLine(s) {
+    return s.chain ? '<div class="t2"><b>Au programme</b> : ' + (s.needR ? 'Relevé · ' : '') + esc(stepsText(s.chain.todo)) + ' (≈ ' + PL.fmtMin(s.chain.sec) + (s.part ? ', le reste' : '') + ')</div>' : '';
+  }
   function momentCard(info, ps) {
     if (ps.open >= 0) {
       var m = PLAN[ps.open], s = ps.list[ps.open];
       return '<div class="j-now"><span class="j-kick">MAINTENANT</span>' +
         '<div class="t1">' + esc(momTitle(m)) + '</div>' +
-        '<div class="t2">' + esc(m.goal) + '</div>' +
+        '<div class="t2">' + esc(m.goal) + '</div>' + programLine(s) +
         '<div class="t3">Fenêtre ' + s.win + ' · prévu à ' + s.at + '</div>' +
-        '<div class="btns"><button type="button" class="btn primary" data-act="moment" data-id="' + ps.open + '">' + actionLabel(s) + '</button></div></div>';
+        '<div class="btns"><button type="button" class="btn primary" data-act="moment" data-id="' + ps.open + '">' + actionLabel(s) + '</button>' +
+        (s.chain && !s.part && !s.skip ? '<button type="button" class="btn ghost" data-act="skip-open" data-id="' + ps.open + '">Pas ce moment</button>' : '') + '</div></div>';
     }
     if (ps.next >= 0) {
       var n = PLAN[ps.next], sn = ps.list[ps.next];
       return '<div class="j-now"><span class="j-kick">PROCHAIN MOMENT</span>' +
         '<div class="t1">' + esc(momTitle(n)) + '</div>' +
-        '<div class="t3">Dès ' + L.fmt(info.wake + n.r - WIN.before) + ' · prévu à ' + sn.at + '</div>' +
+        '<div class="t3">Dès ' + L.fmt(info.wake + n.r - WIN.before) + ' · prévu à ' + sn.at + '</div>' + programLine(sn) +
         '<div class="t2">Rien à faire maintenant. Un relevé libre reste possible à tout moment.</div></div>';
     }
     return '<div class="j-now"><span class="j-kick">AUJOURD’HUI</span><div class="t1">Les moments du jour sont passés</div>' +
-      '<div class="t2">Un relevé libre reste possible à tout moment. Il n’y a rien à rattraper.</div></div>';
+      '<div class="t2">Un relevé libre reste possible à tout moment. Il n’y a rien à rattraper.</div>' +
+      (ps.list.some(function (x) { return x.canNote; }) ? '<div class="t2">Un moment passé sans test ? Tu peux noter pourquoi dans « Plan du jour », plus bas (facultatif).</div>' : '') + '</div>';
   }
   function actCard(a, info) {
     var min = (info.now.getTime() - a.ts) / 60000;
@@ -1691,8 +1769,12 @@ function milestone(w) {
     var nDone = ps.list.filter(function (s) { return s.kind === 'done'; }).length;
     $('j-plansum').textContent = 'Plan du jour · ' + PLAN.length + ' moments · ' + nDone + ' fait' + (nDone > 1 ? 's' : '');
     $('j-points').innerHTML = ps.list.map(function (s, i) {
+      var c = s.chain, extra = '';
+      if (c) extra += '<span class="j-ptg">' + esc((PLAN[i].kind !== 'test' ? 'Relevé · ' : '') + stepsText(c.steps)) + (s.part ? ' · ' + c.nDone + ' sur ' + c.total + ' faits' : '') + '</span>';
+      if (s.skip && s.skip.text) extra += '<span class="j-ptg j-ptw">« ' + esc(s.skip.text) + ' »</span>';
+      if (s.canNote) extra += '<button type="button" class="j-link j-ptl" data-act="skip-open" data-id="' + i + '">Noter pourquoi</button>';
       return '<li class="j-pt ' + s.kind + '"><div class="j-n">' + (s.kind === 'done' ? ICON_CHECK : (i + 1)) + '</div>' +
-        '<div class="j-ptx"><span class="j-ptn">' + rLabel(PLAN[i].r) + ' · ' + KIND_TXT[PLAN[i].kind] + '</span><span class="j-ptg">' + esc(PLAN[i].goal) + '</span></div>' +
+        '<div class="j-ptx"><span class="j-ptn">' + rLabel(PLAN[i].r) + ' · ' + KIND_TXT[PLAN[i].kind] + '</span><span class="j-ptg">' + esc(PLAN[i].goal) + '</span>' + extra + '</div>' +
         '<div class="j-pts"><span class="j-st">' + s.status + '</span><span class="j-win">' + s.at + '</span></div></li>';
     }).join('');
 
@@ -1754,8 +1836,8 @@ function milestone(w) {
 
   function vFeel() {
     var d = new Date(), ph = phaseAt(L.mod(minOf(d) - L.getWake())), ok = feelComplete();
-    var both = flow.mode === 'both', m = flow.slot != null ? PLAN[flow.slot] : null;
-    var mod = both ? 'Étape 1 sur 2' : (m ? rLabel(m.r) + ' · prévu' : 'Relevé libre');
+    var both = flow.mode === 'both', m = flow.slot != null ? PLAN[flow.slot] : null, ch = flow.chain;
+    var mod = ch ? rLabel(m.r) + ' · relevé puis tests' : (both ? 'Étape 1 sur 2' : (m ? rLabel(m.r) + ' · prévu' : 'Relevé libre'));
     return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="module">' + mod + '</span></div>' +
       '<h1 tabindex="-1">Ressenti</h1><p class="sub">Comment te sens-tu là, maintenant (ces 5 dernières minutes) ?</p>' +
       '<div class="nowline"><span class="dot" style="background:' + ph.color + '"></span><span>' + L.fmtClock(minOf(d)) + ' · ' + esc(ph.name) + '</span></div></header>' +
@@ -1764,17 +1846,17 @@ function milestone(w) {
       '<section class="j-sec"><h2>ESPRIT · LE PILOTE</h2>' + feelField(FEEL[3], 'flow') + feelField(FEEL[4], 'flow') + '</section>' +
       '<details class="j-det" id="j-detbox"' + (flow.detail ? ' open' : '') + '><summary>Ajouter un détail (facultatif)</summary>' +
       '<textarea id="j-detail" class="j-ta mid" maxlength="500" placeholder="Ce qui explique ce ressenti : mal dormi, café, douleur…" aria-label="Détail du ressenti">' + esc(flow.detail) + '</textarea></details></main>' +
-      '<div class="foot"><button type="button" class="btn primary" id="j-next" data-act="' + (both ? 'intro' : 'save-releve') + '"' + (ok ? '' : ' disabled') + '>' +
-      (both ? 'Suivant · test de vigilance' : 'Enregistrer le relevé') + '</button>' +
+      '<div class="foot"><button type="button" class="btn primary" id="j-next" data-act="' + (ch ? 'chain-feel' : (both ? 'intro' : 'save-releve')) + '"' + (ok ? '' : ' disabled') + '>' +
+      (ch ? 'Suivant · ' + STEP_NAME[ch.steps[0]] : (both ? 'Suivant · test de vigilance' : 'Enregistrer le relevé')) + '</button>' +
       '<span class="j-hint" id="j-feelhint">' + feelHint(ok, both) + '</span></div>';
   }
-  function feelHint(ok, both) { return ok ? (both ? 'Étape suivante : 3 minutes de test' : 'Prêt à enregistrer') : 'Les 5 réponses sont nécessaires'; }
+  function feelHint(ok, both) { return ok ? (flow.chain ? 'Le relevé est gardé, puis viennent les tests' : (both ? 'Étape suivante : 3 minutes de test' : 'Prêt à enregistrer')) : 'Les 5 réponses sont nécessaires'; }
 
   function vIntro() {
     var m = flow.slot != null ? PLAN[flow.slot] : null, both = flow.mode === 'both';
     var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : 'Test libre : il sera enregistré, hors des moments du plan.';
     return '<header class="subhead"><div class="top">' + (both ? back('feel', 'Ressenti') : (m ? back('home', 'Journal') : back('tests', 'Tests'))) +
-      '<span class="module">' + (both ? 'Étape 2 sur 2' : (m ? rLabel(m.r) + ' · prévu' : 'Test libre')) + '</span></div>' +
+      '<span class="module">' + (both ? 'Étape 2 sur 2' : (m ? slotTag(m) : 'Test libre')) + '</span></div>' +
       '<h1 tabindex="-1">Test de vigilance</h1><p class="sub">PVT-B · 3 minutes</p></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       (notice ? '<p class="j-warn" role="alert">' + esc(notice) + '</p>' : '') +
@@ -1802,7 +1884,7 @@ function milestone(w) {
 
   function vResult() {
     var r = flow.result, ph = phaseAt(relAt(flow.ts, flow.wake)), enough = r.n >= PVT.minValid, both = flow.mode === 'both';
-    return '<header><span class="module" style="display:block">' + (both ? 'Étape 2 sur 2 · fin du test' : 'Fin du test') + '</span>' +
+    return '<header><span class="module" style="display:block">' + (both ? 'Étape 2 sur 2 · fin du test' : 'Fin du test' + chainTag()) + '</span>' +
       '<h1 tabindex="-1" style="margin-top:4px">Résultat</h1></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       '<section class="j-card"><div class="nowline" style="margin:0"><span class="dot" style="background:' + ph.color + '"></span><span>' +
@@ -1817,7 +1899,7 @@ function milestone(w) {
         (flow.detail.trim() ? '<p style="font-size:13px;color:var(--muted)">' + esc(flow.detail.trim()) + '</p>' : '') + '</section>' : '') +
       '<p class="j-p">Un seul test ne dit presque rien : c’est la répétition sur plusieurs jours qui compte. Pas de seuil de santé ici.</p></main>' +
       '<div class="foot">' +
-      (enough ? '<button type="button" class="btn primary" data-act="save">' + (both ? 'Enregistrer le relevé et le test' : 'Enregistrer le test') + '</button>'
+      (enough ? '<button type="button" class="btn primary" data-act="save">' + saveTxt(both ? 'Enregistrer le relevé et le test' : 'Enregistrer le test') + '</button>'
               : '<button type="button" class="btn primary" data-act="intro">Refaire le test</button>') +
       '<button type="button" class="btn ghost" data-act="discard">Ne pas enregistrer</button></div>';
   }
@@ -1866,7 +1948,7 @@ function milestone(w) {
     if (!m && L.mod(minOf(new Date()) - L.getWake()) < 120) msg += ' Avant R+2h, il sera noté « avant R+2h » (l’inertie du réveil peut durer 2 à 4 h : Jewett 1999).';
     var demoTop = [0, 3], demoFoil = [0, 5];
     return '<header class="subhead"><div class="top">' + (m ? back('home', 'Journal') : back('tests', 'Tests')) +
-      '<span class="module">' + (m ? rLabel(m.r) + ' · prévu' : 'Test libre') + '</span></div>' +
+      '<span class="module">' + (m ? slotTag(m) : 'Test libre') + '</span></div>' +
       '<h1 tabindex="-1">Symbol Search</h1><p class="sub">Vitesse de traitement · ≈ ' + SS.estSec + ' s</p></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       (notice ? '<p class="j-warn" role="alert">' + esc(notice) + '</p>' : '') +
@@ -1946,7 +2028,7 @@ function milestone(w) {
   function vSsResult() {
     var r = flow.result, rel = relAt(r.ts, r.wake), ph = phaseAt(rel), libre = flow.slot == null, early = libre && rel < 120;
     var count = entries.filter(function (e) { return e.test === 'ss'; }).length + 1;
-    return '<header><span class="module" style="display:block">Fin du test</span><h1 tabindex="-1" style="margin-top:4px">Résultat</h1></header>' +
+    return '<header><span class="module" style="display:block">Fin du test' + chainTag() + '</span><h1 tabindex="-1" style="margin-top:4px">Résultat</h1></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       '<section class="j-card"><div class="nowline" style="margin:0"><span class="dot" style="background:' + ph.color + '"></span><span>' + clockOf(r.ts) + ' · ' + esc(ph.name) + '</span></div>' +
       '<div class="j-metrics"><div><b>' + (r.med === null ? '—' : Math.round(r.med) + '<small> ms</small>') + '</b><span>Temps médian, réponses justes</span></div>' +
@@ -1955,7 +2037,7 @@ function milestone(w) {
       '<p class="j-fhint" style="color:var(--text)"><b>Chiffre principal :</b> le temps médian des réponses justes (le premier chiffre). Plus bas = plus rapide.</p>' +
       '<p class="j-fhint">Durée du passage : ' + ssDur(r.durationMs) + ' (estimée : ≈ ' + SS.estSec + ' s)</p>' +
       '<div class="chips" style="margin:0"><span class="chip main">Mesuré (toi, ' + ssPlural(count, 'test', 'tests') + ')</span><span class="chip hy">' + DEVICE_TXT[r.device] + ' · ' + (INPUT_TXT[r.input] || r.input) + '</span>' +
-      '<span class="chip hy">' + (libre ? 'test libre' : 'prévu') + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
+      '<span class="chip hy">' + (libre ? 'test libre' : prevuTxt()) + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
       (r.acc < SS.minAcc ? '<p class="j-ok">Sous 70 % de réponses justes, l’étude lue écartait le passage de ses analyses.</p>' : '') +
       ssRefHtml(r, libre) +
       '<section class="j-card"><dl class="ss-facts" style="margin:0"><div><dt>Justes hors des temps comptés (moins de 0,2 s ou plus de 5 s)</dt><dd>' + r.excluded + '</dd></div></dl></section>' +
@@ -1967,7 +2049,7 @@ function milestone(w) {
       '<div class="ss-sec"><h3>Prudence · Établi</h3><p>Un passage seul est bruité. L’ICC de 0,71 classe des personnes entre elles. Pour suivre une même personne, la variation fiable d’un passage à l’autre est de 0,41 à 0,53 (Sliwinski 2018, deux types de tâches confondus, résumé seul). Un passage hors de la fourchette n’est donc pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.</p></div>' +
       '<div class="ss-sec"><h3>Précision · Hypothèse à mesurer</h3><p>Le chronomètre part à l’image où les cartes s’affichent : précision d’une image environ (17 ms), non vérifiée sur ton téléphone.</p></div></details>' +
       '<p class="j-p">Un seul passage ne dit presque rien : c’est la répétition sur plusieurs jours qui compte. Pas de seuil de santé ici.</p></main>' +
-      '<div class="foot"><button type="button" class="btn primary" data-act="ss-save">Enregistrer le test</button>' +
+      '<div class="foot"><button type="button" class="btn primary" data-act="ss-save">' + saveTxt('Enregistrer le test') + '</button>' +
       '<button type="button" class="btn ghost" data-act="discard">Ne pas enregistrer</button></div>';
   }
 
@@ -2292,7 +2374,7 @@ function milestone(w) {
     var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : 'Test libre : il sera enregistré, hors des moments du plan et hors de ta référence.';
     if (!m && L.mod(minOf(new Date()) - L.getWake()) < 120) msg += ' Avant R+2h, il sera noté « avant R+2h » (l’inertie du réveil peut durer 2 à 4 h : Jewett 1999).';
     return '<header class="subhead"><div class="top">' + (m ? back('home', 'Journal') : back('tests', 'Tests')) +
-      '<span class="module">' + (m ? rLabel(m.r) + ' · prévu' : 'Test libre') + '</span></div>' +
+      '<span class="module">' + (m ? slotTag(m) : 'Test libre') + '</span></div>' +
       '<h1 tabindex="-1">' + esc(td.name) + '</h1><p class="sub">' + esc(td.cog) + ' · ≈ ' + est + '</p></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       (notice ? '<p class="j-warn" role="alert">' + esc(notice) + '</p>' : '') +
@@ -2329,20 +2411,20 @@ function milestone(w) {
   function vTResult() {
     var id = flow.test, td = TD[id], r = flow.result, rel = relAt(r.ts, r.wake), ph = phaseAt(rel), libre = flow.slot == null, early = libre && rel < 120;
     var count = entries.filter(function (e) { return e.test === id; }).length + 1;
-    return '<header><span class="module" style="display:block">Fin du test</span><h1 tabindex="-1" style="margin-top:4px">Résultat</h1></header>' +
+    return '<header><span class="module" style="display:block">Fin du test' + chainTag() + '</span><h1 tabindex="-1" style="margin-top:4px">Résultat</h1></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       '<section class="j-card"><div class="nowline" style="margin:0"><span class="dot" style="background:' + ph.color + '"></span><span>' + clockOf(r.ts) + ' · ' + esc(ph.name) + '</span></div>' +
       '<div class="j-metrics">' + td.metrics(r) + '</div>' +
       '<p class="j-fhint" style="color:var(--text)"><b>Chiffre principal :</b> ' + td.mainTxt + '</p>' +
       '<p class="j-fhint">Durée du passage : ' + ssDur(r.durationMs) + ' (estimée : ≈ ' + ssDur(td.estSec * 1000) + ')</p>' +
       '<div class="chips" style="margin:0"><span class="chip main">Mesuré (toi, ' + ssPlural(count, 'test', 'tests') + ')</span><span class="chip hy">' + DEVICE_TXT[r.device] + ' · ' + (INPUT_TXT[r.input] || r.input) + '</span>' +
-      '<span class="chip hy">' + (libre ? 'test libre' : 'prévu') + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
+      '<span class="chip hy">' + (libre ? 'test libre' : prevuTxt()) + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
       tRefHtml(id, r, libre) +
       td.facts(r) +
       (td.table ? td.table(r) : '') +
       '<details class="j-det"><summary>Comment lire ce résultat</summary>' + td.read() + '</details>' +
       '<p class="j-p">Un seul passage ne dit presque rien : c’est la répétition sur plusieurs jours qui compte. Pas de seuil de santé ici.</p></main>' +
-      '<div class="foot"><button type="button" class="btn primary" data-act="' + id + '-save">Enregistrer le test</button>' +
+      '<div class="foot"><button type="button" class="btn primary" data-act="' + id + '-save">' + saveTxt('Enregistrer le test') + '</button>' +
       '<button type="button" class="btn ghost" data-act="discard">Ne pas enregistrer</button></div>';
   }
 
@@ -2519,7 +2601,7 @@ function milestone(w) {
     list.forEach(function (e) { var k = e.kind === 'releve' && e.pvt ? 'combo' : (e.kind === 'test' && e.test ? e.test : e.kind); n[k] = (n[k] || 0) + 1; });
     var parts = [];
     [['releve', 'relevé', 'relevés'], ['combo', 'relevé + test', 'relevés + tests'], ['test', 'test', 'tests'], ['rs', 'passage Rotation span', 'passages Rotation span'], ['fl', 'passage Flanker', 'passages Flanker'], ['ss', 'passage Symbol Search', 'passages Symbol Search'], ['hs', 'passage Hand Swype', 'passages Hand Swype'], ['ml', 'passage Memory List', 'passages Memory List'], ['activite', 'activité', 'activités'],
-     ['repas', 'repas', 'repas'], ['coucher', 'coucher', 'couchers'], ['note', 'note', 'notes']].forEach(function (t) {
+     ['repas', 'repas', 'repas'], ['coucher', 'coucher', 'couchers'], ['note', 'note', 'notes'], ['pas', 'note « pas ce moment »', 'notes « pas ce moment »']].forEach(function (t) {
       if (n[t[0]]) parts.push(plural(n[t[0]], t[1], t[2]));
     });
     return parts.length ? parts.join(' · ') : 'aucune entrée';
@@ -2584,6 +2666,7 @@ function milestone(w) {
 
   var VIEWS = { home: vHome, feel: vFeel, intro: vIntro, run: vRun, result: vResult, note: vNote, backup: vBackup, restore: vRestore, history: vHistory,
                 reminders: vRemind, plan: vPlan, 'act-start': vActStart, 'act-end': vActEnd, meal: vMeal, bed: vBed, edit: vEdit,
+                chain: vChain, skip: vSkip,
                 tests: vTests, 'ss-intro': vSsIntro, 'ss-run': vSsRun, 'ss-prac': vSsPrac, 'ss-result': vSsResult,
                 'rs-intro': vTIntro, 'rs-run': vTRun, 'rs-prac': vTPrac, 'rs-result': vTResult,
                 'hs-intro': vTIntro, 'hs-run': vTRun, 'hs-prac': vTPrac, 'hs-result': vTResult,
@@ -3414,8 +3497,9 @@ function milestone(w) {
     var t = baseEntry('test', ts, wake);
     t.slot = flow.slot; t.plan = flow.slot != null ? 'prevu' : 'libre'; t.device = r.device; t.input = r.input;
     t.pvt = { n: r.n, mean: r.mean, lapses: r.lapses, falseStarts: r.falseStarts, timeouts: r.timeouts, rts: r.rts, durationMs: r.durationMs };
+    chainStamp(t);
     entries.push(t);
-    afterSave((flow.mode === 'both' ? 'Relevé et test enregistrés · ' : 'Test enregistré · ') + clockOf(ts) + '.');
+    saved((flow.mode === 'both' ? 'Relevé et test enregistrés · ' : (flow.chain ? 'PVT-B enregistré · ' : 'Test enregistré · ')) + clockOf(ts) + '.');
   }
   // Un passage de Symbol Search, Rotation span, Hand Swype ou Flanker : un test seul (les moments du plan à plusieurs tests viendront plus tard).
   function saveTestN() {
@@ -3427,8 +3511,9 @@ function milestone(w) {
     e.nth = prev.length + 1; // n-ième passage de ce test (tous passages, libres compris)
     e.nthDay = prev.filter(function (x) { return x.day === e.day; }).length + 1; // n-ième passage de ce test dans la journée
     e[id] = td.pack(r);
+    chainStamp(e);
     entries.push(e);
-    afterSave(td.name + ' enregistré · ' + clockOf(r.ts) + '.');
+    saved(td.name + ' enregistré · ' + clockOf(r.ts) + '.');
   }
   function saveNote() {
     var text = noteText.trim();
@@ -3438,6 +3523,134 @@ function milestone(w) {
     entries.push(e);
     noteText = '';
     afterSave('Note enregistrée.');
+  }
+
+  /* ---------- Moment enchaîné : PVT-B puis 2 tests, « Pas ce moment » (morceau 4b) ---------- */
+  // Le parcours (`flow.chain`) ne garde que ce qui est décidé au départ (jour du plan, plan, étape, suite des tests). Ce qui reste à faire se relit toujours dans
+  // les entrées du jour : rien n'est perdu si l'appli est rechargée, et un moment arrêté se reprend tant que sa fenêtre est ouverte.
+  function ordTxt(n) { return n === 1 ? '1er' : n + 'ᵉ'; }
+  function pjText(e) {
+    var p = e.pj;
+    if (!p) return '';
+    return (p.k ? ordTxt(p.k) + ' du moment (' + p.n + ' prévus) · ' : '') + 'jour ' + (p.d + 1) + ' du plan · semaine ' + PL.weekOf(p.d) +
+      (PL.isRodage(p.d) ? ' · rodage' : '') + ' · PVT-B étape ' + p.st;
+  }
+  function passBody(e) { // lignes sous un passage dans l'historique : numéro de passage, puis place dans le plan
+    var rows = [];
+    if (e.nth) rows.push('Passage n° ' + e.nth + (e.nthDay ? ' · ' + ordTxt(e.nthDay) + ' de la journée' : ''));
+    var pj = pjText(e);
+    if (pj) rows.push(pj);
+    return rows.map(function (t) { return '<div class="body">' + esc(t) + '</div>'; }).join('');
+  }
+  function slotTag(m) { // « R+3h · test 2 sur 3 » dans un moment enchaîné, « R+3h · prévu » sinon
+    var ch = flow.chain, i = ch ? ch.steps.indexOf(flow.test) : -1;
+    return rLabel(m.r) + ' · ' + (i >= 0 ? 'test ' + (i + 1) + ' sur ' + ch.n : 'prévu');
+  }
+  function chainTag() { return flow.chain && flow.slot != null && PLAN[flow.slot] ? ' · ' + slotTag(PLAN[flow.slot]) : ''; }
+  function prevuTxt() { return 'prévu' + (flow.chain && PL.isRodage(flow.chain.d) ? ' · rodage' : ''); }
+  function chainState() {
+    var ch = flow.chain;
+    if (!ch) return null;
+    var info = todayInfo(), s = slotStates(info).list[ch.slot];
+    return s && s.chain ? { ch: ch, info: info, s: s, m: PLAN[ch.slot] } : null;
+  }
+  function saveTxt(base) {
+    var cs = chainState();
+    if (!cs) return base;
+    return cs.s.chain.todo.some(function (t) { return t !== flow.test; }) ? 'Enregistrer et continuer' : base;
+  }
+  // Étiquettes du passage dans le plan. Rang = nombre de passages déjà enregistrés dans ce moment + 1 (un passage lancé puis non enregistré n'y figure pas).
+  function chainStamp(e) {
+    var ch = flow.chain;
+    if (!ch) return;
+    var k = 1 + entries.filter(function (x) { return x.kind === 'test' && x.slot === ch.slot && x.day === e.day; }).length;
+    e.pj = { d: ch.d, p: ch.plan, st: ch.stage, k: Math.min(k, 3), n: ch.n };
+  }
+  function saved(msg) { if (flow.chain) chainSaved(msg); else afterSave(msg); }
+  function chainSaved(msg) {
+    entries.sort(byTs);
+    if (!persist()) msg += ' Attention : l’appareil refuse d’enregistrer.';
+    updateAlert();
+    var cs = chainState();
+    if (cs && (cs.s.needT || cs.s.needR)) { flow.chainMsg = msg; flow.result = null; go('chain'); return; }
+    notice = 'Moment ' + (flow.chain ? rLabel(PLAN[flow.chain.slot].r) : '') + ' terminé. ' + msg;
+    flow = newFlow(); form = null; go('home');
+  }
+  function chainFeel() { // moment « relevé + tests » : le relevé est enregistré tout de suite, puis viennent les tests
+    if (!flow.chain || !feelComplete()) return;
+    var ts = Date.now();
+    flow.feelTs = ts;
+    entries.push(releveEntry(ts, L.getWake()));
+    entries.sort(byTs);
+    var ok = persist();
+    updateAlert();
+    chainGo();
+    if (!ok) { notice = 'Attention : l’appareil refuse d’enregistrer.'; render(); notice = ''; }
+  }
+  function chainGo() { // ouvre la consigne du prochain test à faire dans le moment
+    var ch = flow.chain;
+    if (!ch) { go('home'); return; }
+    var cs = chainState(), t = cs && cs.s.chain.todo[0];
+    if (!t) { notice = 'Moment ' + rLabel(PLAN[ch.slot].r) + ' terminé.'; flow = newFlow(); go('home'); return; }
+    flow.test = t; flow.result = null; flow.tMode = 'test'; flow.prac = null; flow.chainMsg = '';
+    go(t === 'pvt' ? 'intro' : t + '-intro');
+  }
+  function chainStop() {
+    var cs = chainState(), r = flow.chain ? rLabel(PLAN[flow.chain.slot].r) : '';
+    notice = cs && cs.s.kind === 'open'
+      ? 'Moment ' + r + ' arrêté : ce qui est fait est gardé. Tu peux le reprendre jusqu’à ' + cs.s.endAt + '.'
+      : 'Moment ' + r + ' arrêté : ce qui est fait est gardé ; le moment sera noté « Incomplet ».';
+    flow = newFlow(); form = null; go('home');
+  }
+  function vChain() {
+    var cs = chainState();
+    if (!cs || !cs.s.needT) { screen = 'home'; flow = newFlow(); return vHome(); }
+    var c = cs.s.chain, m = cs.m, d = cs.info.done[cs.ch.slot] || { tests: {} }, next = c.todo[0], open = cs.s.kind === 'open';
+    var rows = c.steps.map(function (t, i) {
+      var isDone = c.todo.indexOf(t) < 0, ent = t === 'pvt' ? d.test : d.tests[t];
+      return '<li class="ch-it' + (isDone ? ' done' : (t === next ? ' next' : '')) + '"><span class="ch-n">' + (isDone ? ICON_CHECK : (i + 1)) + '</span>' +
+        '<span class="ch-t">' + esc(STEP_NAME[t]) + '</span><span class="ch-d">' + (isDone && ent ? clockOf(ent.ts) : '≈ ' + (stepSec(t) < 60 ? stepSec(t) + ' s' : pDur(stepSec(t)))) + '</span></li>';
+    }).join('');
+    var msg = notice || flow.chainMsg;
+    return '<header class="subhead"><div class="top">' + back('chain-stop', 'Journal') + '<span class="module">' + rLabel(m.r) + ' · ' + (c.steps.length - c.todo.length) + ' sur ' + c.steps.length + ' faits</span></div>' +
+      '<h1 tabindex="-1">Suite du moment</h1><p class="sub">' + esc(m.name) + '</p></header>' +
+      '<main style="padding-top:14px;gap:12px">' +
+      (msg ? '<p class="j-ok" role="status">' + esc(msg) + '</p>' : '') +
+      '<section class="j-card"><h2 class="j-kick">DANS CE MOMENT</h2><ol class="ch-list">' + rows + '</ol></section>' +
+      '<p class="j-p">Continue quand tu es prêt. Tu peux aussi t’arrêter ici : ce qui est enregistré est gardé' +
+      (open ? ', et tu peux reprendre depuis l’accueil jusqu’à ' + cs.s.endAt : ' ; le moment sera noté « Incomplet »') + '.</p></main>' +
+      '<div class="foot"><button type="button" class="btn primary" data-act="chain-go">Continuer · ' + esc(STEP_NAME[next]) + '</button>' +
+      '<button type="button" class="btn ghost" data-act="chain-stop">Arrêter ici</button></div>';
+  }
+
+  // « Pas ce moment » : un mot libre, facultatif, gardé avec la journée (pour savoir si un trou vient d'une occupation ou d'un creux). Aucun rattrapage.
+  function skipOpen(i) {
+    var s = slotStates(todayInfo()).list[i];
+    if (!s || !s.chain || s.skip || (s.kind !== 'open' && s.kind !== 'past')) return;
+    form = { type: 'skip', slot: i, text: '' };
+    go('skip');
+  }
+  function doSkip() {
+    if (!form || form.type !== 'skip') return;
+    var info = todayInfo(), s = slotStates(info).list[form.slot];
+    if (!s || !s.chain || s.skip) { form = null; go('home'); return; }
+    var e = baseEntry('pas', Date.now(), L.getWake()), tx = form.text.trim().slice(0, 300), r = rLabel(PLAN[form.slot].r);
+    e.slot = form.slot;
+    if (tx) e.text = tx;
+    e.pj = { d: s.chain.d, p: s.chain.plan, st: s.chain.stage };
+    entries.push(e);
+    afterSave('Noté pour ' + r + ' : pas ce moment. Rien à rattraper.');
+  }
+  function vSkip() {
+    var m = form && form.type === 'skip' ? PLAN[form.slot] : null;
+    if (!m) { screen = 'home'; return vHome(); }
+    return formHeader('Pas ce moment', esc(rLabel(m.r)) + ' · ' + esc(m.name)) +
+      '<main style="padding-top:14px;gap:10px">' +
+      '<label for="j-skiptext" class="j-lab" style="margin:0 5px">Ce qui se passe (facultatif)</label>' +
+      '<textarea id="j-skiptext" class="j-ta mid" maxlength="300" placeholder="Réunion, déplacement, pas envie, fatigué…" aria-label="Pourquoi pas ce moment">' + esc(form.text) + '</textarea>' +
+      '<p class="j-p">Rien à rattraper : le moment reste « Passé », jamais « Manqué ». Ton mot est gardé avec ta journée et aide à relire tes résultats : un trou dû à une occupation n’a pas le même sens qu’un trou dû à un creux.</p></main>' +
+      '<div class="foot"><button type="button" class="btn primary" data-act="skip-go">Noter</button>' +
+      '<button type="button" class="btn ghost" data-act="home">Annuler</button></div>';
   }
 
   /* ---------- Activités ---------- */
@@ -3791,7 +4004,15 @@ function milestone(w) {
       case 'stop': if (pvt) pvt.finish('stop'); break;
       case 'save': saveTest(); break;
       case 'save-releve': saveReleveOnly(); break;
-      case 'discard': flow = newFlow(); go('home'); break;
+      case 'discard':
+        if (flow.chain) { flow.result = null; notice = 'Ce passage n’est pas enregistré. Tu peux le refaire ou arrêter ici.'; go('chain'); }
+        else { flow = newFlow(); go('home'); }
+        break;
+      case 'chain-feel': chainFeel(); break;
+      case 'chain-go': chainGo(); break;
+      case 'chain-stop': chainStop(); break;
+      case 'skip-open': skipOpen(Number(id)); break;
+      case 'skip-go': doSkip(); break;
       case 'note': noteText = ''; noteTs = Date.now(); go('note'); break;
       case 'save-note': saveNote(); break;
       case 'act-start': openActStart(); break;
@@ -3891,6 +4112,8 @@ function milestone(w) {
       if (b) b.disabled = !noteText.trim();
     } else if (t.id === 'j-detail') {
       flow.detail = t.value;
+    } else if (t.id === 'j-skiptext') {
+      if (form && form.type === 'skip') form.text = t.value;
     } else if (t.id === 'pl-start') {
       pOnField(t);
     } else if (t.getAttribute && t.getAttribute('data-field')) {
