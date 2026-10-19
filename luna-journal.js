@@ -45,7 +45,7 @@
   if (!L || !root) return;
 
   /* ---------- Constantes ---------- */
-  var KEY = 'luna.journal', KEY_BK = 'luna.journal.lastBackup', KEY_ACTS = 'luna.activities', KEY_BEDSKIP = 'luna.bedSkip', KEY_PRAC = 'luna.practiced';
+  var KEY = 'luna.journal', KEY_BK = 'luna.journal.lastBackup', KEY_ACTS = 'luna.activities', KEY_BEDSKIP = 'luna.bedSkip', KEY_PRAC = 'luna.practiced', KEY_INST = 'luna.instants';
 
   // Plan de la journée, en minutes APRÈS le réveil (R+). kind : 'releve' | 'test' | 'both'.
   // Pour changer le plan : modifier cette liste (l'ordre doit rester croissant).
@@ -85,6 +85,7 @@
     { id: 'agitation', opts: ['Calme', 'Posé', 'Modéré', 'Agité', 'Très agité'] }
   ];
   var ACTS_DEFAULT = ['Travail', 'Sport', 'Marche', 'Repos', 'Tâches', 'Loisirs'];
+  var INST_DEFAULT = ['popo']; // premier instant déjà créé ; tu peux le retirer ou en ajouter dans Réglages
   var LONG_ACT_MIN = 180; // une activité « en cours » depuis plus de 3 h déclenche un rappel doux sur l'écran d'accueil
   var PVT = { duration: 180000, isiMin: 1000, isiMax: 4000, feedback: 1000, lapse: 355, falseStart: 100,
               timeout: 10000, debounce: 150, minValid: 10 };
@@ -284,6 +285,7 @@
     '.btn.j-small{min-height:44px;font-size:14px;margin:4px 5px 0;width:auto}',
     '.j-grid{margin:0 5px;display:grid;grid-template-columns:1fr 1fr;gap:8px}',
     '.j-grid .btn{padding:0 8px;font-size:14px;min-height:46px}',
+    '.j-grid .btn.wide{grid-column:1 / -1}',
     '.j-now{margin:0 5px;background:var(--card);border:1px solid var(--line2);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}',
     '.j-now.act{border-left:4px solid #52B7B0}',
     '.j-now.bed{border-left:4px solid #8C6FD0}',
@@ -295,10 +297,16 @@
     '.j-now .inrow{display:flex;gap:8px;align-items:center;margin-top:4px}',
     '.j-now .inrow .j-sel{flex:1;min-width:0}',
     '.j-now .inrow .btn{flex:1;min-width:0;width:auto}',
-    '.j-tags{display:flex;flex-wrap:wrap;gap:8px}',
-    '.j-tag{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line2);background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}',
-    '.j-tag.on{border-color:var(--text);background:var(--nav-on)}',
-    '.j-tag .x{margin-left:8px;color:#F08A6A;font-weight:700}',
+    '.j-picks{display:grid;grid-template-columns:1fr 1fr;gap:10px}',
+    '.j-pick{display:flex;align-items:center;justify-content:center;text-align:center;min-height:64px;padding:8px 10px;border-radius:14px;border:1px solid var(--line2);background:var(--card);color:var(--text);font-size:17px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;cursor:pointer;font-family:inherit}',
+    '.j-pick.other{border-style:dashed;font-weight:600;color:var(--muted)}',
+    '.j-pick.on{border:2px solid var(--text);background:var(--nav-on);color:var(--text)}',
+    '.j-addrow{display:flex;gap:8px;align-items:stretch}',
+    '.j-addrow .j-sel{flex:1;min-width:0}',
+    '.j-addrow .btn{flex:0 0 auto;width:auto;padding:0 16px}',
+    '.j-mlist{list-style:none;margin:0;padding:0 0 10px;display:flex;flex-direction:column;gap:6px}',
+    '.j-mrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 4px 2px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line)}',
+    '.j-mrow .n{font-size:15px;font-weight:600;overflow-wrap:anywhere}',
     '.j-hist{display:flex;flex-direction:column;gap:6px}',
     '.j-h{margin:0 5px;padding:10px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column;gap:4px}',
     '.j-h .r1{display:flex;align-items:center;justify-content:space-between;gap:8px}',
@@ -974,8 +982,8 @@ function milestone(w) {
   })();
 
   /* ---------- Données ---------- */
-  var entries = [], storageOk = true, lastBackup = null, actNames = ACTS_DEFAULT.slice();
-  var KINDS = ['releve', 'test', 'note', 'activite', 'repas', 'coucher', 'pas'];
+  var entries = [], storageOk = true, lastBackup = null, actNames = ACTS_DEFAULT.slice(), instNames = INST_DEFAULT.slice();
+  var KINDS = ['releve', 'test', 'note', 'activite', 'repas', 'coucher', 'pas', 'instant'];
 
   function lite(e) {
     return e && typeof e === 'object' && typeof e.id === 'string' && KINDS.indexOf(e.kind) >= 0 && isFinite(e.ts) ? e : null;
@@ -998,7 +1006,11 @@ function milestone(w) {
     try { var b = Number(localStorage.getItem(KEY_BK)); lastBackup = b > 0 ? b : null; } catch (e) {}
     try {
       var a = JSON.parse(localStorage.getItem(KEY_ACTS));
-      if (Array.isArray(a)) actNames = a.filter(function (x) { return typeof x === 'string' && x.trim() && x.length <= 40; }).map(function (x) { return x.trim(); }).slice(0, 30);
+      if (Array.isArray(a)) actNames = cleanNames(a);
+    } catch (e) {}
+    try { // jamais enregistrée : la liste de départ ; enregistrée vide : elle reste vide (tu l'as vidée)
+      var ai = JSON.parse(localStorage.getItem(KEY_INST));
+      if (Array.isArray(ai)) instNames = cleanNames(ai);
     } catch (e) {}
     if (normalizeActs()) persist();
   }
@@ -1009,6 +1021,26 @@ function milestone(w) {
     return storageOk;
   }
   function saveActNames() { try { localStorage.setItem(KEY_ACTS, JSON.stringify(actNames)); } catch (e) {} }
+  function saveInstNames() { try { localStorage.setItem(KEY_INST, JSON.stringify(instNames)); } catch (e) {} }
+  // Liste de motifs (activités, instants) : textes de 40 caractères au plus, sans doublon (majuscules ignorées), 30 au plus.
+  function cleanNames(a) {
+    var out = [];
+    (Array.isArray(a) ? a : []).forEach(function (x) {
+      if (typeof x !== 'string') return;
+      var n = x.trim(), low = n.toLowerCase();
+      if (!n || n.length > 40 || out.some(function (y) { return y.toLowerCase() === low; })) return;
+      out.push(n);
+    });
+    return out.slice(0, 30);
+  }
+  // Ajoute un motif à une liste. Renvoie 'ok', 'doublon' ou 'pleine'.
+  function addToList(list, name) {
+    var low = name.toLowerCase();
+    if (list.some(function (n) { return n.toLowerCase() === low; })) return 'doublon';
+    if (list.length >= 30) return 'pleine';
+    list.push(name);
+    return 'ok';
+  }
   function markBackup() {
     lastBackup = Date.now();
     try { localStorage.setItem(KEY_BK, String(lastBackup)); } catch (e) {}
@@ -1026,11 +1058,6 @@ function milestone(w) {
     var best = null;
     entries.forEach(function (e) { if (e.kind === 'activite' && e.end == null && (!best || e.ts > best.ts)) best = e; });
     return best;
-  }
-  function rememberAct(name) {
-    if (!name) return;
-    var low = name.toLowerCase();
-    if (!actNames.some(function (n) { return n.toLowerCase() === low; })) { actNames.push(name); saveActNames(); }
   }
 
   // Heure du réveil qui suit un coucher, ou null si inconnue.
@@ -1204,6 +1231,12 @@ function milestone(w) {
       if (e.memo) o.memo = true;
       return o;
     }
+    if (k === 'instant') { // un seul moment, sans fin : seul le nom et l'heure comptent
+      var iname = typeof e.name === 'string' ? e.name.trim().slice(0, 40) : '';
+      if (!iname) return null;
+      o.name = iname;
+      return o;
+    }
     if (k === 'activite') {
       var name = typeof e.name === 'string' ? e.name.trim().slice(0, 40) : '';
       if (!name) return null;
@@ -1264,7 +1297,7 @@ function milestone(w) {
   var backupStatus = '';
   var rem = { moments: true, phases: false, days: 1 }, remStatus = '';
   var restore = null, restoreError = '';
-  var manageActs = false;
+  var setDraft = { act: '', inst: '' }, setNotice = ''; // Réglages : texte en cours de saisie, message
 
   function newFlow(o) {
     o = o || {};
@@ -1369,7 +1402,7 @@ function milestone(w) {
   function feelComplete() { return FEEL.every(function (f) { return flow.feel[f.id]; }); }
 
   /* ---------- Historique ---------- */
-  var KIND_LABEL = { releve: 'Relevé', test: 'Test', note: 'Note', activite: 'Activité', repas: 'Repas', coucher: 'Coucher', pas: 'Pas ce moment' };
+  var KIND_LABEL = { releve: 'Relevé', test: 'Test', note: 'Note', activite: 'Activité', repas: 'Repas', coucher: 'Coucher', pas: 'Pas ce moment', instant: 'Instant' };
   function planTxt(e) {
     if (e.plan !== 'prevu') return 'libre';
     var m = PLAN[e.slot];
@@ -1389,6 +1422,8 @@ function milestone(w) {
       line = ph.name; body = '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.text) + '</div>'; editable = true;
     } else if (e.kind === 'coucher') {
       line = 'Coucher'; body = '<div class="body">' + esc(bedText(e)) + '</div>'; editable = true;
+    } else if (e.kind === 'instant') {
+      line = e.name; editable = true;
     } else if (e.kind === 'activite') {
       editable = true;
       var endTxt = e.end == null ? 'en cours depuis ' + durText((nowMs - e.ts) / 60000) : clockOf(e.end) + ' (' + durText((e.end - e.ts) / 60000) + ')';
@@ -1803,9 +1838,10 @@ function milestone(w) {
       '<details class="j-det" id="j-plan"><summary id="j-plansum"></summary><ol class="j-points" id="j-points"></ol></details>' +
       '<div class="j-sect"><span class="j-kick">À TOUT MOMENT</span></div>' +
       '<div class="j-grid">' +
-      '<button type="button" class="btn primary" data-act="releve">Relevé libre</button>' +
-      '<button type="button" class="btn secondary" data-act="test-libre">Test libre</button>' +
+      '<button type="button" class="btn primary wide" data-act="releve">Relevé libre</button>' +
       '<button type="button" class="btn secondary" data-act="act-start">Activité</button>' +
+      '<button type="button" class="btn secondary" data-act="instant">Instant</button>' +
+      '<button type="button" class="btn secondary" data-act="test-libre">Test libre</button>' +
       '<button type="button" class="btn secondary" data-act="meal">Repas</button>' +
       '<button type="button" class="btn secondary" data-act="bed">Coucher</button>' +
       '<button type="button" class="btn secondary" data-act="note">' + ICON_PEN + 'Note</button></div>' +
@@ -2460,33 +2496,74 @@ function milestone(w) {
     if (!form) return false;
     switch (form.type) {
       case 'act-start': return !!form.name.trim() && validClock(form.time);
+      case 'instant': return !!form.name.trim() && validClock(form.time);
       case 'act-end': return validClock(form.time);
       case 'meal': return !!form.text.trim() && validClock(form.time);
       case 'bed': return validClock(form.time);
       case 'edit':
         if (form.kind === 'activite') return !!form.name.trim() && validClock(form.time) && (form.end === '' || validClock(form.end));
         if (form.kind === 'repas') return !!form.text.trim() && validClock(form.time);
+        if (form.kind === 'instant') return !!form.name.trim() && validClock(form.time);
         return validClock(form.time);
     }
     return false;
   }
 
+  // Grandes touches : une par motif de la liste, puis « Autre… » (saisie libre, pas gardée dans la liste).
+  function pickGrid(names, ph, label) {
+    var cur = form.name.trim().toLowerCase();
+    var btns = names.map(function (n) {
+      var on = !form.other && cur === n.toLowerCase();
+      return '<button type="button" class="j-pick' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="pick" data-name="' + esc(n) + '">' + esc(n) + '</button>';
+    }).join('');
+    btns += '<button type="button" class="j-pick other' + (form.other ? ' on' : '') + '" aria-pressed="' + !!form.other + '" data-act="pick-other">Autre…</button>';
+    return '<div class="j-picks">' + btns + '</div>' +
+      (form.other ? '<input id="f-name" class="j-sel" type="text" maxlength="40" data-field="name" placeholder="' + esc(ph) + '" value="' + esc(form.name) + '" aria-label="' + esc(label) + '">' +
+        '<span class="j-fhint">Elle n’est pas gardée dans ta liste. Pour la garder, ajoute-la dans Réglages.</span>' : '');
+  }
+
   function vActStart() {
     var cur = currentAct();
-    var tags = actNames.map(function (n) {
-      return manageActs
-        ? '<button type="button" class="j-tag" data-act="act-del" data-name="' + esc(n) + '" aria-label="Retirer ' + esc(n) + ' de la liste">' + esc(n) + '<span class="x" aria-hidden="true">✕</span></button>'
-        : '<button type="button" class="j-tag' + (form.name.trim().toLowerCase() === n.toLowerCase() ? ' on' : '') + '" data-act="act-pick" data-name="' + esc(n) + '">' + esc(n) + '</button>';
-    }).join('');
     return formHeader('Activité', 'Une seule à la fois · le ressenti est facultatif') +
       '<main style="padding-top:14px;gap:14px">' + formError() +
       (cur ? '<p class="j-ok">« ' + esc(cur.name) + ' » est en cours depuis ' + clockOf(cur.ts) + ' : elle sera terminée à l’heure de début ci-dessous.</p>' : '') +
-      '<section class="j-sec" style="gap:8px"><h2>QUELLE ACTIVITÉ ?</h2><div class="j-tags">' + (tags || '<span class="j-fhint">Liste vide : écris une activité ci-dessous.</span>') + '</div>' +
-      '<button type="button" class="j-link" style="align-self:flex-start;padding-left:0" data-act="act-manage">' + (manageActs ? 'Terminé' : 'Modifier la liste') + '</button>' +
-      '<input id="f-name" class="j-sel" type="text" maxlength="40" data-field="name" placeholder="Ou écris une autre activité…" value="' + esc(form.name) + '" aria-label="Nom de l’activité"></section>' +
+      '<section class="j-sec" style="gap:8px"><h2>QUELLE ACTIVITÉ ?</h2>' +
+      (actNames.length ? '' : '<p class="j-fhint">Ta liste est vide. Ajoute des activités dans Réglages, ou écris-en une avec « Autre… ».</p>') +
+      pickGrid(actNames, 'Nom de l’activité…', 'Nom de l’activité') + '</section>' +
       '<section class="j-sec">' + fld('Heure de début', timeIn('time', form.time, 'Heure de début'), 'Modifiable si tu as commencé plus tôt.') + '</section>' +
       feelBlock('as', 'Ressenti de début (facultatif)', form.feelOpen, 'f-feel') +
       '</main>' + formFoot('act-start-go', 'Commencer', formValid());
+  }
+
+  function vInstant() {
+    return formHeader('Instant', 'Un seul moment : une heure, pas de fin') +
+      '<main style="padding-top:14px;gap:14px">' + formError() +
+      '<section class="j-sec" style="gap:8px"><h2>QUEL INSTANT ?</h2>' +
+      (instNames.length ? '' : '<p class="j-fhint">Ta liste est vide. Ajoute des instants dans Réglages, ou écris-en un avec « Autre… ».</p>') +
+      pickGrid(instNames, 'Nom de l’instant…', 'Nom de l’instant') + '</section>' +
+      '<section class="j-sec">' + fld('Heure', timeIn('time', form.time, 'Heure de l’instant'), 'Modifiable si tu notes après coup.') + '</section>' +
+      '</main>' + formFoot('instant-go', 'Enregistrer', formValid());
+  }
+
+  // Réglages : les motifs (activités, instants) que tu veux pouvoir relever.
+  function setSection(which, title, sub, names) {
+    var rows = names.map(function (n) {
+      return '<li class="j-mrow"><span class="n">' + esc(n) + '</span>' +
+        '<button type="button" class="j-link" data-act="set-del" data-list="' + which + '" data-name="' + esc(n) + '" aria-label="Retirer ' + esc(n) + ' de la liste">Retirer</button></li>';
+    }).join('');
+    return '<section class="j-sec" style="gap:8px"><h2>' + title + '</h2><p class="j-p" style="margin:0">' + sub + '</p>' +
+      '<div class="j-addrow"><input id="set-' + which + '" class="j-sel" type="text" maxlength="40" data-set="' + which + '" placeholder="Nouveau motif…" value="' + esc(setDraft[which]) + '" aria-label="Nouveau motif, ' + (which === 'act' ? 'activité' : 'instant') + '">' +
+      '<button type="button" class="btn secondary" id="set-add-' + which + '" data-act="set-add" data-list="' + which + '"' + (setDraft[which].trim() ? '' : ' disabled') + '>Ajouter</button></div>' +
+      (rows ? '<ul class="j-mlist">' + rows + '</ul>' : '<p class="j-fhint">Liste vide.</p>') + '</section>';
+  }
+  function vSettings() {
+    return '<header><div class="top"><span class="brand">LUNA</span><span class="module">Module Corps</span></div>' +
+      '<div class="titlerow"><h1 tabindex="-1">Réglages</h1></div>' +
+      '<p class="sub">Les motifs que tu veux relever</p></header>' +
+      '<main>' + (setNotice ? '<p class="j-ok" role="status">' + esc(setNotice) + '</p>' : '') +
+      setSection('act', 'ACTIVITÉS · UN DÉBUT, UNE FIN', 'Elles apparaissent dans « Activité » (Journal → À tout moment).', actNames) +
+      setSection('inst', 'INSTANTS · UNE SEULE HEURE', 'Ils apparaissent dans « Instant » (Journal → À tout moment).', instNames) +
+      '<p class="j-p">Retirer un motif de la liste ne touche pas à ton historique : les entrées déjà notées gardent leur nom.</p></main>';
   }
 
   function vActEnd() {
@@ -2518,7 +2595,7 @@ function milestone(w) {
   }
 
   function vEdit() {
-    var k = form.kind, title = { activite: 'Modifier l’activité', repas: 'Modifier le repas', coucher: 'Modifier le coucher' }[k], inner = '';
+    var k = form.kind, title = { activite: 'Modifier l’activité', repas: 'Modifier le repas', coucher: 'Modifier le coucher', instant: 'Modifier l’instant' }[k], inner = '';
     if (k === 'activite') {
       inner = '<section class="j-sec"><div class="j-field"><label class="j-lab" for="f-name">Activité</label>' +
         '<input id="f-name" class="j-sel" type="text" maxlength="40" data-field="name" value="' + esc(form.name) + '"></div>' +
@@ -2532,6 +2609,10 @@ function milestone(w) {
       inner = '<section class="j-sec">' + fld('Heure du repas', timeIn('time', form.time, 'Heure du repas')) +
         '<div class="j-field"><label class="j-lab" for="f-text">Contenu</label>' +
         '<textarea id="f-text" class="j-ta mid" data-field="text" maxlength="1000">' + esc(form.text) + '</textarea></div></section>';
+    } else if (k === 'instant') {
+      inner = '<section class="j-sec"><div class="j-field"><label class="j-lab" for="f-name">Instant</label>' +
+        '<input id="f-name" class="j-sel" type="text" maxlength="40" data-field="name" value="' + esc(form.name) + '"></div>' +
+        fld('Heure', timeIn('time', form.time, 'Heure de l’instant')) + '</section>';
     } else {
       inner = '<section class="j-sec">' + fld('Heure du coucher', timeIn('time', form.time, 'Heure du coucher')) + '</section>';
     }
@@ -2601,7 +2682,7 @@ function milestone(w) {
     list.forEach(function (e) { var k = e.kind === 'releve' && e.pvt ? 'combo' : (e.kind === 'test' && e.test ? e.test : e.kind); n[k] = (n[k] || 0) + 1; });
     var parts = [];
     [['releve', 'relevé', 'relevés'], ['combo', 'relevé + test', 'relevés + tests'], ['test', 'test', 'tests'], ['rs', 'passage Rotation span', 'passages Rotation span'], ['fl', 'passage Flanker', 'passages Flanker'], ['ss', 'passage Symbol Search', 'passages Symbol Search'], ['hs', 'passage Hand Swype', 'passages Hand Swype'], ['ml', 'passage Memory List', 'passages Memory List'], ['activite', 'activité', 'activités'],
-     ['repas', 'repas', 'repas'], ['coucher', 'coucher', 'couchers'], ['note', 'note', 'notes'], ['pas', 'note « pas ce moment »', 'notes « pas ce moment »']].forEach(function (t) {
+     ['repas', 'repas', 'repas'], ['coucher', 'coucher', 'couchers'], ['instant', 'instant', 'instants'], ['note', 'note', 'notes'], ['pas', 'note « pas ce moment »', 'notes « pas ce moment »']].forEach(function (t) {
       if (n[t[0]]) parts.push(plural(n[t[0]], t[1], t[2]));
     });
     return parts.length ? parts.join(' · ') : 'aucune entrée';
@@ -2665,7 +2746,7 @@ function milestone(w) {
   }
 
   var VIEWS = { home: vHome, feel: vFeel, intro: vIntro, run: vRun, result: vResult, note: vNote, backup: vBackup, restore: vRestore, history: vHistory,
-                reminders: vRemind, plan: vPlan, 'act-start': vActStart, 'act-end': vActEnd, meal: vMeal, bed: vBed, edit: vEdit,
+                reminders: vRemind, plan: vPlan, settings: vSettings, instant: vInstant, 'act-start': vActStart, 'act-end': vActEnd, meal: vMeal, bed: vBed, edit: vEdit,
                 chain: vChain, skip: vSkip,
                 tests: vTests, 'ss-intro': vSsIntro, 'ss-run': vSsRun, 'ss-prac': vSsPrac, 'ss-result': vSsResult,
                 'rs-intro': vTIntro, 'rs-run': vTRun, 'rs-prac': vTPrac, 'rs-result': vTResult,
@@ -2677,7 +2758,7 @@ function milestone(w) {
     var runM = /^(ss|rs|hs|fl|ml)-run$/.exec(screen);
     if (rnRun && !runM) { rnRun.why = 'silent'; rnKill(); } // on quitte l'écran du test : on l'arrête sans rien dire
     root.innerHTML = (VIEWS[screen] || vHome)();
-    L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders' || screen === 'plan');
+    L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders' || screen === 'plan' || screen === 'settings');
     if (screen === 'home') { L.bindWake(root.querySelector('.wake-input')); updateHome(); }
     if (screen === 'reminders') L.bindWake(root.querySelector('.wake-input'));
     if (screen === 'plan') { L.bindWake(root.querySelector('.wake-input')); pRefreshDay(); }
@@ -3655,8 +3736,7 @@ function milestone(w) {
 
   /* ---------- Activités ---------- */
   function openActStart() {
-    manageActs = false;
-    form = { type: 'act-start', name: '', time: clockInput(Date.now()), feelStart: {}, feelOpen: false, error: '' };
+    form = { type: 'act-start', name: '', other: !actNames.length, time: clockInput(Date.now()), feelStart: {}, feelOpen: false, error: '' };
     go('act-start');
   }
   function doActStart() {
@@ -3669,7 +3749,6 @@ function milestone(w) {
     var fs = partialFeel(form.feelStart);
     if (fs) e.feelStart = fs;
     entries.push(e);
-    rememberAct(name);
     afterSave(msg + '« ' + name + ' » commencée à ' + clockOf(ts) + '.');
   }
   function openActEnd() {
@@ -3689,6 +3768,49 @@ function milestone(w) {
     var fe = partialFeel(form.feelEnd);
     if (fe) a.feelEnd = fe;
     afterSave('« ' + a.name + ' » terminée à ' + clockOf(ts) + ' (' + durText((ts - a.ts) / 60000) + ').');
+  }
+
+  /* ---------- Instants ---------- */
+  function openInstant() {
+    form = { type: 'instant', name: '', other: !instNames.length, time: clockInput(Date.now()), error: '' };
+    go('instant');
+  }
+  function doInstant() {
+    if (!form || !formValid()) return;
+    var name = form.name.trim().slice(0, 40), ts = tsFromClock(form.time, Date.now()), e = baseEntry('instant', ts, L.getWake());
+    e.name = name;
+    entries.push(e);
+    afterSave('« ' + name + ' » noté à ' + clockOf(ts) + '.');
+  }
+  // Choix d'un motif sur les grandes touches (activité ou instant).
+  function pickName(name) {
+    if (!form || (form.type !== 'act-start' && form.type !== 'instant')) return;
+    form.name = name; form.other = false; render();
+  }
+  function pickOther() {
+    if (!form || (form.type !== 'act-start' && form.type !== 'instant')) return;
+    if (!form.other) { form.other = true; form.name = ''; render(); }
+    var inp = $('f-name'); if (inp) inp.focus({ preventScroll: true });
+  }
+
+  /* ---------- Réglages : listes de motifs ---------- */
+  function setAdd(which) {
+    if (which !== 'act' && which !== 'inst') return;
+    var list = which === 'act' ? actNames : instNames, name = (setDraft[which] || '').trim().slice(0, 40);
+    if (!name) return;
+    var r = addToList(list, name);
+    if (r === 'ok') { if (which === 'act') saveActNames(); else saveInstNames(); setDraft[which] = ''; setNotice = '« ' + name + ' » ajouté.'; }
+    else if (r === 'doublon') setNotice = '« ' + name + ' » est déjà dans la liste.';
+    else setNotice = 'La liste est pleine (30 motifs) : retires-en un d’abord.';
+    render();
+    var inp = $('set-' + which); if (inp) inp.focus({ preventScroll: true });
+  }
+  function setDel(which, name) {
+    if (which === 'act') { actNames = actNames.filter(function (n) { return n !== name; }); saveActNames(); }
+    else if (which === 'inst') { instNames = instNames.filter(function (n) { return n !== name; }); saveInstNames(); }
+    else return;
+    setNotice = '« ' + name + ' » retiré de la liste. Ton historique n’est pas modifié.';
+    render();
   }
 
   /* ---------- Repas, coucher ---------- */
@@ -3736,7 +3858,7 @@ function milestone(w) {
   }
   function openEdit(id) {
     var e = entries.filter(function (x) { return x.id === id; })[0];
-    if (!e || ['activite', 'repas', 'coucher'].indexOf(e.kind) < 0) return;
+    if (!e || ['activite', 'repas', 'coucher', 'instant'].indexOf(e.kind) < 0) return;
     form = { type: 'edit', id: id, kind: e.kind, time: clockInput(e.ts), error: '' };
     if (e.kind === 'activite') {
       form.name = e.name; form.end = e.end == null ? '' : clockInput(e.end); form.comment = e.comment || '';
@@ -3744,6 +3866,7 @@ function milestone(w) {
       form.feelOpen = !!e.feelStart; form.feelOpen2 = !!e.feelEnd;
     }
     if (e.kind === 'repas') form.text = e.text;
+    if (e.kind === 'instant') form.name = e.name;
     go('edit');
   }
   function doEdit() {
@@ -3767,9 +3890,10 @@ function milestone(w) {
       if (!sameFeel(fe, e.feelEnd)) {
         if (fe) { e.feelEnd = fe; e.feelEndLate = true; } else { delete e.feelEnd; delete e.feelEndLate; }
       }
-      rememberAct(e.name);
     } else if (e.kind === 'repas') {
       e.text = form.text.trim().slice(0, 1000); e.ts = ts;
+    } else if (e.kind === 'instant') {
+      e.name = form.name.trim().slice(0, 40); e.ts = ts;
     } else {
       e.ts = ts;
       if (e.wakeTs && !(e.wakeTs > ts && e.wakeTs - ts < 20 * 3600e3)) delete e.wakeTs;
@@ -3787,9 +3911,9 @@ function milestone(w) {
     out.sort(function (a, b) { return a[1] - b[1]; });
     try { localStorage.setItem(KEY_ML, JSON.stringify(out.slice(-400))); } catch (e) {}
   }
-  // Format v3 : + réglages du plan (premier jour, graine, étapes) + journal des listes de mots. Les fichiers v1 et v2 restent lisibles.
+  // Format v4 : + liste des instants et entrées « instant ». (v3 : réglages du plan + journal des listes de mots.) Les fichiers v1, v2 et v3 restent lisibles.
   function buildBackup() {
-    return JSON.stringify({ app: 'LUNA', v: 3, exportedAt: Date.now(), wake: L.wakeStr(L.getWake()), activities: actNames, entries: entries, plan: pExport(), mlUsed: mlLogRead() });
+    return JSON.stringify({ app: 'LUNA', v: 4, exportedAt: Date.now(), wake: L.wakeStr(L.getWake()), activities: actNames, instants: instNames, entries: entries, plan: pExport(), mlUsed: mlLogRead() });
   }
   function setStatus(msg) {
     backupStatus = msg;
@@ -3921,19 +4045,20 @@ function milestone(w) {
     if (typeof text !== 'string' || text.length > 20e6) return 'Ce fichier est trop gros ou illisible.';
     try { o = JSON.parse(text); } catch (e) { return 'Ce fichier n’est pas une sauvegarde LUNA (texte illisible).'; }
     if (!o || o.app !== 'LUNA' || !Array.isArray(o.entries)) return 'Ce fichier n’est pas une sauvegarde LUNA.';
-    if (Number(o.v) > 3) return 'Cette sauvegarde vient d’une version plus récente de LUNA : mets d’abord l’appli à jour.';
+    if (Number(o.v) > 4) return 'Cette sauvegarde vient d’une version plus récente de LUNA : mets d’abord l’appli à jour.';
     if (o.entries.length > 50000) return 'Ce fichier contient trop d’entrées.';
     var list = o.entries.map(clean).filter(Boolean);
     var seen = {};
     list = list.filter(function (e) { if (seen[e.id]) return false; seen[e.id] = true; return true; }).sort(byTs);
     var skipped = o.entries.length - list.length;
-    var acts = Array.isArray(o.activities) ? o.activities.filter(function (x) { return typeof x === 'string' && x.trim() && x.length <= 40; }).map(function (x) { return x.trim(); }).slice(0, 30) : [];
+    var acts = cleanNames(o.activities);
+    var insts = Array.isArray(o.instants) ? cleanNames(o.instants) : undefined; // undefined = fichier sans liste d'instants (v1 à v3)
     // plan : undefined = fichier sans plan (v1, v2) ; null = réglages illisibles (ignorés) ; sinon réglages validés
     var pl = o.plan === undefined ? undefined : pClean(o.plan);
     var mlu = Array.isArray(o.mlUsed) ? o.mlUsed.filter(function (x) { return Array.isArray(x) && int(x[0], 1, ML_BANK.length) !== null && isFinite(x[1]) && x[1] > 0; })
       .map(function (x) { return [Number(x[0]), Math.floor(x[1])]; }).slice(-400) : undefined;
     return { name: name, entries: list, wake: typeof o.wake === 'string' ? o.wake : null, exportedAt: Number(o.exportedAt) > 0 ? Number(o.exportedAt) : 0,
-             acts: acts, mode: 'merge', confirm: false, skipped: skipped, plan: pl, mlUsed: mlu };
+             acts: acts, insts: insts, mode: 'merge', confirm: false, skipped: skipped, plan: pl, mlUsed: mlu };
   }
   function loadRestore(text, name) {
     var r = parseBackup(text, name);
@@ -3964,9 +4089,13 @@ function milestone(w) {
       } else if (r.plan.start !== pcfg.start || r.plan.seed !== pcfg.seed) msg += ' Le plan de cet appareil est gardé.';
     }
     pform = null; psel = null;
-    // les noms d'activités du fichier, et ceux des activités restaurées, rejoignent la liste rapide
-    r.acts.forEach(rememberAct);
-    r.entries.forEach(function (e) { if (e.kind === 'activite') rememberAct(e.name); });
+    // les listes de motifs du fichier rejoignent celles de l'appareil (rien n'est retiré) ; en mode « Remplacer », la liste d'instants du fichier prend la place de l'autre
+    r.acts.forEach(function (n) { addToList(actNames, n); });
+    saveActNames();
+    if (r.insts) {
+      if (r.mode === 'replace') instNames = r.insts.slice(); else r.insts.forEach(function (n) { addToList(instNames, n); });
+      saveInstNames();
+    }
     normalizeActs();
     if (!persist()) msg += ' Attention : l’appareil refuse d’enregistrer ces données.';
     restore = null; restoreError = '';
@@ -3979,6 +4108,7 @@ function milestone(w) {
   function act(name, el) {
     var id = el.getAttribute('data-id');
     notice = '';
+    if (name !== 'set-add' && name !== 'set-del') setNotice = '';
     var tm = /^(ss|rs|hs|fl|ml)-(intro|practice|test|save)$/.exec(name); // écrans communs à tous les tests (sauf PVT-B)
     if (tm) {
       flow.test = tm[1];
@@ -3989,7 +4119,7 @@ function milestone(w) {
       return;
     }
     switch (name) {
-      case 'home': pendingDel = null; form = null; manageActs = false; flow = newFlow(); go('home'); break;
+      case 'home': pendingDel = null; form = null; flow = newFlow(); go('home'); break;
       case 'releve': flow = newFlow({ mode: 'releve' }); go('feel'); break;
       case 'test-libre': flow = newFlow({ mode: 'test' }); go('tests'); break;
       case 'tests': flow = newFlow({ mode: 'test' }); go('tests'); break;
@@ -4016,11 +4146,12 @@ function milestone(w) {
       case 'note': noteText = ''; noteTs = Date.now(); go('note'); break;
       case 'save-note': saveNote(); break;
       case 'act-start': openActStart(); break;
-      case 'act-pick': if (form) { form.name = el.getAttribute('data-name'); render(); } break;
-      case 'act-manage': manageActs = !manageActs; render(); break;
-      case 'act-del':
-        actNames = actNames.filter(function (n) { return n !== el.getAttribute('data-name'); });
-        saveActNames(); render(); break;
+      case 'pick': pickName(el.getAttribute('data-name') || ''); break;
+      case 'pick-other': pickOther(); break;
+      case 'instant': openInstant(); break;
+      case 'instant-go': doInstant(); break;
+      case 'set-add': setAdd(el.getAttribute('data-list')); break;
+      case 'set-del': setDel(el.getAttribute('data-list'), el.getAttribute('data-name') || ''); break;
       case 'act-start-go': doActStart(); break;
       case 'act-end': openActEnd(); break;
       case 'act-end-go': doActEnd(); break;
@@ -4116,9 +4247,21 @@ function milestone(w) {
       if (form && form.type === 'skip') form.text = t.value;
     } else if (t.id === 'pl-start') {
       pOnField(t);
+    } else if (t.getAttribute && t.getAttribute('data-set')) {
+      var wh = t.getAttribute('data-set');
+      if (wh === 'act' || wh === 'inst') {
+        setDraft[wh] = t.value;
+        var ab = $('set-add-' + wh);
+        if (ab) ab.disabled = !t.value.trim();
+      }
     } else if (t.getAttribute && t.getAttribute('data-field')) {
       onField(t);
     }
+  });
+  // Entrée dans le champ « Nouveau motif » = Ajouter
+  root.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (e.key === 'Enter' && t && t.getAttribute && t.getAttribute('data-set')) { e.preventDefault(); setAdd(t.getAttribute('data-set')); }
   });
   root.addEventListener('toggle', function (e) {
     var t = e.target;
@@ -4148,9 +4291,11 @@ function milestone(w) {
   L.on('tick', maybeUpdate);
   L.on('wake', maybeUpdate);
   L.journal = {
-    onShow: function () {
-      notice = '';
-      if (['home', 'backup', 'history', 'reminders', 'plan'].indexOf(screen) < 0) { flow = newFlow(); form = null; manageActs = false; screen = 'home'; }
+    // target : 'settings' ouvre les Réglages (onglet du bas) ; sinon on revient au Journal
+    onShow: function (target) {
+      notice = ''; setNotice = '';
+      if (target === 'settings') { flow = newFlow(); form = null; screen = 'settings'; }
+      else if (['home', 'backup', 'history', 'reminders', 'plan'].indexOf(screen) < 0) { flow = newFlow(); form = null; screen = 'home'; }
       render();
     }
   };

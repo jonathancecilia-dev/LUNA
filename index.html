@@ -217,13 +217,9 @@ nav[hidden]{display:none}
       <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/></svg></span>
       Journal
     </button>
-    <button type="button" disabled title="Bientôt">
-      <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg></span>
-      Repas
-    </button>
-    <button type="button" disabled title="Bientôt">
-      <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span>
-      Tradition
+    <button type="button" id="nav-reglages">
+      <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span>
+      Réglages
     </button>
   </nav>
 
@@ -500,15 +496,17 @@ nav[hidden]{display:none}
 
   /* ---------- Navigation et bandeau ---------- */
   var VIEWS = { roue: 'v-roue', journee: 'v-journee', journal: 'v-journal' };
+  // « reglages » s'affiche dans la même page que le Journal (c'est le module Journal qui le dessine).
   function show(view) {
-    Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== view; });
-    var cur = view === 'journal' ? 'nav-journal' : 'nav-roue';
-    ['nav-roue', 'nav-journal'].forEach(function (id) {
+    var page = view === 'reglages' ? 'journal' : view;
+    Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== page; });
+    var cur = view === 'journal' ? 'nav-journal' : view === 'reglages' ? 'nav-reglages' : 'nav-roue';
+    ['nav-roue', 'nav-journal', 'nav-reglages'].forEach(function (id) {
       if (id === cur) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current');
     });
     document.querySelector('nav').hidden = false;
-    if (view === 'journal') {
-      if (window.LUNA.journal) window.LUNA.journal.onShow();
+    if (page === 'journal') {
+      if (window.LUNA.journal) window.LUNA.journal.onShow(view === 'reglages' ? 'settings' : undefined);
       else $('v-journal').textContent = 'Le Journal n’a pas pu se charger. Recharge la page.';
       return;
     }
@@ -520,12 +518,13 @@ nav[hidden]{display:none}
   $('back-roue').addEventListener('click', function () { show('roue'); });
   $('nav-roue').addEventListener('click', function () { show('roue'); });
   $('nav-journal').addEventListener('click', function () { show('journal'); });
+  $('nav-reglages').addEventListener('click', function () { show('reglages'); });
   all('.b-x').forEach(function (b) { b.addEventListener('click', function () { banner = null; paintBanner(); }); });
   all('.a-go').forEach(function (b) { b.addEventListener('click', function () { show('journal'); }); });
 
-  /* ---------- Socle commun, offert aux autres modules (Journal, plus tard Repas…) ---------- */
+  /* ---------- Socle commun, offert aux autres modules (Journal, plus tard d’autres modules) ---------- */
   window.LUNA = {
-    version: '2026-10-16-plan-4b',
+    version: '2026-10-19-reglages',
     getWake: function () { return wake; },          // minutes depuis minuit : UNE seule valeur pour toute l'appli
     setWake: setWake,
     bindWake: bindWake,
