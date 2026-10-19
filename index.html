@@ -4,15 +4,18 @@
 <meta charset="utf-8">
 <title>LUNA</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#E8F0FA">
+<meta name="theme-color" content="#FFF4DC">
 <meta name="color-scheme" content="light dark">
 <script>
-// Thème choisi dans Réglages (« jour » par défaut, « nuit », ou « auto » = celui du téléphone), posé avant l'affichage pour éviter un éclair de la mauvaise couleur.
+// Style (« dessine » par défaut, ou « classique ») et thème (« jour » par défaut, « nuit », ou « auto » = celui du téléphone) choisis dans Réglages,
+// posés avant l'affichage pour éviter un éclair de la mauvaise apparence.
 (function () {
-  var m = 'jour', d = false;
+  var m = 'jour', d = false, st = 'dessine';
   try { var v = localStorage.getItem('luna.theme'); if (v === 'nuit' || v === 'auto') m = v; } catch (e) {}
+  try { if (localStorage.getItem('luna.style') === 'classique') st = 'classique'; } catch (e) {}
   try { d = !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
   document.documentElement.setAttribute('data-theme', m === 'auto' ? (d ? 'nuit' : 'jour') : m);
+  document.documentElement.setAttribute('data-style', st);
 })();
 </script>
 <meta name="description" content="LUNA · module Corps · roue circadienne">
@@ -137,6 +140,84 @@ nav button:disabled{opacity:.45}
 nav[hidden]{display:none}
 :focus-visible{outline:2px solid var(--text);outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ===== Style « Dessiné » : fond crème, gros contours, ombres décalées, couleurs vives en aplat. Tout est sous [data-style="dessine"] : le style « Classique » ne change pas.
+   Chaque couple texte / fond est contrôlé (≥ 4,5 pour 1) par un test. --ol = contour, --sh = ombre décalée, --p-* = couleurs des gros boutons (texte --p-ink). ===== */
+html:root[data-style="dessine"][data-theme="jour"]{
+  --bg:#FFF4DC; --card:#FFFFFF; --line:#D9CDEA; --line2:#2A2140; --nav:#FFFFFF; --nav-on:#FFD84D; --dash:#2A2140; --chip:#2A2140; --nav-off:#5F567C;
+  --text:#2A2140; --muted:#51476E; --track:#EADFC2; --ink-on:#FFFFFF; --needle:#2A2140; --band:#2A2140;
+  --lav:#B79CFF; --teal:#4FD0B2; --slate:#BDB8D2; --violet:#9B6BFF; --indigo:#5B7CFA; --gold:#FFC83D; --coral:#FF7F6B;
+  --teal-text:#0F6E5A; --gold-text:#7A5200; --coral-text:#B3331E;
+  --ol:#2A2140; --sh:#2A2140; --dot:rgba(42,33,64,.08); --chipbg:#FFE9A8; --tint-act:#E4FBF4; --tint-bed:#EFE7FF;
+  --p-act:#BFF1E3; --p-ins:#FFE48A; --p-tst:#BFDDFF; --p-rep:#FFC9D6; --p-cou:#E0D4FF; --p-not:#FFFFFF; --p-ink:#2A2140; --p-rel:#FFB8AA; --veil:rgba(255,255,255,.5);
+}
+html:root[data-style="dessine"][data-theme="nuit"]{
+  --bg:#1B1530; --card:#2A2145; --line:#3E3366; --line2:#F6EBD4; --nav:#241C3D; --nav-on:#4B3C85; --dash:#9F93C6; --chip:#F6EBD4; --nav-off:#B1A7D0;
+  --text:#F6EBD4; --muted:#C5BADF; --track:#3E3366; --ink-on:#1B1530; --needle:#F6EBD4; --band:#1B1530;
+  --lav:#B79CFF; --teal:#4FD0B2; --slate:#6E6797; --violet:#9B6BFF; --indigo:#6F88FF; --gold:#FFC83D; --coral:#FF7F6B;
+  --teal-text:#5FE0C2; --gold-text:#FFD25E; --coral-text:#FF9A86;
+  --ol:#F6EBD4; --sh:#0A0716; --dot:rgba(246,235,212,.06); --chipbg:#3E3366; --tint-act:#1D3B43; --tint-bed:#33265E;
+  --p-act:#BFF1E3; --p-ins:#FFE48A; --p-tst:#BFDDFF; --p-rep:#FFC9D6; --p-cou:#E0D4FF; --p-not:#F6EBD4; --p-ink:#2A2140; --p-rel:#FF7F6B; --veil:rgba(42,33,69,.7);
+}
+html:root[data-style="dessine"]{background-color:var(--bg);background-image:radial-gradient(var(--dot) 1.3px,transparent 1.4px);background-size:20px 20px}
+html:root[data-style="dessine"] body{background:transparent;font-family:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",sans-serif}
+html:root[data-style="dessine"] .brand{font-weight:700}
+html:root[data-style="dessine"] .kicker,html:root[data-style="dessine"] .j-kick{color:var(--text);font-weight:700}
+/* cartes */
+html:root[data-style="dessine"] .card,html:root[data-style="dessine"] .j-now,html:root[data-style="dessine"] .j-card,html:root[data-style="dessine"] .banner,html:root[data-style="dessine"] .j-ok{
+  background:var(--card);border:2.5px solid var(--ol);border-radius:20px;box-shadow:4px 4px 0 var(--sh)}
+html:root[data-style="dessine"] .j-h,html:root[data-style="dessine"] .j-mrow{background:var(--card);border:2.5px solid var(--ol);border-radius:16px;box-shadow:3px 3px 0 var(--sh)}
+html:root[data-style="dessine"] .j-warn{border:2.5px solid var(--coral);border-radius:16px;box-shadow:3px 3px 0 var(--sh)}
+html:root[data-style="dessine"] .j-empty{border:2.5px dashed var(--ol);border-radius:16px}
+html:root[data-style="dessine"] .j-now.act,html:root[data-style="dessine"] .banner.alert{background:var(--tint-act)}
+html:root[data-style="dessine"] .j-now.bed{background:var(--tint-bed)}
+html:root[data-style="dessine"] .row.cur,html:root[data-style="dessine"] .j-pt.open{background:var(--card);border:2px solid var(--ol);border-radius:14px;box-shadow:3px 3px 0 var(--sh)}
+html:root[data-style="dessine"] .card .dot{width:14px;height:14px;border:2px solid var(--ol)}
+/* boutons, champs */
+html:root[data-style="dessine"] .go,html:root[data-style="dessine"] .wake,html:root[data-style="dessine"] .btn.secondary,html:root[data-style="dessine"] .btn.primary,html:root[data-style="dessine"] .j-pick,html:root[data-style="dessine"] .j-sel,html:root[data-style="dessine"] .j-ta{
+  border:2.5px solid var(--ol);border-radius:14px;background:var(--card);color:var(--text)}
+html:root[data-style="dessine"] .go,html:root[data-style="dessine"] .wake,html:root[data-style="dessine"] .btn.secondary,html:root[data-style="dessine"] .btn.primary,html:root[data-style="dessine"] .j-pick{box-shadow:3px 3px 0 var(--sh)}
+html:root[data-style="dessine"] .go{background:#FFD84D;color:#2A2140;font-weight:700}
+html:root[data-style="dessine"] .btn.primary{background:var(--coral);color:var(--p-ink);font-weight:700}
+html:root[data-style="dessine"] .btn.primary:disabled{background:var(--track);color:var(--nav-off);box-shadow:none}
+html:root[data-style="dessine"] .j-pick.other{border-style:dashed;color:var(--muted)}
+html:root[data-style="dessine"] .j-pick.on{background:#FFD84D;color:#2A2140}
+html:root[data-style="dessine"] .j-grid .btn{color:var(--p-ink);font-weight:700}
+html:root[data-style="dessine"] .j-grid .btn[data-act="act-start"]{background:var(--p-act)}
+html:root[data-style="dessine"] .j-grid .btn[data-act="instant"]{background:var(--p-ins)}
+html:root[data-style="dessine"] .j-grid .btn[data-act="test-libre"]{background:var(--p-tst)}
+html:root[data-style="dessine"] .j-grid .btn[data-act="meal"]{background:var(--p-rep)}
+html:root[data-style="dessine"] .j-grid .btn[data-act="note"]{background:var(--p-not)}
+html:root[data-style="dessine"] .btn:not(:disabled):active,html:root[data-style="dessine"] .j-pick:active,html:root[data-style="dessine"] .go:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--sh)}
+/* historique : chaque événement prend la couleur de sa touche. Jour = fond en couleur ; Nuit = fond sombre, bande et pastille en couleur */
+html:root[data-style="dessine"] .j-h[data-k="activite"]{--k:var(--p-act)}
+html:root[data-style="dessine"] .j-h[data-k="instant"]{--k:var(--p-ins)}
+html:root[data-style="dessine"] .j-h[data-k="test"]{--k:var(--p-tst)}
+html:root[data-style="dessine"] .j-h[data-k="repas"]{--k:var(--p-rep)}
+html:root[data-style="dessine"] .j-h[data-k="coucher"]{--k:var(--p-cou)}
+html:root[data-style="dessine"] .j-h[data-k="releve"]{--k:var(--p-rel)}
+html:root[data-style="dessine"] .j-h[data-k="note"]{--k:var(--p-not)}
+html:root[data-style="dessine"] .j-h[data-k] .kind{border:2px solid var(--ol);border-radius:12px;padding:1px 9px;font-weight:700;color:var(--p-ink);background:var(--k)}
+html:root[data-style="dessine"][data-theme="jour"] .j-h[data-k]{background:var(--k)}
+html:root[data-style="dessine"][data-theme="jour"] .j-h[data-k] .kind{background:#FFFFFF}
+html:root[data-style="dessine"][data-theme="nuit"] .j-h[data-k]{box-shadow:inset 10px 0 0 var(--k),3px 3px 0 var(--sh);padding-left:20px}
+/* bloc « Phase en cours » : la couleur de la phase, comme dans la Roue (un voile adoucit la couleur pour garder le texte lisible) */
+html:root[data-style="dessine"] #c-card{background:linear-gradient(var(--veil),var(--veil)),var(--pc,var(--card))}
+html:root[data-style="dessine"][data-theme="nuit"] #c-card{--muted:#E2D9F0}
+/* pastilles */
+html:root[data-style="dessine"] .chip,html:root[data-style="dessine"] .rchip,html:root[data-style="dessine"] .j-st,html:root[data-style="dessine"] .now{border:2px solid var(--ol);background:var(--chipbg);color:var(--chip)}
+html:root[data-style="dessine"] .chip.hy,html:root[data-style="dessine"] .rchip.hy{background:var(--card);border-style:dashed}
+html:root[data-style="dessine"] .j-st{border-style:dashed}
+html:root[data-style="dessine"] .j-pt.open .j-st,html:root[data-style="dessine"] .j-pt.done .j-st{border-style:solid}
+/* la Roue : ombre décalée de l'anneau (sans « filter », que Safari n'applique pas aux éléments d'un SVG) */
+html:root[data-style="dessine"] .wheel{position:relative}
+html:root[data-style="dessine"] .wheel svg{position:relative;z-index:1}
+html:root[data-style="dessine"] .wheel::before{content:"";position:absolute;left:8.333%;top:8.333%;width:83.333%;aspect-ratio:1/1;border-radius:50%;
+  background:radial-gradient(closest-side,transparent 85.2%,var(--sh) 85.4%);transform:translate(3px,3px);z-index:0;pointer-events:none}
+html:root[data-style="dessine"] #clock{font-weight:800}
+/* barre du bas */
+html:root[data-style="dessine"] nav{border-top:2.5px solid var(--ol)}
+html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background:#FFD84D;color:#2A2140;border:2px solid var(--ol);border-radius:14px;box-shadow:2px 2px 0 var(--sh)}
 </style>
 </head>
 <body>
@@ -185,7 +266,7 @@ nav[hidden]{display:none}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       </button>
 
-      <section class="card" aria-label="Phase en cours">
+      <section class="card" id="c-card" aria-label="Phase en cours">
         <div class="head"><span class="dot" id="c-dot"></span><span class="kicker">PHASE EN COURS</span></div>
         <h2 id="c-name"></h2>
         <div class="slot" id="c-slot"></div>
@@ -392,6 +473,7 @@ nav[hidden]{display:none}
     var cur = P[L.i], nxt = P[(L.i + 1) % P.length];
     var until = mod(nxt.s - L.rel);
     $('c-dot').style.background = cur.color;
+    $('c-card').style.setProperty('--pc', cur.color);
     $('c-name').textContent = cur.name;
     $('c-slot').textContent = '~' + fmt(wake + cur.s) + ' – ' + fmt(wake + cur.e) + (cur.dur ? ' · ' + cur.dur : '');
     $('c-advice').textContent = cur.advice;
@@ -546,15 +628,26 @@ nav[hidden]{display:none}
   all('.b-x').forEach(function (b) { b.addEventListener('click', function () { banner = null; paintBanner(); }); });
   all('.a-go').forEach(function (b) { b.addEventListener('click', function () { show('journal'); }); });
 
-  /* ---------- Apparence : « jour » (bleu pâle), « nuit », « auto » (suit le téléphone) ---------- */
+  /* ---------- Apparence : style « dessine » (par défaut) ou « classique » ; thème « jour », « nuit », « auto » (suit le téléphone) ---------- */
   var THEME_KEY = 'luna.theme', themeMode = 'jour', themeMq = null;
+  var STYLE_KEY = 'luna.style', styleMode = 'dessine';
   try { var tv = localStorage.getItem(THEME_KEY); if (tv === 'nuit' || tv === 'auto') themeMode = tv; } catch (e) {}
+  try { if (localStorage.getItem(STYLE_KEY) === 'classique') styleMode = 'classique'; } catch (e) {}
   try { themeMq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null; } catch (e) {}
   function themeNow() { return themeMode === 'auto' ? (themeMq && themeMq.matches ? 'nuit' : 'jour') : themeMode; }
+  // Couleur de la barre du navigateur : celle du fond de chaque apparence.
+  function chromeColor(t) { return styleMode === 'classique' ? (t === 'nuit' ? '#0E1624' : '#E8F0FA') : (t === 'nuit' ? '#1B1530' : '#FFF4DC'); }
   function applyTheme() {
     var t = themeNow(), m = document.querySelector('meta[name="theme-color"]');
     document.documentElement.setAttribute('data-theme', t);
-    if (m) m.setAttribute('content', t === 'nuit' ? '#0E1624' : '#E8F0FA');
+    document.documentElement.setAttribute('data-style', styleMode);
+    if (m) m.setAttribute('content', chromeColor(t));
+  }
+  function setStyle(mode) {
+    if (mode !== 'classique' && mode !== 'dessine') return;
+    styleMode = mode;
+    try { localStorage.setItem(STYLE_KEY, mode); } catch (e) {}
+    applyTheme();
   }
   function setTheme(mode) {
     if (mode !== 'jour' && mode !== 'nuit' && mode !== 'auto') return;
@@ -570,7 +663,7 @@ nav[hidden]{display:none}
 
   /* ---------- Socle commun, offert aux autres modules (Journal, plus tard d’autres modules) ---------- */
   window.LUNA = {
-    version: '2026-10-19-apparence',
+    version: '2026-10-19-couleurs',
     getWake: function () { return wake; },          // minutes depuis minuit : UNE seule valeur pour toute l'appli
     setWake: setWake,
     bindWake: bindWake,
@@ -579,6 +672,8 @@ nav[hidden]{display:none}
     setAlert: function (a) { alertInfo = a || null; paintAlert(); },
     getTheme: function () { return themeMode; },    // « jour », « nuit » ou « auto »
     setTheme: setTheme,
+    getStyle: function () { return styleMode; },    // « dessine » ou « classique »
+    setStyle: setStyle,
     show: show,
     navVisible: function (v) { document.querySelector('nav').hidden = !v; },
     on: function (ev, fn) { if (listeners[ev]) listeners[ev].push(fn); },

@@ -1472,7 +1472,9 @@ function milestone(w) {
         : '<div class="act">' + (editable ? '<button type="button" class="j-link" data-act="edit" data-id="' + esc(e.id) + '">Modifier</button>' : '') +
           '<button type="button" class="j-link" data-act="del" data-id="' + esc(e.id) + '">Supprimer</button></div>';
     }
-    return '<div class="j-h"><div class="r1"><span class="when">' + esc(dayText(e.day, today)) + ' · ' + clockOf(e.ts) + '</span><span class="kind">' +
+    // couleur de la carte (comme la touche qui l'a créée) ; « pas ce moment » : aucune ; ancien relevé combiné : celle du relevé
+    var kc = e.kind === 'test' || e.test ? 'test' : e.kind === 'pas' ? '' : e.pvt ? 'releve' : e.kind;
+    return '<div class="j-h"' + (kc ? ' data-k="' + kc + '"' : '') + '><div class="r1"><span class="when">' + esc(dayText(e.day, today)) + ' · ' + clockOf(e.ts) + '</span><span class="kind">' +
       esc(kindTxt) + '</span></div><div class="r2"><span class="dot" style="background:' + ph.color + '"></span><span>' + esc(line) +
       '</span></div>' + body + act + '</div>';
   }
@@ -1844,10 +1846,10 @@ function milestone(w) {
       '<button type="button" class="btn secondary" data-act="instant">Instant</button>' +
       '<button type="button" class="btn secondary" data-act="test-libre">Test libre</button>' +
       '<button type="button" class="btn secondary" data-act="meal">Repas</button>' +
-      '<button type="button" class="btn secondary" data-act="bed">Coucher</button>' +
-      '<button type="button" class="btn secondary" data-act="note">' + ICON_PEN + 'Note</button></div>' +
+      '<button type="button" class="btn secondary wide" data-act="note">' + ICON_PEN + 'Note</button></div>' +
       '<div class="j-sect j-gap"><span class="j-kick">HISTORIQUE</span><span class="j-aside" id="j-hnote"></span></div>' +
       '<div id="j-hist"></div>' +
+      '<button type="button" class="btn secondary j-small" data-act="bed">Noter un coucher ' + ICON_CHEV + '</button>' +
       '<button type="button" class="btn secondary j-small" data-act="backup">Sauvegarder / Restaurer ' + ICON_CHEV + '</button>' +
       '<button type="button" class="btn secondary j-small" data-act="remind">Rappels dans le calendrier ' + ICON_CHEV + '</button>' +
       '</main>';
@@ -2557,6 +2559,16 @@ function milestone(w) {
       '<button type="button" class="btn secondary" id="set-add-' + which + '" data-act="set-add" data-list="' + which + '"' + (setDraft[which].trim() ? '' : ' disabled') + '>Ajouter</button></div>' +
       (rows ? '<ul class="j-mlist">' + rows + '</ul>' : '<p class="j-fhint">Liste vide.</p>') + '</section>';
   }
+  function styleBlock() {
+    var cur = L.getStyle ? L.getStyle() : 'dessine';
+    var btns = [['classique', 'Classique'], ['dessine', 'Dessiné']].map(function (t) {
+      var on = cur === t[0];
+      return '<button type="button" class="j-pick' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="style-set" data-style="' + t[0] + '">' + t[1] + '</button>';
+    }).join('');
+    return '<section class="j-sec" style="gap:8px"><h2>STYLE</h2>' +
+      '<p class="j-p" style="margin:0">Classique : sobre, traits fins. Dessiné : contours épais, couleurs vives. Ce choix reste sur cet appareil.</p>' +
+      '<div class="j-picks">' + btns + '</div></section>';
+  }
   function themeBlock() {
     var cur = L.getTheme ? L.getTheme() : 'jour';
     var btns = [['jour', 'Jour'], ['nuit', 'Nuit'], ['auto', 'Auto']].map(function (t) {
@@ -2564,7 +2576,7 @@ function milestone(w) {
       return '<button type="button" class="j-pick' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="theme-set" data-theme="' + t[0] + '">' + t[1] + '</button>';
     }).join('');
     return '<section class="j-sec" style="gap:8px"><h2>APPARENCE</h2>' +
-      '<p class="j-p" style="margin:0">Jour : fond bleu pâle. Nuit : fond sombre. Auto : suit le réglage de ton téléphone. Ce choix reste sur cet appareil.</p>' +
+      '<p class="j-p" style="margin:0">Jour : fond clair. Nuit : fond sombre. Auto : suit le réglage de ton téléphone. Ce choix reste sur cet appareil.</p>' +
       '<div class="j-picks three">' + btns + '</div></section>';
   }
   function vSettings() {
@@ -2572,6 +2584,7 @@ function milestone(w) {
       '<div class="titlerow"><h1 tabindex="-1">Réglages</h1></div>' +
       '<p class="sub">Les motifs que tu veux relever</p></header>' +
       '<main>' + (setNotice ? '<p class="j-ok" role="status">' + esc(setNotice) + '</p>' : '') +
+      styleBlock() +
       themeBlock() +
       setSection('act', 'ACTIVITÉS · UN DÉBUT, UNE FIN', 'Elles apparaissent dans « Activité » (Journal → À tout moment).', actNames) +
       setSection('inst', 'INSTANTS · UNE SEULE HEURE', 'Ils apparaissent dans « Instant » (Journal → À tout moment).', instNames) +
@@ -4163,6 +4176,7 @@ function milestone(w) {
       case 'instant': openInstant(); break;
       case 'instant-go': doInstant(); break;
       case 'theme-set': if (L.setTheme) { L.setTheme(el.getAttribute('data-theme')); render(); } break;
+      case 'style-set': if (L.setStyle) { L.setStyle(el.getAttribute('data-style')); render(); } break;
       case 'set-add': setAdd(el.getAttribute('data-list')); break;
       case 'set-del': setDel(el.getAttribute('data-list'), el.getAttribute('data-name') || ''); break;
       case 'act-start-go': doActStart(); break;
