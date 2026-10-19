@@ -264,7 +264,7 @@
     '.j-pt.open{background:var(--card);border-color:var(--line2)}',
     '.j-n{width:28px;height:28px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:1px dashed var(--dash);color:var(--muted)}',
     '.j-pt.open .j-n{border:2px solid var(--text);color:var(--text)}',
-    '.j-pt.done .j-n{background:var(--text);border:1px solid var(--text);color:#0E1624}',
+    '.j-pt.done .j-n{background:var(--text);border:1px solid var(--text);color:var(--ink-on)}',
     '.j-ptx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}',
     '.j-ptn{font-size:14px;font-weight:600}',
     '.j-ptg{font-size:12px;color:var(--muted)}',
@@ -278,8 +278,8 @@
     '.j-hint.left{text-align:left}',
     '.btn{width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;border:1px solid transparent;',
     '  padding:0 16px;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none}',
-    '.btn.primary{background:var(--text);color:#0E1624}',
-    '.btn.primary:disabled{background:#243148;color:var(--nav-off);cursor:default}',
+    '.btn.primary{background:var(--text);color:var(--ink-on)}',
+    '.btn.primary:disabled{background:var(--track);color:var(--nav-off);cursor:default}',
     '.btn.secondary{background:none;border-color:var(--line2);color:var(--text);font-weight:600}',
     '.btn.ghost{background:none;color:var(--muted);min-height:44px;font-size:14px;font-weight:600}',
     '.btn.j-small{min-height:44px;font-size:14px;margin:4px 5px 0;width:auto}',
@@ -287,8 +287,8 @@
     '.j-grid .btn{padding:0 8px;font-size:14px;min-height:46px}',
     '.j-grid .btn.wide{grid-column:1 / -1}',
     '.j-now{margin:0 5px;background:var(--card);border:1px solid var(--line2);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}',
-    '.j-now.act{border-left:4px solid #52B7B0}',
-    '.j-now.bed{border-left:4px solid #8C6FD0}',
+    '.j-now.act{border-left:4px solid var(--teal)}',
+    '.j-now.bed{border-left:4px solid var(--violet)}',
     '.j-now .t1{font-size:17px;font-weight:700;line-height:1.25}',
     '.j-now .t2{font-size:13px;line-height:1.4;color:var(--muted)}',
     '.j-now .t3{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}',
@@ -299,6 +299,7 @@
     '.j-now .inrow .btn{flex:1;min-width:0;width:auto}',
     '.j-picks{display:grid;grid-template-columns:1fr 1fr;gap:10px}',
     '.j-pick{display:flex;align-items:center;justify-content:center;text-align:center;min-height:64px;padding:8px 10px;border-radius:14px;border:1px solid var(--line2);background:var(--card);color:var(--text);font-size:17px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;cursor:pointer;font-family:inherit}',
+    '.j-picks.three{grid-template-columns:repeat(3,1fr)}',
     '.j-pick.other{border-style:dashed;font-weight:600;color:var(--muted)}',
     '.j-pick.on{border:2px solid var(--text);background:var(--nav-on);color:var(--text)}',
     '.j-addrow{display:flex;gap:8px;align-items:stretch}',
@@ -319,9 +320,9 @@
     '.j-h .act{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex-wrap:wrap}',
     '.j-confirm{font-size:12.5px;color:var(--text)}',
     '.j-link{min-height:44px;padding:0 8px;background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit}',
-    '.j-link.danger{color:#F08A6A}',
+    '.j-link.danger{color:var(--coral-text)}',
     '.j-empty{margin:0 5px;padding:14px 16px;border-radius:12px;border:1px dashed var(--dash);font-size:13.5px;line-height:1.4;color:var(--muted)}',
-    '.j-warn{margin:0 5px;padding:10px 12px;border-radius:12px;border:1px solid #F08A6A;font-size:13px;line-height:1.4;color:var(--text)}',
+    '.j-warn{margin:0 5px;padding:10px 12px;border-radius:12px;border:1px solid var(--coral);font-size:13px;line-height:1.4;color:var(--text)}',
     '.j-ok{margin:0 5px;padding:10px 12px;border-radius:12px;border:1px solid var(--line2);background:var(--card);font-size:13px;line-height:1.4;color:var(--text)}',
     '.foot{flex-shrink:0;padding:10px 20px calc(24px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--nav);display:flex;flex-direction:column;gap:6px}',
     '.j-field{display:flex;flex-direction:column;gap:4px}',
@@ -329,8 +330,8 @@
     '.j-fhint{font-size:12px;line-height:1.35;color:var(--muted)}',
     '.j-sec{margin:0 5px;display:flex;flex-direction:column;gap:10px}',
     '.j-sec h2{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--muted)}',
-    '.j-sel{width:100%;min-height:48px;padding:0 12px;background:var(--card);border:1px solid var(--line2);border-radius:12px;color:var(--text);font:inherit;font-size:16px;color-scheme:dark}',
-    '.j-ta{margin:0 5px;width:calc(100% - 10px);min-height:240px;padding:12px 14px;background:var(--card);border:1px solid var(--line2);border-radius:12px;color:var(--text);font:inherit;font-size:16px;line-height:1.45;resize:none;color-scheme:dark}',
+    '.j-sel{width:100%;min-height:48px;padding:0 12px;background:var(--card);border:1px solid var(--line2);border-radius:12px;color:var(--text);font:inherit;font-size:16px}',
+    '.j-ta{margin:0 5px;width:calc(100% - 10px);min-height:240px;padding:12px 14px;background:var(--card);border:1px solid var(--line2);border-radius:12px;color:var(--text);font:inherit;font-size:16px;line-height:1.45;resize:none}',
     '.j-ta.small{min-height:110px;margin:6px 0;width:100%;font-size:14px}',
     '.j-ta.mid{min-height:96px;margin:6px 0;width:100%;font-size:16px}',
     '.j-ta::placeholder,.j-sel::placeholder{color:var(--nav-off)}',
@@ -350,13 +351,13 @@
     '.j-runhead{display:flex;align-items:baseline;justify-content:space-between}',
     '.j-runhead h1{font-size:15px}',
     '.j-time{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}',
-    '.j-prog{height:6px;border-radius:3px;background:#243148;overflow:hidden;margin-top:10px}',
-    '.j-prog>div{height:6px;width:0;background:#52B7B0}',
+    '.j-prog{height:6px;border-radius:3px;background:var(--track);overflow:hidden;margin-top:10px}',
+    '.j-prog>div{height:6px;width:0;background:var(--teal)}',
     '#v-journal main.j-runmain{padding:24px 20px 12px;gap:14px}',
     '.j-area{flex:1;min-height:0;width:100%;border:1px solid var(--line2);border-radius:24px;background:var(--card);color:var(--text);',
     '  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;touch-action:none;',
     '  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:pointer}',
-    '.j-num{font-size:min(96px,24vw);font-weight:700;line-height:1;letter-spacing:-.02em;color:#F2C14E;font-variant-numeric:tabular-nums;min-height:1em}',
+    '.j-num{font-size:min(96px,24vw);font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--gold-text);font-variant-numeric:tabular-nums;min-height:1em}',
     '.j-num.txt{font-size:40px;color:var(--muted);letter-spacing:0}',
     '.j-unit{font-size:15px;font-weight:600;letter-spacing:.14em;color:var(--muted)}',
     '.j-unit[hidden]{display:none}',
@@ -368,7 +369,7 @@
     '.j-metrics span{font-size:12px;color:var(--muted)}',
     '.j-opt{display:flex;align-items:flex-start;gap:12px;min-height:44px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);cursor:pointer}',
     '.j-opt.on{border-color:var(--text)}',
-    '.j-opt input{width:20px;height:20px;margin:2px 0 0;flex-shrink:0;accent-color:#EEF1F6}',
+    '.j-opt input{width:20px;height:20px;margin:2px 0 0;flex-shrink:0;accent-color:var(--text)}',
     '.j-opt .t{display:flex;flex-direction:column;gap:3px}',
     '.j-opt b{font-size:15px}',
     '.j-opt b small{font-size:12px;font-weight:600;color:var(--muted)}',
@@ -393,7 +394,7 @@
     '.ss-trial.blank .ss-card svg{visibility:hidden}',
     '.ss-cue{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;text-align:center}',
     '.ss-fb{font-size:15px;font-weight:600;color:var(--muted);min-height:1.6em;text-align:center}',
-    '.ss-fb.ok{color:#52B7B0}',
+    '.ss-fb.ok{color:var(--teal-text)}',
     '.ss-between{font-size:26px;font-weight:700;text-align:center}',
     '.ss-note{font-size:14px;line-height:1.4;color:var(--muted);text-align:center}',
     '.ss-demo{display:flex;flex-direction:column;align-items:center;gap:10px;margin:0 5px}',
@@ -2556,11 +2557,22 @@ function milestone(w) {
       '<button type="button" class="btn secondary" id="set-add-' + which + '" data-act="set-add" data-list="' + which + '"' + (setDraft[which].trim() ? '' : ' disabled') + '>Ajouter</button></div>' +
       (rows ? '<ul class="j-mlist">' + rows + '</ul>' : '<p class="j-fhint">Liste vide.</p>') + '</section>';
   }
+  function themeBlock() {
+    var cur = L.getTheme ? L.getTheme() : 'jour';
+    var btns = [['jour', 'Jour'], ['nuit', 'Nuit'], ['auto', 'Auto']].map(function (t) {
+      var on = cur === t[0];
+      return '<button type="button" class="j-pick' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="theme-set" data-theme="' + t[0] + '">' + t[1] + '</button>';
+    }).join('');
+    return '<section class="j-sec" style="gap:8px"><h2>APPARENCE</h2>' +
+      '<p class="j-p" style="margin:0">Jour : fond bleu pâle. Nuit : fond sombre. Auto : suit le réglage de ton téléphone. Ce choix reste sur cet appareil.</p>' +
+      '<div class="j-picks three">' + btns + '</div></section>';
+  }
   function vSettings() {
     return '<header><div class="top"><span class="brand">LUNA</span><span class="module">Module Corps</span></div>' +
       '<div class="titlerow"><h1 tabindex="-1">Réglages</h1></div>' +
       '<p class="sub">Les motifs que tu veux relever</p></header>' +
       '<main>' + (setNotice ? '<p class="j-ok" role="status">' + esc(setNotice) + '</p>' : '') +
+      themeBlock() +
       setSection('act', 'ACTIVITÉS · UN DÉBUT, UNE FIN', 'Elles apparaissent dans « Activité » (Journal → À tout moment).', actNames) +
       setSection('inst', 'INSTANTS · UNE SEULE HEURE', 'Ils apparaissent dans « Instant » (Journal → À tout moment).', instNames) +
       '<p class="j-p">Retirer un motif de la liste ne touche pas à ton historique : les entrées déjà notées gardent leur nom.</p></main>';
@@ -4150,6 +4162,7 @@ function milestone(w) {
       case 'pick-other': pickOther(); break;
       case 'instant': openInstant(); break;
       case 'instant-go': doInstant(); break;
+      case 'theme-set': if (L.setTheme) { L.setTheme(el.getAttribute('data-theme')); render(); } break;
       case 'set-add': setAdd(el.getAttribute('data-list')); break;
       case 'set-del': setDel(el.getAttribute('data-list'), el.getAttribute('data-name') || ''); break;
       case 'act-start-go': doActStart(); break;

@@ -4,8 +4,17 @@
 <meta charset="utf-8">
 <title>LUNA</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0E1624">
-<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#E8F0FA">
+<meta name="color-scheme" content="light dark">
+<script>
+// Thème choisi dans Réglages (« jour » par défaut, « nuit », ou « auto » = celui du téléphone), posé avant l'affichage pour éviter un éclair de la mauvaise couleur.
+(function () {
+  var m = 'jour', d = false;
+  try { var v = localStorage.getItem('luna.theme'); if (v === 'nuit' || v === 'auto') m = v; } catch (e) {}
+  try { d = !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
+  document.documentElement.setAttribute('data-theme', m === 'auto' ? (d ? 'nuit' : 'jour') : m);
+})();
+</script>
 <meta name="description" content="LUNA · module Corps · roue circadienne">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +28,22 @@
   --bg:#0E1624; --text:#EEF1F6; --muted:#A7B3C7; --card:#172235;
   --line:#26344C; --line2:#2F4060; --nav:#0B121E; --nav-on:#1F2D46;
   --dash:#6E7E99; --chip:#C4CEDF; --nav-off:#8D9BB3;
+  --ink-on:#0E1624; --track:#243148; --needle:#FFFFFF;
+  --lav:#8E90C9; --teal:#52B7B0; --slate:#56657F; --violet:#8C6FD0; --indigo:#4C63B0; --gold:#F2C14E; --coral:#F08A6A;
+  --teal-text:#52B7B0; --gold-text:#F2C14E; --coral-text:#F08A6A;
+  --band:var(--bg);
+  color-scheme:dark;
 }
+/* Thème « Jour » (bleu pâle) ; le thème « Nuit » est celui de :root. Les couleurs de texte (…-text) sont plus foncées que celles des arcs : lisibles sur fond clair. */
+:root[data-theme="jour"]{
+  color-scheme:light;
+  --bg:#E8F0FA; --card:#F7FAFF; --line:#D0DDEE; --line2:#B6C8E2; --nav:#F7FAFF; --nav-on:#D5E3F6; --dash:#8196B8; --chip:#2F4468; --nav-off:#5E7398;
+  --text:#0E1E3E; --muted:#4A5E82; --track:#D0DDEE; --ink-on:#F7FAFF; --needle:var(--text); --band:#0E1E3E;
+  --lav:#7F82C4; --teal:#34A89F; --slate:#9AA6BB; --violet:#7B5CC4; --indigo:#3F55A5; --gold:#E3A624; --coral:#E2693F;
+  --teal-text:#1D7F78; --gold-text:#8F6205; --coral-text:#B93E1B;
+}
+/* Bande derrière l'heure et la batterie de l'iPhone (appli installée : ces icônes sont blanches) ; hauteur nulle dans un navigateur. */
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:var(--band);z-index:100;pointer-events:none}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
@@ -45,7 +69,7 @@ h1{font-size:22px;font-weight:700;letter-spacing:-.01em;min-width:0;outline:none
   border-radius:12px;background:var(--card);font-size:12px;font-weight:600;color:var(--muted)}
 .wake:focus-within{outline:2px solid var(--text);outline-offset:2px}
 .wake input{background:transparent;border:none;outline:none;color:var(--text);font:inherit;font-size:16px;font-weight:700;
-  width:80px;min-height:40px;padding:0;color-scheme:dark}
+  width:80px;min-height:40px;padding:0}
 
 #v-journee header{padding-top:calc(env(safe-area-inset-top) + 6px);padding-left:12px}
 #v-journee .titlerow{margin:2px 0 0 8px}
@@ -58,7 +82,7 @@ main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;paddin
 .banner{display:flex;align-items:center;gap:10px;margin:0 5px;padding:8px 4px 8px 14px;background:var(--card);
   border:1px solid var(--line2);border-left:4px solid var(--dash);border-radius:12px}
 .banner[hidden]{display:none}
-.banner.alert{border-left-color:#52B7B0}
+.banner.alert{border-left-color:var(--teal)}
 .banner .txt{flex:1;min-width:0}
 .banner b{display:block;font-size:14px;font-weight:700}
 .banner span{display:block;font-size:12.5px;color:var(--muted);margin-top:1px}
@@ -139,19 +163,19 @@ nav[hidden]{display:none}
 
       <div class="wheel">
         <svg id="wheel" viewBox="0 0 360 360" role="img" aria-label="Roue circadienne sur 24 heures, réveil en haut, journée en sens horaire">
-          <circle cx="180" cy="180" r="139" fill="none" stroke="#243148" stroke-width="22"/>
+          <circle cx="180" cy="180" r="139" fill="none" style="stroke:var(--track)" stroke-width="22"/>
           <g id="arcs"></g>
           <g id="hypo" fill="none"></g>
-          <line x1="180" y1="56" x2="180" y2="25" stroke="#FFFFFF" stroke-width="2"/>
-          <g id="ticks" stroke="#6E7E99" stroke-width="2"></g>
-          <g id="tick-labels" fill="#A7B3C7" font-size="12" font-weight="600" text-anchor="middle"></g>
-          <text id="wake-label" x="180" y="12" dy=".35em" text-anchor="middle" font-size="11" font-weight="700" fill="#EEF1F6"></text>
+          <line x1="180" y1="56" x2="180" y2="25" style="stroke:var(--needle)" stroke-width="2"/>
+          <g id="ticks" style="stroke:var(--dash)" stroke-width="2"></g>
+          <g id="tick-labels" style="fill:var(--muted)" font-size="12" font-weight="600" text-anchor="middle"></g>
+          <text id="wake-label" x="180" y="12" dy=".35em" text-anchor="middle" font-size="11" font-weight="700" style="fill:var(--text)"></text>
           <g id="needle">
-            <line x1="180" y1="56" x2="180" y2="112" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="180" cy="41" r="8.5" fill="#FFFFFF" stroke="#0E1624" stroke-width="3"/>
+            <line x1="180" y1="56" x2="180" y2="112" style="stroke:var(--needle)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="180" cy="41" r="8.5" style="fill:var(--needle);stroke:var(--bg)" stroke-width="3"/>
           </g>
-          <text id="clock" x="180" y="187" text-anchor="middle" font-size="36" font-weight="700" fill="#EEF1F6"></text>
-          <text x="180" y="208" text-anchor="middle" font-size="11" font-weight="600" letter-spacing="1.5" fill="#A7B3C7">MAINTENANT</text>
+          <text id="clock" x="180" y="187" text-anchor="middle" font-size="36" font-weight="700" style="fill:var(--text)"></text>
+          <text x="180" y="208" text-anchor="middle" font-size="11" font-weight="600" letter-spacing="1.5" style="fill:var(--muted)">MAINTENANT</text>
         </svg>
       </div>
 
@@ -240,23 +264,23 @@ nav[hidden]{display:none}
   // les tests du Journal serviront à les ajuster. Étiquettes : « Établi » (appuyé par des études), « Établi mais variable »,
   // « Moyenne à ajuster » (valeur de groupe), « Hypothèse à mesurer » (sans étude).
   var P = [
-    { name: 'Remise en route', s: 0, e: 120, color: '#8E90C9', dur: 'au moins 2 h, jusqu’à 4 h', durShort: '2 à 4 h',
+    { name: 'Remise en route', s: 0, e: 120, color: 'var(--lav)', dur: 'au moins 2 h, jusqu’à 4 h', durShort: '2 à 4 h',
       advice: 'Lumière, eau ; rien de lourd tant que ça n’est pas revenu.', status: 'Établi', durLabel: AJ },
-    { name: 'Vigilance stable du matin', s: 120, e: 360, color: '#52B7B0', dur: '~4 h', durShort: '~4 h',
+    { name: 'Vigilance stable du matin', s: 120, e: 360, color: 'var(--teal)', dur: '~4 h', durShort: '~4 h',
       advice: 'Plateau de vigilance : le moment pour ce qui demande de la concentration.', status: 'Établi', durLabel: HY },
-    { name: 'Creux possible', s: 360, e: 480, color: '#56657F', dur: '~2 h, variable', durShort: '~2 h',
+    { name: 'Creux possible', s: 360, e: 480, color: 'var(--slate)', dur: '~2 h, variable', durShort: '~2 h',
       advice: 'Tâches légères, pause, marche. Variable selon les personnes : certains n’en ont pas.', status: 'Établi mais variable', durLabel: HY },
-    { name: 'Vigilance stable (fin d’après-midi et soirée)', s: 480, e: 780, color: '#52B7B0', dur: '~5 h', durShort: '~5 h',
+    { name: 'Vigilance stable (fin d’après-midi et soirée)', s: 480, e: 780, color: 'var(--teal)', dur: '~5 h', durShort: '~5 h',
       advice: 'Plateau de vigilance ; un sommet de fin d’après-midi reste à mesurer.', status: 'Établi', durLabel: HY },
-    { name: 'Montée de mélatonine', s: 780, e: 900, color: '#8C6FD0', dur: '~2 h', durShort: '~2 h',
+    { name: 'Montée de mélatonine', s: 780, e: 900, color: 'var(--violet)', dur: '~2 h', durShort: '~2 h',
       advice: 'Lumière tamisée, on ralentit.', status: 'Moyenne à ajuster', durLabel: '' },
-    { name: 'Fenêtre de sommeil', s: 900, e: 1440, color: '#4C63B0', dur: '≥ 7 h', durShort: '≥ 7 h',
+    { name: 'Fenêtre de sommeil', s: 900, e: 1440, color: 'var(--indigo)', dur: '≥ 7 h', durShort: '≥ 7 h',
       advice: 'Au moins 7 h pour un adulte (consensus d’experts).', status: 'Établi', durLabel: '' }
   ];
   // Sommets possibles : HYPOTHÈSES à mesurer (aucune étude ne les établit). Dessinés en pointillé ; `after` = phase qui les contient.
   var H = [
-    { name: 'Sommet du matin ?', s: 120, e: 240, color: '#F2C14E', after: 1 },
-    { name: 'Sommet de fin d’après-midi ?', s: 480, e: 600, color: '#F08A6A', after: 3 }
+    { name: 'Sommet du matin ?', s: 120, e: 240, color: 'var(--gold)', after: 1 },
+    { name: 'Sommet de fin d’après-midi ?', s: 480, e: 600, color: 'var(--coral)', after: 3 }
   ];
 
   /* ---------- Stockage (localStorage, avec repli en mémoire) ---------- */
@@ -320,13 +344,13 @@ nav[hidden]{display:none}
     P.forEach(function (p) {
       var el = document.createElementNS(NS, 'path');
       el.setAttribute('d', arcPath(p.s / 4 + 0.35, p.e / 4 - 0.35, 139));
-      el.setAttribute('fill', 'none'); el.setAttribute('stroke', p.color); el.setAttribute('stroke-width', 22);
+      el.setAttribute('fill', 'none'); el.style.stroke = p.color; el.setAttribute('stroke-width', 22);
       g.appendChild(el);
     });
     H.forEach(function (x) {
       var el = document.createElementNS(NS, 'path');
       el.setAttribute('d', arcPath(x.s / 4 + 0.35, x.e / 4 - 0.35, 119));
-      el.setAttribute('stroke', x.color); el.setAttribute('stroke-width', 4); el.setAttribute('stroke-dasharray', '2 5'); el.setAttribute('stroke-linecap', 'round');
+      el.style.stroke = x.color; el.setAttribute('stroke-width', 4); el.setAttribute('stroke-dasharray', '2 5'); el.setAttribute('stroke-linecap', 'round');
       h.appendChild(el);
     });
   }
@@ -522,15 +546,39 @@ nav[hidden]{display:none}
   all('.b-x').forEach(function (b) { b.addEventListener('click', function () { banner = null; paintBanner(); }); });
   all('.a-go').forEach(function (b) { b.addEventListener('click', function () { show('journal'); }); });
 
+  /* ---------- Apparence : « jour » (bleu pâle), « nuit », « auto » (suit le téléphone) ---------- */
+  var THEME_KEY = 'luna.theme', themeMode = 'jour', themeMq = null;
+  try { var tv = localStorage.getItem(THEME_KEY); if (tv === 'nuit' || tv === 'auto') themeMode = tv; } catch (e) {}
+  try { themeMq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null; } catch (e) {}
+  function themeNow() { return themeMode === 'auto' ? (themeMq && themeMq.matches ? 'nuit' : 'jour') : themeMode; }
+  function applyTheme() {
+    var t = themeNow(), m = document.querySelector('meta[name="theme-color"]');
+    document.documentElement.setAttribute('data-theme', t);
+    if (m) m.setAttribute('content', t === 'nuit' ? '#0E1624' : '#E8F0FA');
+  }
+  function setTheme(mode) {
+    if (mode !== 'jour' && mode !== 'nuit' && mode !== 'auto') return;
+    themeMode = mode;
+    try { localStorage.setItem(THEME_KEY, mode); } catch (e) {}
+    applyTheme();
+  }
+  if (themeMq) {
+    var onTheme = function () { if (themeMode === 'auto') applyTheme(); };
+    if (themeMq.addEventListener) themeMq.addEventListener('change', onTheme); else if (themeMq.addListener) themeMq.addListener(onTheme);
+  }
+  applyTheme();
+
   /* ---------- Socle commun, offert aux autres modules (Journal, plus tard d’autres modules) ---------- */
   window.LUNA = {
-    version: '2026-10-19-reglages',
+    version: '2026-10-19-apparence',
     getWake: function () { return wake; },          // minutes depuis minuit : UNE seule valeur pour toute l'appli
     setWake: setWake,
     bindWake: bindWake,
     phases: P.map(function (p) { return { name: p.name, s: p.s, e: p.e, color: p.color,
                                           advice: p.advice, status: p.status, durLabel: p.durLabel }; }),
     setAlert: function (a) { alertInfo = a || null; paintAlert(); },
+    getTheme: function () { return themeMode; },    // « jour », « nuit » ou « auto »
+    setTheme: setTheme,
     show: show,
     navVisible: function (v) { document.querySelector('nav').hidden = !v; },
     on: function (ev, fn) { if (listeners[ev]) listeners[ev].push(fn); },
