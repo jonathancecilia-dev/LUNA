@@ -1,4 +1,6 @@
-/* LUNA — module Journal (écran 2 du module Corps).
+/* Kioo Cycle (ancien nom : LUNA) — module Journal (écran 2 du module Corps).
+   Nom changé le 26/10/2026. Les clés de stockage « luna.* », window.LUNA et les identifiants du fichier calendrier (@luna.local)
+   gardent l'ancien nom EXPRÈS : les renommer ferait perdre les données déjà notées ou dédoublerait les rappels déjà importés.
    Un seul réveil, partagé avec la Roue (window.LUNA, défini dans index.html).
    Données : localStorage « luna.journal » (relevés, tests, notes, activités, repas, couchers), sur l'appareil.
    Aucune donnée de naissance.
@@ -1672,7 +1674,7 @@ function milestone(w) {
       '<hr class="pl-sep">' +
       '<div class="j-field"><label class="j-lab" for="pl-stage">Étape du PVT-B</label>' +
       '<select id="pl-stage" class="j-sel">' + opts + '</select>' + list +
-      '<span class="j-fhint">Décidé le 14/10 : étape 1 pendant 4 semaines sans y toucher, puis revue à la semaine 4 ; c’est toi qui choisis la suite. LUNA ne change jamais l’étape toute seule. Durées moyennes : estimées (à ajuster).</span></div>' +
+      '<span class="j-fhint">Décidé le 14/10 : étape 1 pendant 4 semaines sans y toucher, puis revue à la semaine 4 ; c’est toi qui choisis la suite. L’appli ne change jamais l’étape toute seule. Durées moyennes : estimées (à ajuster).</span></div>' +
       '<button type="button" class="btn primary" id="pl-stage-go" data-act="pl-stage-go"' + (gi.same ? ' disabled' : '') + '>' + gi.btn + '</button>' +
       '<span class="j-hint left" id="pl-stage-hint" role="status" aria-live="polite">' + esc(gi.hint) + '</span>' +
       pHistoryHtml(tk) +
@@ -1682,7 +1684,7 @@ function milestone(w) {
   }
   function vPlan() {
     if (!pform) pform = pFormNew();
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">LUNA</span></div>' +
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
       '<div class="titlerow"><h1 tabindex="-1">Plan des tests</h1>' +
       '<label class="wake">Réveil <input class="wake-input" type="time" aria-label="Heure de réveil" required></label></div>' +
       '<p class="sub">' + (PL.NDAYS / 7) + ' semaines · 7 moments de test par jour</p></header>' +
@@ -1829,7 +1831,7 @@ function milestone(w) {
 
   function vHome() {
     return '<header>' +
-      '<div class="top"><span class="brand">LUNA</span><span class="module">Module Corps</span></div>' +
+      '<div class="top"><span class="brand">Kioo Cycle</span><span class="module">Module Corps</span></div>' +
       '<div class="titlerow"><h1 tabindex="-1">Journal</h1>' +
       '<label class="wake">Réveil <input class="wake-input" type="time" aria-label="Heure de réveil" required></label></div>' +
       '<p class="sub">' + PLAN.length + ' moments par jour, calés sur ton réveil (R+ = heures depuis le réveil)</p></header>' +
@@ -1999,8 +2001,8 @@ function milestone(w) {
       '<li>Touche la carte du bas identique à celle du haut, le plus vite possible sans te tromper' + (DEVICE === 'ord' ? ' (ou touches ← et →)' : '') + '.</li>' +
       '<li>L’autre carte ne diffère que d’un symbole. Ici, il faudrait toucher celle de gauche.</li>' +
       '<li>' + SS.trials + ' essais. ' + (DEVICE === 'tel' ? 'Téléphone posé, même main, mode silencieux.' : 'Même souris ou trackpad, notifications coupées.') + '</li></ol></section>' +
-      '<div class="chips"><div class="chips" style="margin:0"><span class="chip main">Établi · Hernandez 2023</span><span class="chip hy">À ajuster · symboles et réglages de LUNA</span></div></div>' +
-      '<p class="j-p">Le protocole (20 essais, carte identique à choisir) vient de l’étude lue. Les neuf symboles sont dessinés pour LUNA : ce ne sont pas ceux de l’étude. Durée de ≈ ' + SS.estSec + ' s estimée d’après l’étude, non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.</p>' +
+      '<div class="chips"><div class="chips" style="margin:0"><span class="chip main">Établi · Hernandez 2023</span><span class="chip hy">À ajuster · symboles et réglages de Kioo Cycle</span></div></div>' +
+      '<p class="j-p">Le protocole (20 essais, carte identique à choisir) vient de l’étude lue. Les neuf symboles sont dessinés pour Kioo Cycle : ce ne sont pas ceux de l’étude. Durée de ≈ ' + SS.estSec + ' s estimée d’après l’étude, non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.</p>' +
       '<p class="j-p">' + esc(msg) + '</p></main>' +
       '<div class="foot">' +
       (practiced
@@ -2082,9 +2084,9 @@ function milestone(w) {
       '<section class="j-card"><dl class="ss-facts" style="margin:0"><div><dt>Justes hors des temps comptés (moins de 0,2 s ou plus de 5 s)</dt><dd>' + r.excluded + '</dd></div></dl></section>' +
       ssTableHtml(r.trials) +
       '<details class="j-det"><summary>Comment lire ce résultat</summary>' +
-      '<div class="ss-sec"><h3>Le chiffre qui compte · Établi</h3><p>Temps médian des réponses justes, en ms. Plus bas = plus rapide. L’étude lue suit le temps des réponses justes ; LUNA le résume par la médiane (choix à ajuster). À côté : les réponses justes. Sous 70 % de justes, l’étude écartait le passage.</p></div>' +
+      '<div class="ss-sec"><h3>Le chiffre qui compte · Établi</h3><p>Temps médian des réponses justes, en ms. Plus bas = plus rapide. L’étude lue suit le temps des réponses justes ; L’appli le résume par la médiane (choix à ajuster). À côté : les réponses justes. Sous 70 % de justes, l’étude écartait le passage.</p></div>' +
       '<div class="ss-sec"><h3>Comparé à quoi · À ajuster</h3><p>À toi-même : la médiane de tes passages précédents sur ce test, faits aux moments du plan, avec les mêmes réglages, sur cet appareil. Les tests libres ne comptent pas. Rien n’est affiché avant 3 passages.</p></div>' +
-      '<div class="ss-sec"><h3>Pas de barème · Établi</h3><p>Dans les sources lues, aucune norme ni seuil « bon / mauvais » pour ce test. LUNA n’en invente pas. Aucun seuil de santé non plus : un professionnel décide.</p></div>' +
+      '<div class="ss-sec"><h3>Pas de barème · Établi</h3><p>Dans les sources lues, aucune norme ni seuil « bon / mauvais » pour ce test. L’appli n’en invente pas. Aucun seuil de santé non plus : un professionnel décide.</p></div>' +
       '<div class="ss-sec"><h3>Prudence · Établi</h3><p>Un passage seul est bruité. L’ICC de 0,71 classe des personnes entre elles. Pour suivre une même personne, la variation fiable d’un passage à l’autre est de 0,41 à 0,53 (Sliwinski 2018, deux types de tâches confondus, résumé seul). Un passage hors de la fourchette n’est donc pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.</p></div>' +
       '<div class="ss-sec"><h3>Précision · Hypothèse à mesurer</h3><p>Le chronomètre part à l’image où les cartes s’affichent : précision d’une image environ (17 ms), non vérifiée sur ton téléphone.</p></div></details>' +
       '<p class="j-p">Un seul passage ne dit presque rien : c’est la répétition sur plusieurs jours qui compte. Pas de seuil de santé ici.</p></main>' +
@@ -2166,7 +2168,7 @@ function milestone(w) {
 
   /* Descripteurs */
   TD.rs = { name: 'Rotation span', cog: 'Mémoire de travail', estSec: RS.estSec, pracDur: '≈ 1 min', cfg: RS_CFG,
-    chipMain: 'Établi · Hakun 2023', chipHy: 'À ajuster · entraînement et réglages de LUNA',
+    chipMain: 'Établi · Hakun 2023', chipHy: 'À ajuster · entraînement et réglages de Kioo Cycle',
     demo: function () {
       return '<div class="rs-demo"><figure role="img" aria-label="Exemple : la lettre G, en miroir et penchée">' + rsLetterHtml({ ch: 'G', mirror: true, angle: 45 }, 'small') + '<figcaption>Lettre : normale ou miroir ?</figcaption></figure>' +
         '<figure role="img" aria-label="Exemple : une longue flèche vers le haut à droite"><div class="rs-box small">' + rsArrowSvg(1) + '</div><figcaption>Flèche à retenir</figcaption></figure></div>';
@@ -2202,7 +2204,7 @@ function milestone(w) {
     read: function () {
       return secHtml('Le chiffre qui compte', 'Établi', 'Flèches à la bonne place, sur 15. Plus haut = mieux retenu. C’est le score partiel du protocole. Les autres lignes du résultat (flèches retrouvées ailleurs, lettres jugées, temps par lettre) sont des repères à côté.') +
         readCompare() +
-        secHtml('Pas de barème', 'Établi', 'Dans les sources lues, aucune norme ni seuil « bon / mauvais » pour cette version téléphone. LUNA n’en invente pas. Aucun seuil de santé non plus : un professionnel décide.') +
+        secHtml('Pas de barème', 'Établi', 'Dans les sources lues, aucune norme ni seuil « bon / mauvais » pour cette version téléphone. L’appli n’en invente pas. Aucun seuil de santé non plus : un professionnel décide.') +
         secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Chez les étudiants de l’étude (Hakun 2023), la part de variation d’un passage à l’autre qui est un vrai changement, et non du hasard, est de 0,37 (0,48 d’un jour à l’autre), sur une échelle où 1 = tout est fiable. Environ 57 % de la variation du score vient de l’erreur de mesure. Un passage hors de la fourchette n’est donc pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.') +
         secHtml('Sources', 'Établi', link('https://pmc.ncbi.nlm.nih.gov/articles/PMC9919550/', 'Hakun et al. 2023, version téléphone') + ' · ' + link('https://www.millisecond.com/library/v7/rotationspantask/rotationspantask/rotationspantask.manual', 'Manuel du Rotation Span, Millisecond') + '. Non lus : Kane et al. 2004 et Shah et Miyake 1996, le protocole d’origine.');
     },
@@ -2210,7 +2212,7 @@ function milestone(w) {
     pack: function (r) { return CL.rs(r.rec); } };
 
   TD.hs = { name: 'Hand Swype', cog: 'Flexibilité', estSec: HS.estSec, pracDur: '≈ 30 s', cfg: HS_CFG,
-    chipMain: 'Établi · NeuroUX, Paolillo 2024', chipHy: 'À ajuster · vaisseaux et réglages de LUNA',
+    chipMain: 'Établi · NeuroUX, Paolillo 2024', chipHy: 'À ajuster · vaisseaux et réglages de Kioo Cycle',
     demo: function () {
       return hsDefs() + '<div class="hs-rule demo" data-rule="point">' + hsRuleHtml('point') + '</div>' +
         '<div class="hs-pad demo" role="img" aria-label="Exemple : des vaisseaux pointent vers la droite et se déplacent vers le haut">' + hsBeltHtml('R', 'U') + '</div>' +
@@ -2224,7 +2226,7 @@ function milestone(w) {
           (DEVICE === 'ord' ? ' Sur ordinateur : souris ou touches ← ↑ → ↓ (le temps n’est alors pas comparable à celui d’un balayage).' : ''),
         DEVICE === 'tel' ? 'Téléphone posé, même main, mode silencieux.' : 'Même souris ou trackpad, notifications coupées.'];
     },
-    about: 'Le protocole lu (des mains défilent, la consigne « pointent » ou « se déplacent » change, le test s’arrête après 60 s) vient de NeuroUX (Paolillo 2024). La source ne donne ni le nombre d’éléments, ni la vitesse, ni le rythme des changements, ni la distance du balayage, ni la façon de mesurer le temps : ce sont des choix de LUNA, et les éléments sont des vaisseaux dessinés pour LUNA (pas des mains). Le temps part de l’image où les éléments s’affichent et comprend le geste : il ne se compare pas à ceux de l’étude. Durée fixe de 60 s. On te compare à toi-même, <b>sur le même appareil et avec la même façon de répondre</b> (doigt, souris ou clavier).',
+    about: 'Le protocole lu (des mains défilent, la consigne « pointent » ou « se déplacent » change, le test s’arrête après 60 s) vient de NeuroUX (Paolillo 2024). La source ne donne ni le nombre d’éléments, ni la vitesse, ni le rythme des changements, ni la distance du balayage, ni la façon de mesurer le temps : ce sont des choix de Kioo Cycle, et les éléments sont des vaisseaux dessinés pour Kioo Cycle (pas des mains). Le temps part de l’image où les éléments s’affichent et comprend le geste : il ne se compare pas à ceux de l’étude. Durée fixe de 60 s. On te compare à toi-même, <b>sur le même appareil et avec la même façon de répondre</b> (doigt, souris ou clavier).',
     pracTitle: function (p) { return p.good + (p.good > 1 ? ' bonnes réponses' : ' bonne réponse') + ' sur ' + HS.practice; },
     pracNote: function () { return '<p class="lead">L’entraînement n’est pas noté dans les passages.</p><p>Aucune source lue sur l’entraînement de ce test. Tu peux le refaire autant que tu veux.</p>'; },
     fig: function (r) { return r.sc.med; }, figE: function (p) { return p.med; },
@@ -2240,7 +2242,7 @@ function milestone(w) {
       return factsCard([factRow('Taux d’erreurs', pctTxt(s.errRate)),
         factRow('Temps médian, consigne changée (' + s.okSw + ' justes sur ' + s.nSw + ')', ssMs(s.medSw)),
         factRow('Temps médian, même consigne (' + s.okRep + ' justes sur ' + s.nRep + ')', ssMs(s.medRep)),
-        factRow('Écart : changée moins répétée (lecture de LUNA)', costTxt(s.swCost)),
+        factRow('Écart : changée moins répétée (lecture de Kioo Cycle)', costTxt(s.swCost)),
         factRow('Façon de répondre', esc(INPUT_TXT[r.input] || r.input))]);
     },
     table: function (r) {
@@ -2250,9 +2252,9 @@ function milestone(w) {
       return tTable(['#', 'Règle', 'Chgt', 'Attendu', 'Choix', 'Temps'], rows, 'Règle : ce que suit la consigne. Chgt : la consigne a changé depuis l’essai d’avant.');
     },
     read: function () {
-      return secHtml('Le chiffre qui compte', 'À ajuster', 'Temps médian des réponses justes, en ms. Plus bas = plus rapide. Le temps part de l’apparition des éléments et s’arrête quand ton doigt a parcouru 28 px (ou à la touche, sur ordinateur). À lire avec les erreurs : la source suit les deux (ICC 0,86 pour le temps, 0,86 pour les erreurs). Un temps plus court avec plus d’erreurs peut vouloir dire que tu as seulement été plus vite, pas plus juste : c’est la lecture de LUNA, pas un chiffre lu. Pas de score qui les mélange. À côté, pour information : le nombre d’essais faits (la durée est fixe, donc il varie) et l’écart de temps entre un essai où la consigne change et un essai où elle se répète ; ce dernier est la lecture de LUNA, aucun chiffre lu pour ce test. Dans l’étude, un passage dont le temps médian est sous 0,5 s était écarté (effort supposé faible) ; LUNA le garde, avec ses erreurs.') +
+      return secHtml('Le chiffre qui compte', 'À ajuster', 'Temps médian des réponses justes, en ms. Plus bas = plus rapide. Le temps part de l’apparition des éléments et s’arrête quand ton doigt a parcouru 28 px (ou à la touche, sur ordinateur). À lire avec les erreurs : la source suit les deux (ICC 0,86 pour le temps, 0,86 pour les erreurs). Un temps plus court avec plus d’erreurs peut vouloir dire que tu as seulement été plus vite, pas plus juste : c’est la lecture de Kioo Cycle, pas un chiffre lu. Pas de score qui les mélange. À côté, pour information : le nombre d’essais faits (la durée est fixe, donc il varie) et l’écart de temps entre un essai où la consigne change et un essai où elle se répète ; ce dernier est la lecture de Kioo Cycle, aucun chiffre lu pour ce test. Dans l’étude, un passage dont le temps médian est sous 0,5 s était écarté (effort supposé faible) ; L’appli le garde, avec ses erreurs.') +
         readCompare(' et avec la même façon de répondre (doigt, souris ou clavier)') +
-        secHtml('Pas de barème', 'Établi', 'L’étude lue ne donne ni barème ni seuil pour ce test. Elle écrit que les chercheurs sont invités à utiliser leur propre groupe témoin pour comparer. Ses moyennes par âge décrivent un groupe, pas toi, et ne valent pas pour LUNA (autre mesure du temps, autres images). Aucun seuil de santé : un professionnel décide.') +
+        secHtml('Pas de barème', 'Établi', 'L’étude lue ne donne ni barème ni seuil pour ce test. Elle écrit que les chercheurs sont invités à utiliser leur propre groupe témoin pour comparer. Ses moyennes par âge décrivent un groupe, pas toi, et ne valent pas pour Kioo Cycle (autre mesure du temps, autres images). Aucun seuil de santé : un professionnel décide.') +
         secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Dans l’étude, le temps d’une même personne varie en moyenne de 340 ms (écart-type) d’un passage à l’autre, pour un temps moyen de 1 809 ms. Les ICC (0,86) classent des personnes entre elles : ils ne disent pas si ton propre temps varie de façon fiable. D’un passage à l’autre, les erreurs baissent et le temps monte : les premiers passages peuvent bouger. Dans ce qui a été lu, aucun lien significatif avec l’heure n’est rapporté pour ce test. Un passage hors de la fourchette n’est pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte. Chiffres repris de la page par extraction automatique du texte, pas revérifiés sur les tableaux eux-mêmes.') +
         readPrec('les éléments s’affichent') +
         secHtml('Sources', 'Établi', link('https://www.jmir.org/2024/1/e51978', 'Paolillo et al. 2024, NeuroUX, J Med Internet Res 26:e51978') + '. Non lus : les trois annexes de l’article (fichiers DOCX), ses tableaux et figures vus seulement par extraction du texte, la page de l’éditeur de NeuroUX. Pas de description plus détaillée du protocole de Hand Swype trouvée.');
@@ -2261,7 +2263,7 @@ function milestone(w) {
     pack: function (r) { return CL.hs(r.rec); } };
 
   TD.fl = { name: 'Flanker', cog: 'Inhibition', estSec: FL.estSec, pracDur: '≈ 30 s', cfg: FL_CFG,
-    chipMain: 'Établi · NIH Toolbox, Zelazo 2014', chipHy: 'À ajuster · réglages de LUNA',
+    chipMain: 'Établi · NIH Toolbox, Zelazo 2014', chipHy: 'À ajuster · réglages de Kioo Cycle',
     demo: function () {
       return '<div class="fl-stim" role="img" aria-label="Exemple : une flèche vers la droite, marquée d’un triangle, entourée de flèches vers la gauche">' + flStimHtml({ cong: false, dir: 'R' }) + '</div>' +
         '<p class="ss-cue">Flèche au-dessus du triangle</p>';
@@ -2272,7 +2274,7 @@ function milestone(w) {
         'Celles autour peuvent pointer à l’opposé : ignore-les. Ici, il faudrait toucher « Droite ».',
         FL.trials + ' essais. ' + (DEVICE === 'tel' ? 'Téléphone posé, même main, mode silencieux.' : 'Même souris ou trackpad, notifications coupées.')];
     },
-    about: 'Le protocole (flèche du milieu à juger, entourée de flèches qui pointent du même côté ou à l’opposé) vient du NIH Toolbox (Zelazo 2014) ; la fixation, les pauses et l’entraînement viennent du manuel du Flanker ABCD sur téléphone. Le nombre d’essais (40), le temps limite (3 s) et le calcul du temps (médiane des réponses justes de 100 ms ou plus) sont des choix de LUNA. Durée de ≈ ' + ssDur(FL.estSec * 1000) + ' estimée d’après les pauses, non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.',
+    about: 'Le protocole (flèche du milieu à juger, entourée de flèches qui pointent du même côté ou à l’opposé) vient du NIH Toolbox (Zelazo 2014) ; la fixation, les pauses et l’entraînement viennent du manuel du Flanker ABCD sur téléphone. Le nombre d’essais (40), le temps limite (3 s) et le calcul du temps (médiane des réponses justes de 100 ms ou plus) sont des choix de Kioo Cycle. Durée de ≈ ' + ssDur(FL.estSec * 1000) + ' estimée d’après les pauses, non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.',
     pracTitle: function (p) { return p.good + (p.good > 1 ? ' bonnes réponses' : ' bonne réponse') + ' sur ' + FL.practice + ' au dernier bloc'; },
     pracNote: function (p) {
       return '<p class="lead">L’entraînement n’est pas noté dans les passages.</p><p>' + (p.passed ? 'Le seuil du manuel (3 sur 4) est atteint.' : 'Le manuel passe au test après 3 blocs, même sans atteindre 3 sur 4.') + ' Tu peux le refaire autant que tu veux.</p>';
@@ -2300,9 +2302,9 @@ function milestone(w) {
       return tTable(['#', 'Condition', 'Cible', 'Choix', 'Temps'], rows, 'Cong. : les flèches autour pointent du même côté que la cible. Incong. : à l’opposé.');
     },
     read: function () {
-      return secHtml('Le chiffre qui compte', 'À ajuster', 'Temps médian des essais incongruents, en ms : ceux où les flèches autour pointent à l’opposé de la cible. Plus bas = plus rapide. Seules les réponses justes de 100 ms ou plus comptent. À côté : les réponses justes, et le coût d’interférence (incongruent moins congruent). Ce choix est celui de LUNA. Le temps incongruent est plus stable (ICC 0,66) mais mêle vitesse générale et inhibition. Le coût isole mieux l’inhibition mais est plus fragile (ICC 0,4). Le chiffre à suivre reste à décider : LUNA garde de quoi calculer les deux.') +
+      return secHtml('Le chiffre qui compte', 'À ajuster', 'Temps médian des essais incongruents, en ms : ceux où les flèches autour pointent à l’opposé de la cible. Plus bas = plus rapide. Seules les réponses justes de 100 ms ou plus comptent. À côté : les réponses justes, et le coût d’interférence (incongruent moins congruent). Ce choix est celui de Kioo Cycle. Le temps incongruent est plus stable (ICC 0,66) mais mêle vitesse générale et inhibition. Le coût isole mieux l’inhibition mais est plus fragile (ICC 0,4). Le chiffre à suivre reste à décider : L’appli garde de quoi calculer les deux.') +
         readCompare() +
-        secHtml('Pas de barème', 'Établi', 'Le NIH Toolbox standardise son score (moyenne 10, écart-type 3) avec ses propres normes. Elles situent une personne parmi la population : elles ne disent pas à quelle heure tu es à ton meilleur, et elles ne s’appliquent pas à LUNA (autres durées, autres images). Aucun autre barème ni seuil dans les sources lues, et aucun seuil de santé : un professionnel décide.') +
+        secHtml('Pas de barème', 'Établi', 'Le NIH Toolbox standardise son score (moyenne 10, écart-type 3) avec ses propres normes. Elles situent une personne parmi la population : elles ne disent pas à quelle heure tu es à ton meilleur, et elles ne s’appliquent pas à Kioo Cycle (autres durées, autres images). Aucun autre barème ni seuil dans les sources lues, et aucun seuil de santé : un professionnel décide.') +
         secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Les ICC lus (0,83 pour le score NIH) classent des personnes entre elles : ils ne disent pas si ton propre temps varie de façon fiable d’un passage à l’autre, chiffre non lu pour ce test. L’effet d’apprentissage est petit (d = 0,27), mais les premiers passages peuvent bouger. Ces chiffres valent pour la cible au milieu. Un passage hors de la fourchette n’est pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.') +
         readPrec('la cible s’affiche') +
         secHtml('Sources', 'Établi', link('https://pmc.ncbi.nlm.nih.gov/articles/PMC4601803', 'Zelazo et al. 2014, NIH Toolbox') + ' · ' + link('https://www.millisecond.com/library/v7/flankertask/abcdarrowflankertest/abcdarrowflankertest_smartphone/abcdarrowflankertest_smartphone.manual', 'Manuel du Flanker ABCD sur téléphone') + ' · ' + link('https://link.springer.com/article/10.3758/s13428-017-0935-1', 'Hedge, Powell et Sumner 2018') + '. Non lus : Eriksen et Eriksen 1974 (l’origine du test), la figure 2 de Zelazo (les durées), les tableaux de Hedge.');
@@ -2311,7 +2313,7 @@ function milestone(w) {
     pack: function (r) { return CL.fl(r.rec); } };
 
   TD.ml = { name: 'Memory List', cog: 'Mémoire épisodique', estSec: ML.estSec, noPractice: true, cfg: ML_CFG,
-    chipMain: 'Établi · NeuroUX, Paolillo 2024', chipHy: 'À ajuster · mots et tâche intercalaire de LUNA',
+    chipMain: 'Établi · NeuroUX, Paolillo 2024', chipHy: 'À ajuster · mots et tâche intercalaire de Kioo Cycle',
     demo: function () { return ''; },
     steps: function () {
       return [ML.nT + ' mots s’affichent ensemble pendant ' + (ML.study / 1000) + ' secondes. Retiens-les.',
@@ -2320,7 +2322,7 @@ function milestone(w) {
         'Pas d’entraînement : les mots ne se répètent pas à vide. Une autre liste de mots est utilisée à chaque passage. ' +
           (DEVICE === 'tel' ? 'Téléphone posé, même main, mode silencieux.' : 'Même souris ou trackpad, notifications coupées.')];
     },
-    about: 'Le protocole (12 mots affichés ensemble pendant 30 s, une autre tâche entre-temps, puis 24 mots à reconnaître, « Oui » ou « Non ») vient de NeuroUX (Paolillo 2024). La source ne donne ni les mots, ni le délai, ni la façon de répondre : les 98 listes de mots, la tâche intercalaire de 30 s (« touche la forme différente »), l’absence de temps limite et la mesure du temps de réponse sont des choix de LUNA. Les listes ne sont pas appariées selon des normes (fréquence, imagerie). Durée de ≈ ' + ssDur(ML.estSec * 1000) + ' estimée d’après la source (environ 1 min de reconnaissance) et les pauses, non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.',
+    about: 'Le protocole (12 mots affichés ensemble pendant 30 s, une autre tâche entre-temps, puis 24 mots à reconnaître, « Oui » ou « Non ») vient de NeuroUX (Paolillo 2024). La source ne donne ni les mots, ni le délai, ni la façon de répondre : les 98 listes de mots, la tâche intercalaire de 30 s (« touche la forme différente »), l’absence de temps limite et la mesure du temps de réponse sont des choix de Kioo Cycle. Les listes ne sont pas appariées selon des normes (fréquence, imagerie). Durée de ≈ ' + ssDur(ML.estSec * 1000) + ' estimée d’après la source (environ 1 min de reconnaissance) et les pauses, non mesurée ici : la durée mesurée s’affiche à la fin. On te compare à toi-même, <b>sur le même appareil</b>.',
     introNote: function () {
       var last = mlToday();
       if (!last) return '';
@@ -2342,7 +2344,7 @@ function milestone(w) {
       mlExpand(rec.items).forEach(function (t) { if (!t.ok) (t.target ? forgot : falseA).push(t.word); });
       return '<section class="j-card"><dl class="ss-facts" style="margin:0">' +
         factRow('Mots nouveaux refusés', s.cr + ' / ' + s.nD) +
-        factRow('Temps de réponse médian (lecture de LUNA)', ssMs(s.medRt)) +
+        factRow('Temps de réponse médian (lecture de Kioo Cycle)', ssMs(s.medRt)) +
         factRow('Tâche intercalaire : formes trouvées (non notée)', rec.odd.ok + ' / ' + rec.odd.n) +
         factRow('Liste de mots utilisée', 'n° ' + rec.listNo + ' sur ' + ML_BANK.length) +
         factRow('Mots déjà vus à un passage précédent', rec.seen + ' / ' + s.n) + '</dl>' +
@@ -2358,11 +2360,11 @@ function milestone(w) {
       return tTable(['#', 'Mot', 'Type', 'Réponse', 'Résultat', 'Temps'], rows, 'Type : « liste » = un mot de la liste du début, « nouveau » = un mot ajouté.', 'mots');
     },
     read: function () {
-      return secHtml('Le chiffre qui compte', 'Établi', 'Le score, sur 24 : les mots de la liste que tu as reconnus (« Oui ») plus les mots nouveaux que tu as refusés (« Non »). C’est le score de la source. Plus haut = mieux reconnu. À côté, pour information : les mots reconnus sur 12, les mots nouveaux acceptés à tort sur 12 et le temps de réponse médian. Ce dernier est la lecture de LUNA : la source ne le donne pas.') +
+      return secHtml('Le chiffre qui compte', 'Établi', 'Le score, sur 24 : les mots de la liste que tu as reconnus (« Oui ») plus les mots nouveaux que tu as refusés (« Non »). C’est le score de la source. Plus haut = mieux reconnu. À côté, pour information : les mots reconnus sur 12, les mots nouveaux acceptés à tort sur 12 et le temps de réponse médian. Ce dernier est la lecture de Kioo Cycle : la source ne le donne pas.') +
         readCompare(', avec des listes de mots qui tournent d’un passage à l’autre (elles comptent comme des versions parallèles, comme dans l’étude)') +
-        secHtml('Les listes de mots', 'À ajuster', '98 listes écrites pour LUNA (12 mots à retenir + 12 mots nouveaux), prises dans l’ordre, une par passage, tests libres compris. Les 68 premières n’ont aucun mot en commun. Les suivantes reprennent 21 à 24 mots déjà vus, chacun dans le même rôle et au moins 48 passages plus tard. Un mot déjà vu garde peut-être un peu de familiarité : l’effet n’est pas connu (aucune source trouvée), c’est pourquoi le nombre de mots déjà vus est gardé avec chaque passage. Les listes ne sont pas appariées selon la fréquence des mots ni leur imagerie. Si un mot ne te dit rien, note-le : il sera remplacé.') +
+        secHtml('Les listes de mots', 'À ajuster', '98 listes écrites pour Kioo Cycle (12 mots à retenir + 12 mots nouveaux), prises dans l’ordre, une par passage, tests libres compris. Les 68 premières n’ont aucun mot en commun. Les suivantes reprennent 21 à 24 mots déjà vus, chacun dans le même rôle et au moins 48 passages plus tard. Un mot déjà vu garde peut-être un peu de familiarité : l’effet n’est pas connu (aucune source trouvée), c’est pourquoi le nombre de mots déjà vus est gardé avec chaque passage. Les listes ne sont pas appariées selon la fréquence des mots ni leur imagerie. Si un mot ne te dit rien, note-le : il sera remplacé.') +
         secHtml('Pas de barème', 'Établi', 'L’étude lue ne donne ni norme ni seuil pour ce test, et le score n’y est pas lié à l’âge de façon significative. Sa moyenne (19,8 sur 24) décrit un groupe, pas toi, avec d’autres mots : ce n’est pas un objectif. Aucun seuil de santé : un professionnel décide.') +
-        secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Dans l’étude, le score d’une même personne varie en moyenne de 2,1 mots (écart-type) d’un passage à l’autre : un écart de deux mots d’un moment à l’autre n’a rien d’exceptionnel. Le score baisse aussi au fil des passages (pente de −0,175, unité exacte non revérifiée), ce que les auteurs rapprochent d’une interférence entre les listes successives. Lecture de LUNA, non sourcée : répété plusieurs fois dans la journée, ce test risque de baisser pour cette seule raison, ce qui ressemblerait à un effet d’heure ; dans l’étude, il n’y avait qu’un passage par jour. Un passage hors de la fourchette n’est pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.') +
+        secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Dans l’étude, le score d’une même personne varie en moyenne de 2,1 mots (écart-type) d’un passage à l’autre : un écart de deux mots d’un moment à l’autre n’a rien d’exceptionnel. Le score baisse aussi au fil des passages (pente de −0,175, unité exacte non revérifiée), ce que les auteurs rapprochent d’une interférence entre les listes successives. Lecture de Kioo Cycle, non sourcée : répété plusieurs fois dans la journée, ce test risque de baisser pour cette seule raison, ce qui ressemblerait à un effet d’heure ; dans l’étude, il n’y avait qu’un passage par jour. Un passage hors de la fourchette n’est pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.') +
         secHtml('Chiffres lus', 'Établi', 'ICC du score 0,762 sur 5 passages avec des listes différentes (type d’ICC non précisé), score moyen 19,8 sur 24, écart-type entre personnes 2,3 ; 393 adultes de 20 à 79 ans. Chiffres repris de la page par extraction automatique du texte, pas revérifiés sur les tableaux eux-mêmes.') +
         readPrec('le mot s’affiche') +
         secHtml('Sources', 'Établi', link('https://www.jmir.org/2024/1/e51978', 'Paolillo et al. 2024, NeuroUX, J Med Internet Res 26:e51978') + '. Non lus : les trois annexes de l’article (fichiers DOCX), ses tableaux et figures vus seulement par extraction du texte, la page de l’éditeur de NeuroUX. Pas de description plus détaillée du protocole de la Memory List trouvée, ni la liste de ses mots.');
@@ -2469,7 +2471,7 @@ function milestone(w) {
 
   function vNote() {
     var d = new Date(noteTs), ph = phaseAt(relAt(noteTs, L.getWake()));
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">LUNA</span></div>' +
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
       '<h1 tabindex="-1">Note libre</h1><p class="sub">Ce qui te vient en tête, rangé avec l’heure</p>' +
       '<div class="nowline"><span class="dot" style="background:' + ph.color + '"></span><span>' + L.fmtClock(minOf(d)) + ' · ' + esc(ph.name) + '</span></div></header>' +
       '<main style="padding-top:14px;gap:8px"><label for="j-note" class="j-lab" style="margin:0 5px">Ta note</label>' +
@@ -2486,7 +2488,7 @@ function milestone(w) {
     return '<input class="j-sel" type="time" data-field="' + field + '" value="' + esc(value || '') + '" aria-label="' + esc(label) + '">';
   }
   function formHeader(title, sub) {
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">LUNA</span></div>' +
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
       '<h1 tabindex="-1">' + title + '</h1><p class="sub">' + sub + '</p></header>';
   }
   function formFoot(act, label, enabled) {
@@ -2580,7 +2582,7 @@ function milestone(w) {
       '<div class="j-picks three">' + btns + '</div></section>';
   }
   function vSettings() {
-    return '<header><div class="top"><span class="brand">LUNA</span><span class="module">Module Corps</span></div>' +
+    return '<header><div class="top"><span class="brand">Kioo Cycle</span><span class="module">Module Corps</span></div>' +
       '<div class="titlerow"><h1 tabindex="-1">Réglages</h1></div>' +
       '<p class="sub">Les motifs que tu veux relever</p></header>' +
       '<main>' + (setNotice ? '<p class="j-ok" role="status">' + esc(setNotice) + '</p>' : '') +
@@ -2615,7 +2617,7 @@ function milestone(w) {
     return formHeader('Coucher', 'Quand tu vas te coucher') +
       '<main style="padding-top:14px;gap:14px">' + formError() +
       '<section class="j-sec">' + fld('Heure du coucher', timeIn('time', form.time, 'Heure du coucher'), 'Modifiable si tu notes après coup (par ex. « 00:40 » ce matin).') + '</section>' +
-      '<p class="j-p">LUNA en déduit ton « temps au lit » : du coucher au réveil. Ce n’est pas du sommeil mesuré (il comprend le temps pour s’endormir et les éveils de la nuit).</p></main>' +
+      '<p class="j-p">L’appli en déduit ton « temps au lit » : du coucher au réveil. Ce n’est pas du sommeil mesuré (il comprend le temps pour s’endormir et les éveils de la nuit).</p></main>' +
       formFoot('bed-go', 'Enregistrer le coucher', formValid());
   }
 
@@ -2652,7 +2654,7 @@ function milestone(w) {
   }
 
   function vBackup() {
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">LUNA</span></div>' +
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
       '<h1 tabindex="-1">Sauvegarde</h1><p class="sub">Un fichier : tout ton Journal, ton réveil et ton plan</p></header>' +
       '<main style="padding-top:14px;gap:12px"><section class="j-card">' +
       '<p class="lead">Au quotidien, rien à faire : tes relevés, tests, notes, activités, repas et couchers se gardent tout seuls sur cet appareil, d’un jour à l’autre.</p>' +
@@ -2676,13 +2678,13 @@ function milestone(w) {
       return '<label class="j-opt' + (rem[key] ? ' on' : '') + '"><input type="checkbox" data-rem="' + key + '"' + (rem[key] ? ' checked' : '') + '>' +
         '<span class="t"><b>' + title + '</b><span class="d">' + desc + '</span></span></label>';
     }
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">LUNA</span></div>' +
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
       '<div class="titlerow"><h1 tabindex="-1">Rappels</h1>' +
       '<label class="wake">Réveil <input class="wake-input" type="time" aria-label="Heure de réveil" required></label></div>' +
       '<p class="sub">Ton calendrier te prévient, appli fermée</p></header>' +
       '<main style="padding-top:14px;gap:12px"><section class="j-card">' +
       '<p class="lead">Chaque matin : entre ton réveil ci-dessus, puis crée le fichier du jour.</p>' +
-      '<p>LUNA ne peut pas sonner quand elle est fermée : c’est ton calendrier qui te prévient. Les heures sont calées sur ton réveil : <b id="j-rwake">' + L.fmtClock(w) + '</b>.</p>' +
+      '<p>L’appli ne peut pas sonner quand elle est fermée : c’est ton calendrier qui te prévient. Les heures sont calées sur ton réveil : <b id="j-rwake">' + L.fmtClock(w) + '</b>.</p>' +
       '<p>Si un rappel passe, ce n’est pas grave : il n’y a rien à rattraper.</p>' +
       '<div class="chips" style="margin:0"><span class="chip hy">Heures = moyennes à ajuster</span></div></section>' +
       '<section class="j-sec" style="gap:8px"><h2>QUOI RAPPELER ?</h2>' +
@@ -2697,7 +2699,7 @@ function milestone(w) {
       '<details class="j-det"><summary>Comment l’ajouter à mon calendrier ?</summary>' +
       '<p class="j-p" style="margin:0 0 8px"><b>iPhone</b> : ouvre le fichier obtenu (feuille de partage ou dossier Téléchargements) ; le calendrier de l’iPhone propose de l’ajouter. Choisis un calendrier lié à ton compte Google pour que les rappels arrivent aussi dans Google Agenda (non vérifié).</p>' +
       '<p class="j-p" style="margin:0 0 8px"><b>Google Agenda sur ordinateur</b> : Paramètres → Importer et exporter, puis choisis le fichier et le calendrier de destination. D’après l’aide de Google, l’import se fait sur ordinateur.</p>' +
-      '<p class="j-p" style="margin:0 0 8px">Conseil : range-les dans un calendrier à part nommé « LUNA » ; pour tout retirer d’un coup, il suffit de le supprimer.</p>' +
+      '<p class="j-p" style="margin:0 0 8px">Conseil : range-les dans un calendrier à part nommé « Kioo Cycle » ; pour tout retirer d’un coup, il suffit de le supprimer.</p>' +
       '<p class="j-p" style="margin:0 0 8px">Pas encore vérifié : où Chrome sur iPhone range ce fichier, et si ton calendrier garde les alarmes d’un fichier importé.</p></details></main>';
   }
 
@@ -2746,15 +2748,15 @@ function milestone(w) {
         (r.mode === 'replace' && r.confirm ? '<p class="j-warn" role="alert">Cela efface le contenu du Journal de cet appareil (' + esc(countsText(entries)) + ') pour mettre celui du fichier à la place.' + (r.plan ? ' Le plan (premier jour, graine, étape) est aussi remplacé.' : '') + '</p>' : '');
     } else {
       btn = 'Restaurer';
-      body = '<section class="j-card"><p class="lead">Choisis le fichier <b>luna-sauvegarde-….json</b> enregistré plus tôt. L’appli te montre ce qu’il contient avant de toucher à quoi que ce soit.</p>' +
+      body = '<section class="j-card"><p class="lead">Choisis le fichier <b>kioo-cycle-sauvegarde-….json</b> enregistré plus tôt (les anciens fichiers <b>luna-sauvegarde-….json</b> marchent aussi). L’appli te montre ce qu’il contient avant de toucher à quoi que ce soit.</p>' +
         '<label class="btn secondary" for="j-file" style="width:auto">Choisir un fichier…</label>' +
         '<input id="j-file" type="file" accept=".json,application/json,text/plain" class="sr"></section>' +
         '<details class="j-det"><summary>Ou coller le contenu</summary>' +
         '<textarea id="j-paste" class="j-ta small" aria-label="Contenu de la sauvegarde à coller"></textarea>' +
         '<button type="button" class="btn secondary" data-act="read-paste">Lire ce texte</button></details>';
     }
-    return '<header class="subhead"><div class="top">' + back('backup', 'Sauvegarde') + '<span class="brand">LUNA</span></div>' +
-      '<h1 tabindex="-1">Restaurer</h1><p class="sub">' + (r ? 'Vérifie le contenu, puis choisis le mode' : 'Choisis un fichier de sauvegarde LUNA') + '</p></header>' +
+    return '<header class="subhead"><div class="top">' + back('backup', 'Sauvegarde') + '<span class="brand">Kioo Cycle</span></div>' +
+      '<h1 tabindex="-1">Restaurer</h1><p class="sub">' + (r ? 'Vérifie le contenu, puis choisis le mode' : 'Choisis un fichier de sauvegarde') + '</p></header>' +
       '<main style="padding-top:14px;gap:14px">' +
       (restoreError ? '<p class="j-warn" role="alert">' + esc(restoreError) + '</p>' : '') + body + '</main>' +
       '<div class="foot"><button type="button" class="btn primary" data-act="restore-go"' + (canGo ? '' : ' disabled') + '>' + btn + '</button>' +
@@ -2763,7 +2765,7 @@ function milestone(w) {
 
   function vHistory() {
     var tk = todayInfo().tk, list = entries.slice().reverse();
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">LUNA</span></div>' +
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
       '<h1 tabindex="-1">Historique</h1><p class="sub">' + plural(entries.length, 'entrée', 'entrées') + ' · les plus récentes d’abord</p></header>' +
       '<main style="padding-top:14px"><div class="j-hist">' +
       (list.length ? list.map(function (e) { return histCard(e, tk, true); }).join('') : '<div class="j-empty">Rien pour l’instant.</div>') +
@@ -3938,7 +3940,7 @@ function milestone(w) {
   }
   // Format v4 : + liste des instants et entrées « instant ». (v3 : réglages du plan + journal des listes de mots.) Les fichiers v1, v2 et v3 restent lisibles.
   function buildBackup() {
-    return JSON.stringify({ app: 'LUNA', v: 4, exportedAt: Date.now(), wake: L.wakeStr(L.getWake()), activities: actNames, instants: instNames, entries: entries, plan: pExport(), mlUsed: mlLogRead() });
+    return JSON.stringify({ app: 'Kioo Cycle', v: 4, exportedAt: Date.now(), wake: L.wakeStr(L.getWake()), activities: actNames, instants: instNames, entries: entries, plan: pExport(), mlUsed: mlLogRead() });
   }
   function setStatus(msg) {
     backupStatus = msg;
@@ -3972,9 +3974,9 @@ function milestone(w) {
     }
   }
   function doBackup() {
-    var name = 'luna-sauvegarde-' + keyOf(new Date()) + '.json';
+    var name = 'kioo-cycle-sauvegarde-' + keyOf(new Date()) + '.json';
     setStatus('');
-    shareOrDownload(buildBackup(), name, 'application/json', 'Sauvegarde LUNA', {
+    shareOrDownload(buildBackup(), name, 'application/json', 'Sauvegarde Kioo Cycle', {
       shared: function () { markBackup(); refreshLast(); setStatus('Fichier « ' + name + ' » partagé. Vérifie qu’il est bien rangé là où tu l’as choisi.'); },
       downloaded: function () { markBackup(); refreshLast(); setStatus('Fichier « ' + name + ' » téléchargé : cherche-le dans tes Téléchargements. Si rien n’apparaît, ouvre « copier le contenu » ci-dessous.'); },
       aborted: function () { setStatus('Sauvegarde annulée.'); },
@@ -4031,16 +4033,16 @@ function milestone(w) {
     }
     var wk = L.fmtClock(wake);
     if (o.moments) PLAN.forEach(function (m, i) {
-      add('luna-moment-' + i, wake + m.r, 15, 'LUNA · ' + momTitle(m),
+      add('luna-moment-' + i, wake + m.r, 15, 'Kioo Cycle · ' + momTitle(m),
         'Moment prévu à ' + L.fmt(wake + m.r) + ' (' + rLabel(m.r) + ', calé sur ton réveil de ' + wk + '). ' + m.goal + (/[?!.]$/.test(m.goal) ? '' : '.') +
         ' Fenêtre : de ' + L.fmt(wake + m.r - WIN.before) + ' à ' + L.fmt(wake + m.r + WIN.after) + '. Si ce moment passe, ce n’est pas grave.');
     });
     if (o.phases) remPhases().forEach(function (p, i) {
-      add('luna-phase-' + i, wake + p.s, 5, 'LUNA · Nouvelle phase · ' + p.name,
+      add('luna-phase-' + i, wake + p.s, 5, 'Kioo Cycle · Nouvelle phase · ' + p.name,
         'Début vers ' + L.fmt(wake + p.s) + ' (moyenne calée sur ton réveil de ' + wk + '). ' + p.advice +
         ' Étiquette : ' + p.status + (p.durLabel ? ' · durée : ' + p.durLabel.toLowerCase() : '') + '.');
     });
-    var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//LUNA//Rappels//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:LUNA'];
+    var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kioo Cycle//Rappels//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Kioo Cycle'];
     ev.forEach(function (e) { lines = lines.concat(e); });
     lines.push('END:VCALENDAR');
     return { text: lines.map(icsFold).join('\r\n') + '\r\n', count: ev.length };
@@ -4052,11 +4054,11 @@ function milestone(w) {
   }
   function doIcs() {
     if (!rem.moments && !rem.phases) return;
-    var out = buildIcs(rem), name = 'luna-rappels-' + keyOf(new Date()) + '.ics';
+    var out = buildIcs(rem), name = 'kioo-cycle-rappels-' + keyOf(new Date()) + '.ics';
     var what = rem.days === 1 ? plural(out.count, 'rappel', 'rappels') + ' pour aujourd’hui'
                                 : plural(out.count, 'rappel', 'rappels') + ' par jour, pendant ' + rem.days + ' jours';
     setRStatus('');
-    shareOrDownload(out.text, name, 'text/calendar', 'Rappels LUNA', {
+    shareOrDownload(out.text, name, 'text/calendar', 'Rappels Kioo Cycle', {
       shared: function () { setRStatus('Fichier « ' + name + ' » partagé (' + what + '). Ouvre-le avec ton calendrier pour l’ajouter.'); },
       downloaded: function () { setRStatus('Fichier « ' + name + ' » téléchargé (' + what + '). Ouvre-le pour l’ajouter à ton calendrier.'); },
       aborted: function () { setRStatus('Envoi annulé.'); },
@@ -4068,9 +4070,9 @@ function milestone(w) {
   function parseBackup(text, name) {
     var o;
     if (typeof text !== 'string' || text.length > 20e6) return 'Ce fichier est trop gros ou illisible.';
-    try { o = JSON.parse(text); } catch (e) { return 'Ce fichier n’est pas une sauvegarde LUNA (texte illisible).'; }
-    if (!o || o.app !== 'LUNA' || !Array.isArray(o.entries)) return 'Ce fichier n’est pas une sauvegarde LUNA.';
-    if (Number(o.v) > 4) return 'Cette sauvegarde vient d’une version plus récente de LUNA : mets d’abord l’appli à jour.';
+    try { o = JSON.parse(text); } catch (e) { return 'Ce fichier n’est pas une sauvegarde Kioo Cycle (texte illisible).'; }
+    if (!o || (o.app !== 'Kioo Cycle' && o.app !== 'LUNA') || !Array.isArray(o.entries)) return 'Ce fichier n’est pas une sauvegarde Kioo Cycle.'; // « LUNA » = nom des sauvegardes faites avant le 26/10/2026 : elles se restaurent toujours
+    if (Number(o.v) > 4) return 'Cette sauvegarde vient d’une version plus récente de Kioo Cycle : mets d’abord l’appli à jour.';
     if (o.entries.length > 50000) return 'Ce fichier contient trop d’entrées.';
     var list = o.entries.map(clean).filter(Boolean);
     var seen = {};

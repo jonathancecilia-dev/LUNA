@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>LUNA</title>
+<title>Kioo Cycle</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FFF4DC">
 <meta name="color-scheme" content="light dark">
@@ -18,15 +18,17 @@
   document.documentElement.setAttribute('data-style', st);
 })();
 </script>
-<meta name="description" content="LUNA · module Corps · roue circadienne">
+<meta name="description" content="Kioo Cycle · module Corps · roue circadienne">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="LUNA">
+<meta name="apple-mobile-web-app-title" content="Kioo Cycle">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="icon" href="favicon.ico" sizes="any">
 <style>
+/* Police du nom « Kioo Cycle » seulement : Poppins Bold (© The Poppins Project Authors, licence SIL OFL 1.1, https://scripts.sil.org/OFL), réduite aux lettres utiles (~5 Ko) et servie depuis l’appli, donc hors ligne. */
+@font-face{font-family:"Kioo Marque";src:url(kioo-poppins-bold.woff) format("woff");font-weight:700;font-style:normal;font-display:swap}
 :root{
   --bg:#0E1624; --text:#EEF1F6; --muted:#A7B3C7; --card:#172235;
   --line:#26344C; --line2:#2F4060; --nav:#0B121E; --nav-on:#1F2D46;
@@ -35,11 +37,14 @@
   --lav:#8E90C9; --teal:#52B7B0; --slate:#56657F; --violet:#8C6FD0; --indigo:#4C63B0; --gold:#F2C14E; --coral:#F08A6A;
   --teal-text:#52B7B0; --gold-text:#F2C14E; --coral-text:#F08A6A;
   --band:var(--bg);
+  --kioo-logo:#FFF4DC; /* logo officiel : crème sur fond sombre */
+  --kioo-masque:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MTAiIGhlaWdodD0iNDEwIiB2aWV3Qm94PSI2OCA0My41IDQxMCA0MTAiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0iS2lvbyBDeWNsZSA6IHVuIEsgZGFucyB1biBlbnPFjSwgZm9uZCB0cmFuc3BhcmVudCwgdmVyc2lvbiBwZXRpdGUgdGFpbGxlIChjb250b3VyIDEzKSI+PGRlZnM+PGNsaXBQYXRoIGlkPSJraW9vLWhhdXQiPjxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSI1MTIiIGhlaWdodD0iMjU1Ii8+PC9jbGlwUGF0aD48Y2xpcFBhdGggaWQ9Imtpb28tYmFzIj48cmVjdCB4PSIwIiB5PSIyNTUiIHdpZHRoPSI1MTIiIGhlaWdodD0iMjU3Ii8+PC9jbGlwUGF0aD48bWFzayBpZD0ia2lvby1kZWNvdXBlIiBtYXNrVW5pdHM9InVzZXJTcGFjZU9uVXNlIiB4PSIwIiB5PSIwIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNIDM2My44IDM4MS4zIEwgMzU3LjkgMzg2LjIgTCAzNTEuOCAzOTAuNiBMIDM0NS41IDM5NC44IEwgMzM4LjkgMzk4LjYgTCAzMzIuMiA0MDIuMSBMIDMyNS4zIDQwNS4yIEwgMzE4LjIgNDA3LjkgTCAzMTEuMSA0MTAuMyBMIDMwMy44IDQxMi4yIEwgMjk2LjUgNDEzLjkgTCAyODkuMSA0MTUuMSBMIDI4MS43IDQxNiBMIDI3NC4yIDQxNi41IEwgMjY2LjggNDE2LjUgTCAyNjYuOCA0MTYuNSBMIDI3NC4xIDQxNS43IEwgMjgxLjUgNDE0LjYgTCAyODguNyA0MTMuNCBMIDI5NS45IDQxMS44IEwgMzAzLjEgNDEwIEwgMzEwLjIgNDA3LjkgTCAzMTcuMiA0MDUuNSBMIDMyNC4yIDQwMi45IEwgMzMxLjEgMzk5LjkgTCAzMzcuOCAzOTYuOCBMIDM0NC41IDM5My4zIEwgMzUxIDM4OS42IEwgMzU3LjUgMzg1LjUgTCAzNjMuOCAzODEuMyBaIiBmaWxsPSIjMDAwIi8+PHBhdGggZD0iTSAyNDcuOCA0MjAgTCAyNDEuNyA0MTkuOCBMIDIzNS41IDQxOS4zIEwgMjI5LjQgNDE4LjQgTCAyMjMuMyA0MTcuNCBMIDIxNy4yIDQxNi4xIEwgMjExLjIgNDE0LjUgTCAyMDUuMyA0MTIuNyBMIDE5OS41IDQxMC43IEwgMTkzLjcgNDA4LjQgTCAxODguMSA0MDUuOCBMIDE4Mi41IDQwMy4xIEwgMTc3LjEgNDAwLjEgTCAxNzEuOSAzOTYuOSBMIDE2Ni43IDM5My40IEwgMTY2LjcgMzkzLjQgTCAxNzIuMiAzOTYuMyBMIDE3Ny43IDM5OS4xIEwgMTgzLjIgNDAxLjcgTCAxODguOCA0MDQuMiBMIDE5NC41IDQwNi41IEwgMjAwLjIgNDA4LjYgTCAyMDYgNDEwLjYgTCAyMTEuOCA0MTIuNCBMIDIxNy43IDQxNC4xIEwgMjIzLjYgNDE1LjYgTCAyMjkuNiA0MTcgTCAyMzUuNiA0MTguMSBMIDI0MS43IDQxOS4xIEwgMjQ3LjggNDIwIFoiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNIDMyOS44IDQyMi4yIEwgMzIyLjggNDI1LjEgTCAzMTUuNiA0MjcuNSBMIDMwOC4zIDQyOS42IEwgMzAxIDQzMS40IEwgMjkzLjUgNDMyLjkgTCAyODYuMSA0MzQgTCAyNzguNiA0MzQuNyBMIDI3MS4xIDQzNS4xIEwgMjYzLjYgNDM1LjIgTCAyNTYuMSA0MzQuOSBMIDI0OC42IDQzNC4zIEwgMjQxLjIgNDMzLjMgTCAyMzMuOSA0MzIuMSBMIDIyNi43IDQzMC40IEwgMjI2LjcgNDMwLjQgTCAyMzQgNDMxLjUgTCAyNDEuMyA0MzIuMyBMIDI0OC43IDQzMi45IEwgMjU2LjEgNDMzLjMgTCAyNjMuNSA0MzMuMyBMIDI3MC45IDQzMy4yIEwgMjc4LjMgNDMyLjcgTCAyODUuOCA0MzIgTCAyOTMuMiA0MzEuMSBMIDMwMC42IDQyOS44IEwgMzA3LjkgNDI4LjMgTCAzMTUuMyA0MjYuNiBMIDMyMi42IDQyNC41IEwgMzI5LjggNDIyLjIgWiIgZmlsbD0iIzAwMCIvPjxwYXRoIGQ9Ik0gMTg4LjUgNDE1LjMgTCAxODIuNSA0MTIuOCBMIDE3Ni43IDQxMCBMIDE3MC45IDQwNyBMIDE2NS4zIDQwMy43IEwgMTU5LjggNDAwLjIgTCAxNTQuNCAzOTYuNSBMIDE0OS4yIDM5Mi42IEwgMTQ0LjIgMzg4LjQgTCAxMzkuMyAzODQuMSBMIDEzNC43IDM3OS41IEwgMTMwLjIgMzc0LjggTCAxMjUuOSAzNjkuOSBMIDEyMS44IDM2NC44IEwgMTE4IDM1OS42IEwgMTE4IDM1OS42IEwgMTIyLjIgMzY0LjUgTCAxMjYuNiAzNjkuMyBMIDEzMSAzNzQgTCAxMzUuNiAzNzguNiBMIDE0MC40IDM4Mi45IEwgMTQ1LjIgMzg3LjIgTCAxNTAuMyAzOTEuMiBMIDE1NS40IDM5NS4yIEwgMTYwLjYgMzk4LjkgTCAxNjYgNDAyLjUgTCAxNzEuNSA0MDYgTCAxNzcuMSA0MDkuMiBMIDE4Mi43IDQxMi40IEwgMTg4LjUgNDE1LjMgWiIgZmlsbD0iIzAwMCIvPjxwYXRoIGQ9Ik0gNDA3LjUgMTUyLjEgTCA0MTAuOCAxNTYuNCBMIDQxMy44IDE2MC44IEwgNDE2LjggMTY1LjMgTCA0MTkuNSAxNzAgTCA0MjIuMSAxNzQuNyBMIDQyNC42IDE3OS41IEwgNDI2LjggMTg0LjUgTCA0MjguOSAxODkuNSBMIDQzMC44IDE5NC41IEwgNDMyLjUgMTk5LjcgTCA0MzQgMjA0LjkgTCA0MzUuMyAyMTAuMSBMIDQzNi41IDIxNS40IEwgNDM3LjQgMjIwLjcgTCA0MzcuNCAyMjAuNyBMIDQzNiAyMTUuNSBMIDQzNC40IDIxMC4zIEwgNDMyLjggMjA1LjIgTCA0MzEuMSAyMDAuMSBMIDQyOS4yIDE5NS4xIEwgNDI3LjIgMTkwLjEgTCA0MjUuMSAxODUuMiBMIDQyMi45IDE4MC4zIEwgNDIwLjYgMTc1LjQgTCA0MTguMiAxNzAuNyBMIDQxNS43IDE2NS45IEwgNDEzLjEgMTYxLjMgTCA0MTAuMyAxNTYuNyBMIDQwNy41IDE1Mi4xIFoiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNIDEyMS45IDM1Ni43IEwgMTE5LjIgMzUzLjUgTCAxMTYuNiAzNTAuMSBMIDExNC4xIDM0Ni43IEwgMTExLjcgMzQzLjMgTCAxMDkuNCAzMzkuNyBMIDEwNy4yIDMzNi4xIEwgMTA1LjEgMzMyLjQgTCAxMDMuMSAzMjguNiBMIDEwMS4yIDMyNC44IEwgOTkuNSAzMjEgTCA5Ny44IDMxNy4xIEwgOTYuMyAzMTMuMSBMIDk0LjkgMzA5LjEgTCA5My42IDMwNSBMIDkzLjYgMzA1IEwgOTUuMyAzMDkgTCA5Ni45IDMxMi45IEwgOTguNyAzMTYuNyBMIDEwMC41IDMyMC42IEwgMTAyLjMgMzI0LjQgTCAxMDQuMyAzMjguMSBMIDEwNi4zIDMzMS44IEwgMTA4LjMgMzM1LjUgTCAxMTAuNCAzMzkuMSBMIDExMi42IDM0Mi43IEwgMTE0LjggMzQ2LjMgTCAxMTcuMSAzNDkuOCBMIDExOS41IDM1My4yIEwgMTIxLjkgMzU2LjcgWiIgZmlsbD0iIzAwMCIvPjxwYXRoIGQ9Ik0gNDE3LjkgMjkxLjcgTCA0MTcuMSAyOTUuOCBMIDQxNi4yIDI5OS45IEwgNDE1LjEgMzAzLjkgTCA0MTMuOSAzMDcuOSBMIDQxMi42IDMxMS44IEwgNDExLjEgMzE1LjcgTCA0MDkuNCAzMTkuNiBMIDQwNy43IDMyMy4zIEwgNDA1LjggMzI3IEwgNDAzLjggMzMwLjcgTCA0MDEuNyAzMzQuMyBMIDM5OS41IDMzNy44IEwgMzk3LjEgMzQxLjIgTCAzOTQuNiAzNDQuNSBMIDM5NC42IDM0NC41IEwgMzk2LjcgMzQwLjkgTCAzOTguOCAzMzcuNCBMIDQwMC43IDMzMy43IEwgNDAyLjYgMzMwLjEgTCA0MDQuNSAzMjYuNCBMIDQwNi4zIDMyMi43IEwgNDA4IDMxOC45IEwgNDA5LjYgMzE1LjIgTCA0MTEuMiAzMTEuMyBMIDQxMi43IDMwNy41IEwgNDE0LjEgMzAzLjYgTCA0MTUuNCAyOTkuNyBMIDQxNi43IDI5NS43IEwgNDE3LjkgMjkxLjcgWiIgZmlsbD0iIzAwMCIvPjxnIGNsaXAtcGF0aD0idXJsKCNraW9vLWJhcykiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxMCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48bGluZSB4MT0iMjA4IiB5MT0iMTYwIiB4Mj0iMjA4IiB5Mj0iMzUwIi8+PGxpbmUgeDE9IjIwOCIgeTE9IjI1NSIgeDI9IjMwMCIgeTI9IjE2MCIvPjxsaW5lIHgxPSIyMDgiIHkxPSIyNTUiIHgyPSIzMDAiIHkyPSIzNTAiLz48L2c+PC9tYXNrPjwvZGVmcz48ZyBtYXNrPSJ1cmwoI2tpb28tZGVjb3VwZSkiPjxwYXRoIGQ9Ik0gODMuMiAxMzUgTCA4Ny41IDEyOC4zIEwgOTEuOSAxMjEuNSBMIDk2LjMgMTE0LjYgTCAxMDEgMTA4IEwgMTA2LjEgMTAxLjUgTCAxMTEuNiA5NS41IEwgMTE3LjggOTAuMSBMIDEyNC40IDg1LjQgTCAxMzEuNCA4MSBMIDEzOC40IDc3IEwgMTQ1LjYgNzMuMiBMIDE1Mi44IDY5LjUgTCAxNjAuMiA2Ni4xIEwgMTY3LjUgNjIuOSBMIDE3NSA1OS44IEwgMTgyLjUgNTcuMSBMIDE5MC4yIDU0LjYgTCAxOTcuOSA1Mi40IEwgMjA1LjcgNTAuNyBMIDIxMy42IDQ5LjMgTCAyMjEuNiA0OC4zIEwgMjI5LjUgNDcuNyBMIDIzNy41IDQ3LjQgTCAyNDUuNCA0Ny41IEwgMjUzLjMgNDcuOCBMIDI2MS4yIDQ4LjQgTCAyNjkuMSA0OS4xIEwgMjc2LjkgNTAgTCAyODQuNiA1MSBMIDI5Mi40IDUyLjIgTCAzMDAuMSA1My41IEwgMzA3LjggNTUuMSBMIDMxNS41IDU3IEwgMzIzIDU5LjIgTCAzMzAuNSA2MS44IEwgMzM3LjggNjQuNyBMIDM0NSA2OCBMIDM1MS45IDcxLjYgTCAzNTguNyA3NS42IEwgMzY1LjQgNzkuOCBMIDM3MS44IDg0LjMgTCAzNzguMSA4OSBMIDM4NC4zIDkzLjggTCAzOTAuMyA5OC44IEwgMzk2LjIgMTA0IEwgNDAyIDEwOS4zIEwgNDA3LjYgMTE0LjcgTCA0MTMuMSAxMjAuNCBMIDQxOC4zIDEyNi4zIEwgNDIzLjIgMTMyLjUgTCA0MjcuOCAxMzguOSBMIDQzMiAxNDUuNSBMIDQzNS45IDE1Mi4zIEwgNDM5LjUgMTU5LjQgTCA0NDIuNyAxNjYuNSBMIDQ0NS42IDE3My44IEwgNDQ4LjIgMTgxLjIgTCA0NTAuNiAxODguNiBMIDQ1Mi44IDE5Ni4xIEwgNDU0LjggMjAzLjYgTCA0NTYuNyAyMTEuMiBMIDQ1OC40IDIxOC44IEwgNDU5LjggMjI2LjUgTCA0NjEgMjM0LjIgTCA0NjEuOSAyNDIgTCA0NjIuNCAyNDkuOCBMIDQ2Mi42IDI1Ny42IEwgNDYyLjQgMjY1LjQgTCA0NjEuOCAyNzMuMiBMIDQ2MC44IDI4MSBMIDQ1OS41IDI4OC43IEwgNDU3LjkgMjk2LjMgTCA0NTYgMzAzLjkgTCA0NTMuOSAzMTEuNCBMIDQ1MS42IDMxOC44IEwgNDQ5LjEgMzI2LjIgTCA0NDYuNSAzMzMuNSBMIDQ0My42IDM0MC44IEwgNDQwLjQgMzQ3LjkgTCA0MzcgMzU0LjkgTCA0MzMuMiAzNjEuOCBMIDQyOS4yIDM2OC41IEwgNDI0LjcgMzc0LjkgTCA0MTkuOSAzODEuMSBMIDQxNC44IDM4NyBMIDQwOS40IDM5Mi42IEwgNDAzLjcgMzk3LjkgTCAzOTcuOCA0MDMgTCAzOTEuNyA0MDcuOCBMIDM4NS41IDQxMi40IEwgMzc5LjIgNDE2LjggTCAzNzIuNyA0MjAuOSBMIDM2Ni4yIDQyNC45IEwgMzU5LjUgNDI4LjcgTCAzNTIuOCA0MzIuMiBMIDM0NS45IDQzNS41IEwgMzM4LjkgNDM4LjQgTCAzMzEuNyA0NDEgTCAzMjQuNSA0NDMuMyBMIDMxNy4yIDQ0NS4yIEwgMzA5LjggNDQ2LjcgTCAzMDIuMyA0NDcuOCBMIDI5NC45IDQ0OC43IEwgMjg3LjQgNDQ5LjIgTCAyODAgNDQ5LjUgTCAyNzIuNiA0NDkuNiBMIDI2NS4yIDQ0OS41IEwgMjU3LjkgNDQ5LjMgTCAyNTAuNiA0NDguOSBMIDI0My4zIDQ0OC4zIEwgMjM2IDQ0Ny41IEwgMjI4LjggNDQ2LjQgTCAyMjEuNiA0NDUuMSBMIDIxNC41IDQ0My41IEwgMjA3LjUgNDQxLjUgTCAyMDAuNiA0MzkuMiBMIDE5My45IDQzNi42IEwgMTg3LjIgNDMzLjcgTCAxODAuNyA0MzAuNiBMIDE3NC40IDQyNy4yIEwgMTY4LjIgNDIzLjYgTCAxNjIuMSA0MTkuOCBMIDE1Ni4xIDQxNS44IEwgMTUwLjIgNDExLjcgTCAxNDQuNSA0MDcuNSBMIDEzOC45IDQwMy4xIEwgMTMzLjUgMzk4LjQgTCAxMjguMyAzOTMuNiBMIDEyMy4zIDM4OC41IEwgMTE4LjYgMzgzLjMgTCAxMTQuMSAzNzcuOCBMIDEwOS45IDM3Mi4xIEwgMTA1LjkgMzY2LjIgTCAxMDIuMyAzNjAuMSBMIDk4LjkgMzUzLjkgTCA5NS44IDM0Ny42IEwgOTMuMSAzNDEuMiBMIDkwLjggMzM0LjUgTCA4OSAzMjcuOCBMIDg3LjQgMzIxIEwgODYuMiAzMTQuMiBMIDg1LjIgMzA3LjQgTCA4NC40IDMwMC42IEwgODMuOSAyOTMuOSBMIDgzLjUgMjg3LjEgTCA4My4zIDI4MC41IEwgODMuMiAyNzMuOCBMIDgzLjIgMjY3LjIgTCA4My4yIDI2MC43IEwgODMuMyAyNTQuMSBMIDg2LjggMjU0LjIgTCA4Ny4xIDI2MC42IEwgODcuOCAyNjYuOSBMIDg4LjkgMjczLjIgTCA5MC41IDI3OS40IEwgOTIuNCAyODUuNSBMIDk0LjcgMjkxLjUgTCA5Ny4zIDI5Ny4zIEwgMTAwLjMgMzAyLjkgTCAxMDMuNCAzMDguMyBMIDEwNi44IDMxMy41IEwgMTEwLjQgMzE4LjYgTCAxMTQuMSAzMjMuNSBMIDExNy44IDMyOC4yIEwgMTIxLjUgMzMyLjkgTCAxMjUuMiAzMzcuNSBMIDEyOSAzNDIgTCAxMzMgMzQ2LjMgTCAxMzcuMSAzNTAuNSBMIDE0MS4yIDM1NC41IEwgMTQ1LjQgMzU4LjQgTCAxNDkuNyAzNjIuMiBMIDE1NC4xIDM2NS44IEwgMTU4LjUgMzY5LjQgTCAxNjMgMzcyLjggTCAxNjcuNiAzNzYuMSBMIDE3Mi4zIDM3OS4zIEwgMTc3LjEgMzgyLjIgTCAxODIgMzg1IEwgMTg3IDM4Ny41IEwgMTkyLjIgMzg5LjggTCAxOTcuNCAzOTEuOSBMIDIwMi43IDM5My44IEwgMjA4IDM5NS40IEwgMjEzLjQgMzk2LjkgTCAyMTguOSAzOTguMSBMIDIyNC4zIDM5OS4yIEwgMjI5LjggNDAwLjEgTCAyMzUuMyA0MDAuOSBMIDI0MC44IDQwMS41IEwgMjQ2LjMgNDAyIEwgMjUxLjkgNDAyLjMgTCAyNTcuNCA0MDIuNCBMIDI2MyA0MDIuNCBMIDI2OC41IDQwMi4xIEwgMjc0IDQwMS42IEwgMjc5LjYgNDAwLjggTCAyODUgMzk5LjggTCAyOTAuNCAzOTguNiBMIDI5NS44IDM5Ny4xIEwgMzAxLjEgMzk1LjMgTCAzMDYuMyAzOTMuNCBMIDMxMS40IDM5MS4zIEwgMzE2LjUgMzg5LjEgTCAzMjEuNSAzODYuNyBMIDMyNi40IDM4NC4zIEwgMzMxLjQgMzgxLjcgTCAzMzYuMyAzNzkuMSBMIDM0MS4yIDM3Ni4zIEwgMzQ2IDM3My41IEwgMzUwLjggMzcwLjQgTCAzNTUuNCAzNjcuMiBMIDM2MCAzNjMuOCBMIDM2NC41IDM2MC4yIEwgMzY4LjcgMzU2LjQgTCAzNzIuOCAzNTIuMyBMIDM3Ni42IDM0OCBMIDM4MC4yIDM0My41IEwgMzgzLjUgMzM4LjggTCAzODYuNiAzMzMuOSBMIDM4OS40IDMyOC45IEwgMzkyIDMyMy44IEwgMzk0LjQgMzE4LjYgTCAzOTYuNyAzMTMuMyBMIDM5OC43IDMwNy45IEwgNDAwLjYgMzAyLjUgTCA0MDIuMyAyOTcgTCA0MDMuOCAyOTEuNCBMIDQwNS4yIDI4NS44IEwgNDA2LjMgMjgwLjEgTCA0MDcuMiAyNzQuNCBMIDQwNy44IDI2OC43IEwgNDA4LjEgMjYyLjkgTCA0MDguMiAyNTcuMiBMIDQwNy45IDI1MS40IEwgNDA3LjQgMjQ1LjcgTCA0MDYuNiAyNDAgTCA0MDUuNiAyMzQuMyBMIDQwNC4zIDIyOC44IEwgNDAyLjggMjIzLjIgTCA0MDEuMiAyMTcuOCBMIDM5OS40IDIxMi40IEwgMzk3LjYgMjA3IEwgMzk1LjYgMjAxLjcgTCAzOTMuNCAxOTYuNCBMIDM5MS4yIDE5MS4yIEwgMzg4LjggMTg2LjEgTCAzODYuMiAxODEgTCAzODMuNSAxNzYgTCAzODAuNSAxNzEuMSBMIDM3Ny4yIDE2Ni40IEwgMzczLjggMTYxLjkgTCAzNzAgMTU3LjYgTCAzNjYuMSAxNTMuNSBMIDM2MS45IDE0OS42IEwgMzU3LjUgMTQ1LjkgTCAzNTMgMTQyLjUgTCAzNDguMyAxMzkuMyBMIDM0My41IDEzNi4zIEwgMzM4LjcgMTMzLjUgTCAzMzMuNyAxMzAuOCBMIDMyOC44IDEyOC4yIEwgMzIzLjggMTI1LjcgTCAzMTguOCAxMjMuNCBMIDMxMy43IDEyMS4xIEwgMzA4LjUgMTE5IEwgMzAzLjMgMTE3IEwgMjk4LjEgMTE1LjIgTCAyOTIuNyAxMTMuNiBMIDI4Ny40IDExMi4xIEwgMjgxLjkgMTExIEwgMjc2LjQgMTEwIEwgMjcwLjkgMTA5LjMgTCAyNjUuMyAxMDguOCBMIDI1OS43IDEwOC42IEwgMjU0LjEgMTA4LjUgTCAyNDguNSAxMDguNSBMIDI0Mi45IDEwOC43IEwgMjM3LjMgMTA5IEwgMjMxLjcgMTA5LjQgTCAyMjYuMSAxMDkuOSBMIDIyMC40IDExMC42IEwgMjE0LjcgMTExLjQgTCAyMDkuMSAxMTIuNCBMIDIwMy40IDExMy42IEwgMTk3LjggMTE1LjEgTCAxOTIuMiAxMTYuOCBMIDE4Ni44IDExOC44IEwgMTgxLjQgMTIxLjIgTCAxNzYuMiAxMjMuOCBMIDE3MS4yIDEyNi44IEwgMTY2LjMgMTMwLjEgTCAxNjEuNiAxMzMuNSBMIDE1NyAxMzcuMSBMIDE1Mi4xIDE0MC42IEwgMTQ3LjIgMTQzLjkgTCAxNDIuMiAxNDcuMyBMIDEzNy4yIDE1MC44IEwgMTMyLjMgMTU0LjYgTCAxMjcuOCAxNTguOCBMIDEyMy43IDE2My4zIFoiIGZpbGw9IiM0MzM4QTgiLz48Y2lyY2xlIGN4PSIxMDMuMyIgY3k9IjE0OS4xIiByPSIyMy45IiBmaWxsPSIjNDMzOEE4Ij48L2NpcmNsZT48cGF0aCBkPSJNIDg5LjYgMjk1LjggTCA4OSAyOTMgTCA4OC4zIDI5MC4xIEwgODcuOCAyODcuMiBMIDg3LjIgMjg0LjQgTCA4Ni44IDI4MS41IEwgODYuMyAyNzguNiBMIDg2IDI3NS43IEwgODUuNiAyNzIuOCBMIDg1LjQgMjY5LjkgTCA4NS4yIDI2NyBMIDg1IDI2NC4xIEwgODQuOSAyNjEuMiBMIDg0LjggMjU4LjIgTCA4NC44IDI1NS4zIEwgODQuOSAyNTIuNCBMIDg1IDI0OS41IEwgODUuMSAyNDYuNiBMIDg1LjMgMjQzLjcgTCA4NS42IDI0MC43IEwgODUuOSAyMzcuOCBMIDg2LjMgMjM1IEwgODYuNyAyMzIuMSBMIDg3LjIgMjI5LjIgTCA4Ny43IDIyNi4zIiBmaWxsPSJub25lIiBzdHJva2U9IiM0MzM4QTgiIHN0cm9rZS13aWR0aD0iMy4yIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48ZyBmaWxsPSJub25lIiBzdHJva2U9IiM0MzM4QTgiIHN0cm9rZS13aWR0aD0iMzYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+PGcgY2xpcC1wYXRoPSJ1cmwoI2tpb28taGF1dCkiPjxsaW5lIHgxPSIyMDgiIHkxPSIxNjAiIHgyPSIyMDgiIHkyPSIzNTAiLz48bGluZSB4MT0iMjA4IiB5MT0iMjU1IiB4Mj0iMzAwIiB5Mj0iMTYwIi8+PGxpbmUgeDE9IjIwOCIgeTE9IjI1NSIgeDI9IjMwMCIgeTI9IjM1MCIvPjwvZz48ZyBjbGlwLXBhdGg9InVybCgja2lvby1iYXMpIj48bGluZSB4MT0iMjA4IiB5MT0iMTYwIiB4Mj0iMjA4IiB5Mj0iMzUwIi8+PGxpbmUgeDE9IjIwOCIgeTE9IjI1NSIgeDI9IjMwMCIgeTI9IjE2MCIvPjxsaW5lIHgxPSIyMDgiIHkxPSIyNTUiIHgyPSIzMDAiIHkyPSIzNTAiLz48L2c+PC9nPjwvZz48L3N2Zz4="); /* dessin du logo (voir .brand::before) */
   color-scheme:dark;
 }
 /* Thème « Jour » (bleu pâle) ; le thème « Nuit » est celui de :root. Les couleurs de texte (…-text) sont plus foncées que celles des arcs : lisibles sur fond clair. */
 :root[data-theme="jour"]{
   color-scheme:light;
+  --kioo-logo:#4338A8; /* logo officiel : indigo sur fond clair */
   --bg:#E8F0FA; --card:#F7FAFF; --line:#D0DDEE; --line2:#B6C8E2; --nav:#F7FAFF; --nav-on:#D5E3F6; --dash:#8196B8; --chip:#2F4468; --nav-off:#5E7398;
   --text:#0E1E3E; --muted:#4A5E82; --track:#D0DDEE; --ink-on:#F7FAFF; --needle:var(--text); --band:#0E1E3E;
   --lav:#7F82C4; --teal:#34A89F; --slate:#9AA6BB; --violet:#7B5CC4; --indigo:#3F55A5; --gold:#E3A624; --coral:#E2693F;
@@ -62,7 +67,9 @@ ol{list-style:none}
 
 header{padding:calc(env(safe-area-inset-top) + 14px) 20px 0}
 .top{display:flex;justify-content:space-between;align-items:center}
-.brand{font-size:13px;font-weight:700;letter-spacing:.32em}
+.brand{display:inline-flex;align-items:center;gap:8px;font-family:"Kioo Marque",-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;font-size:13px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+/* Logo (24 px) : le dessin est écrit dans la règle elle-même (data:), et non dans un fichier à part : un masque CSS venant d’un fichier est refusé par Chrome quand la page est ouverte directement depuis le disque (file://). */
+.brand::before{content:"";flex:none;width:24px;height:24px;background:var(--kioo-logo);-webkit-mask:var(--kioo-masque) center/contain no-repeat;mask:var(--kioo-masque) center/contain no-repeat}
 .module{font-size:12px;font-weight:600;color:var(--muted)}
 .titlerow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
 h1{font-size:22px;font-weight:700;letter-spacing:-.01em;min-width:0;outline:none}
@@ -225,7 +232,7 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
 
   <section class="view" id="v-roue" aria-label="Roue circadienne">
     <header>
-      <div class="top"><span class="brand">LUNA</span><span class="module">Module Corps</span></div>
+      <div class="top"><span class="brand">Kioo Cycle</span><span class="module">Module Corps</span></div>
       <div class="titlerow">
         <h1 tabindex="-1">Roue circadienne</h1>
         <label class="wake">Réveil <input class="wake-input" type="time" value="08:10" aria-label="Heure de réveil" required></label>
@@ -284,7 +291,7 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
           Roue
         </button>
-        <span class="brand">LUNA</span>
+        <span class="brand">Kioo Cycle</span>
       </div>
       <div class="titlerow">
         <h1 tabindex="-1">Ma journée</h1>
@@ -329,7 +336,7 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
   </nav>
 
 </div>
-<noscript><p style="padding:20px">LUNA a besoin de JavaScript pour fonctionner.</p></noscript>
+<noscript><p style="padding:20px">Kioo Cycle a besoin de JavaScript pour fonctionner.</p></noscript>
 
 <script>
 (function () {
@@ -663,7 +670,7 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
 
   /* ---------- Socle commun, offert aux autres modules (Journal, plus tard d’autres modules) ---------- */
   window.LUNA = {
-    version: '2026-10-19-couleurs',
+    version: '2026-10-26-kioo3',
     getWake: function () { return wake; },          // minutes depuis minuit : UNE seule valeur pour toute l'appli
     setWake: setWake,
     bindWake: bindWake,
