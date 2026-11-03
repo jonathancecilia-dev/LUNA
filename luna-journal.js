@@ -35,6 +35,8 @@
    - test interrompu si l'appli quitte l'écran ;
    - moins de 10 réponses valides : le test ne peut pas être enregistré.
    Rappels : l'écran « Rappels » crée un fichier calendrier (.ics) ; c'est le calendrier de l'appareil qui sonne.
+   Depuis le 03/11/2026 : si kioo-config.js contient un identifiant client Google, un bouton envoie les mêmes rappels
+   directement dans un agenda « Kioo Cycle » du compte Google (API Google Agenda, depuis le navigateur, sans serveur).
    Le temps de réaction est mesuré à partir de l'affichage du compteur ; la latence de l'écran et du
    toucher dépend de l'appareil : on se compare à soi-même, sur le même appareil.
 
@@ -2673,7 +2675,7 @@ function milestone(w) {
   }
 
   function vRemind() {
-    var w = L.getWake(), nP = remPhases().length;
+    var w = L.getWake(), nP = remPhases().length, gOn = gEnabled();
     function opt(key, title, desc) {
       return '<label class="j-opt' + (rem[key] ? ' on' : '') + '"><input type="checkbox" data-rem="' + key + '"' + (rem[key] ? ' checked' : '') + '>' +
         '<span class="t"><b>' + title + '</b><span class="d">' + desc + '</span></span></label>';
@@ -2683,7 +2685,7 @@ function milestone(w) {
       '<label class="wake">Réveil <input class="wake-input" type="time" aria-label="Heure de réveil" required></label></div>' +
       '<p class="sub">Ton calendrier te prévient, appli fermée</p></header>' +
       '<main style="padding-top:14px;gap:12px"><section class="j-card">' +
-      '<p class="lead">Chaque matin : entre ton réveil ci-dessus, puis crée le fichier du jour.</p>' +
+      '<p class="lead">Chaque matin : entre ton réveil ci-dessus, puis ' + (gOn ? 'envoie les rappels du jour à Google Agenda.' : 'crée le fichier du jour.') + '</p>' +
       '<p>L’appli ne peut pas sonner quand elle est fermée : c’est ton calendrier qui te prévient. Les heures sont calées sur ton réveil : <b id="j-rwake">' + L.fmtClock(w) + '</b>.</p>' +
       '<p>Si un rappel passe, ce n’est pas grave : il n’y a rien à rattraper.</p>' +
       '<div class="chips" style="margin:0"><span class="chip hy">Heures = moyennes à ajuster</span></div></section>' +
@@ -2694,10 +2696,13 @@ function milestone(w) {
       '<select id="j-rdays" class="j-sel" data-rem="days">' + [1, 7, 14, 30].map(function (d) {
         return '<option value="' + d + '"' + (rem.days === d ? ' selected' : '') + '>' + (d === 1 ? 'Aujourd’hui seulement' : d + ' jours de suite') + '</option>';
       }).join('') + '</select></div></section>' +
-      '<div class="j-actions"><button type="button" class="btn primary" id="j-mk" data-act="make-ics"' + (rem.moments || rem.phases ? '' : ' disabled') + '>Créer le fichier calendrier</button>' +
+      (gOn ? '<div class="j-actions"><button type="button" class="btn primary" id="j-gk" data-act="send-gcal"' + (gBusy || !(rem.moments || rem.phases) ? ' disabled' : '') + '>Envoyer à Google Agenda</button>' +
+        '<span class="j-hint left" id="j-gstatus" role="status" aria-live="polite">' + esc(gStatus) + '</span></div>' +
+        '<p class="j-p">Une fenêtre Google s’ouvre pour te connecter la première fois. L’autorisation demandée se limite à créer un agenda « Kioo Cycle » et à y gérer ses événements. Seuls les horaires et les titres des rappels partent chez Google, jamais tes réponses. Pour tout retirer : supprime cet agenda dans Google Agenda.</p>' : '') +
+      '<div class="j-actions"><button type="button" class="btn ' + (gOn ? 'secondary' : 'primary') + '" id="j-mk" data-act="make-ics"' + (rem.moments || rem.phases ? '' : ' disabled') + '>Créer le fichier calendrier</button>' +
       '<span class="j-hint left" id="j-rstatus" role="status" aria-live="polite">' + esc(remStatus) + '</span></div>' +
       '<details class="j-det"><summary>Comment l’ajouter à mon calendrier ?</summary>' +
-      '<p class="j-p" style="margin:0 0 8px"><b>iPhone</b> : ouvre le fichier obtenu (feuille de partage ou dossier Téléchargements) ; le calendrier de l’iPhone propose de l’ajouter. Choisis un calendrier lié à ton compte Google pour que les rappels arrivent aussi dans Google Agenda (non vérifié).</p>' +
+      '<p class="j-p" style="margin:0 0 8px"><b>iPhone</b> : lors d’un essai, le Calendrier d’Apple n’a pas reconnu le fichier. Passe plutôt par Gmail : envoie-toi le fichier, ouvre-le dans Gmail et ajoute les rappels à Google Agenda (constaté : ils s’ajoutent d’un coup ; les alarmes par ce chemin ne sont pas encore vérifiées).</p>' +
       '<p class="j-p" style="margin:0 0 8px"><b>Google Agenda sur ordinateur</b> : Paramètres → Importer et exporter, puis choisis le fichier et le calendrier de destination. D’après l’aide de Google, l’import se fait sur ordinateur.</p>' +
       '<p class="j-p" style="margin:0 0 8px">Conseil : range-les dans un calendrier à part nommé « Kioo Cycle » ; pour tout retirer d’un coup, il suffit de le supprimer.</p>' +
       '<p class="j-p" style="margin:0 0 8px">Pas encore vérifié : où Chrome sur iPhone range ce fichier, et si ton calendrier garde les alarmes d’un fichier importé.</p></details></main>';
@@ -2787,7 +2792,7 @@ function milestone(w) {
     root.innerHTML = (VIEWS[screen] || vHome)();
     L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders' || screen === 'plan' || screen === 'settings');
     if (screen === 'home') { L.bindWake(root.querySelector('.wake-input')); updateHome(); }
-    if (screen === 'reminders') L.bindWake(root.querySelector('.wake-input'));
+    if (screen === 'reminders') { L.bindWake(root.querySelector('.wake-input')); gLoadLib(); }
     if (screen === 'plan') { L.bindWake(root.querySelector('.wake-input')); pRefreshDay(); }
     if (screen === 'run') startPvt();
     if (runM) rnStart(RUN[runM[1]][flow.tMode === 'practice' ? 'practice' : 'test']);
@@ -4016,31 +4021,38 @@ function milestone(w) {
     return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z';
   }
 
-  // Heures « flottantes » (sans fuseau) : le calendrier les lit à l'heure locale de l'appareil.
-  function buildIcs(o) {
-    var wake = L.getWake(), now = new Date(), ev = [];
-    var seq = Math.max(0, Math.floor((now.getTime() - Date.UTC(2026, 9, 1)) / 60000)); // monte à chaque nouvelle version du fichier
+  // Les rappels du jour, définis UNE seule fois : le fichier calendrier (.ics) et l'envoi à Google Agenda les utilisent tous les deux.
+  // `key` (m0, p2…) sert à fabriquer des identifiants stables ; `start` est une date locale ; `dur` est en minutes.
+  function remEvents(o, now) {
+    var wake = L.getWake(), ev = [];
     function at(total) { return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, total, 0); }
-    // Un seul jour : identifiants datés (refaire le fichier le même jour met les rappels à jour ; un autre jour en crée de nouveaux).
-    var dayTag = o.days === 1 ? '-' + keyOf(now).replace(/-/g, '') : '';
-    function add(uid, startTotal, durMin, summary, desc) {
-      var s = at(startTotal), e = new Date(s.getTime() + durMin * 60000);
-      var lines = ['BEGIN:VEVENT', 'UID:' + uid + dayTag + '@luna.local', 'DTSTAMP:' + icsUtc(now), 'SEQUENCE:' + seq,
-        'DTSTART:' + icsLocal(s), 'DTEND:' + icsLocal(e)];
-      if (o.days > 1) lines.push('RRULE:FREQ=DAILY;COUNT=' + o.days);
-      ev.push(lines.concat(['SUMMARY:' + icsEsc(summary), 'DESCRIPTION:' + icsEsc(desc), 'TRANSP:TRANSPARENT',
-        'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(summary), 'TRIGGER:-PT0M', 'END:VALARM', 'END:VEVENT']));
-    }
     var wk = L.fmtClock(wake);
     if (o.moments) PLAN.forEach(function (m, i) {
-      add('luna-moment-' + i, wake + m.r, 15, 'Kioo Cycle · ' + momTitle(m),
-        'Moment prévu à ' + L.fmt(wake + m.r) + ' (' + rLabel(m.r) + ', calé sur ton réveil de ' + wk + '). ' + m.goal + (/[?!.]$/.test(m.goal) ? '' : '.') +
-        ' Fenêtre : de ' + L.fmt(wake + m.r - WIN.before) + ' à ' + L.fmt(wake + m.r + WIN.after) + '. Si ce moment passe, ce n’est pas grave.');
+      ev.push({ key: 'm' + pad(i), uid: 'luna-moment-' + i, start: at(wake + m.r), dur: 15, summary: 'Kioo Cycle · ' + momTitle(m),
+        desc: 'Moment prévu à ' + L.fmt(wake + m.r) + ' (' + rLabel(m.r) + ', calé sur ton réveil de ' + wk + '). ' + m.goal + (/[?!.]$/.test(m.goal) ? '' : '.') +
+          ' Fenêtre : de ' + L.fmt(wake + m.r - WIN.before) + ' à ' + L.fmt(wake + m.r + WIN.after) + '. Si ce moment passe, ce n’est pas grave.' });
     });
     if (o.phases) remPhases().forEach(function (p, i) {
-      add('luna-phase-' + i, wake + p.s, 5, 'Kioo Cycle · Nouvelle phase · ' + p.name,
-        'Début vers ' + L.fmt(wake + p.s) + ' (moyenne calée sur ton réveil de ' + wk + '). ' + p.advice +
-        ' Étiquette : ' + p.status + (p.durLabel ? ' · durée : ' + p.durLabel.toLowerCase() : '') + '.');
+      ev.push({ key: 'p' + pad(i), uid: 'luna-phase-' + i, start: at(wake + p.s), dur: 5, summary: 'Kioo Cycle · Nouvelle phase · ' + p.name,
+        desc: 'Début vers ' + L.fmt(wake + p.s) + ' (moyenne calée sur ton réveil de ' + wk + '). ' + p.advice +
+          ' Étiquette : ' + p.status + (p.durLabel ? ' · durée : ' + p.durLabel.toLowerCase() : '') + '.' });
+    });
+    return ev;
+  }
+
+  // Heures « flottantes » (sans fuseau) : le calendrier les lit à l'heure locale de l'appareil.
+  function buildIcs(o) {
+    var now = new Date(), ev = [];
+    var seq = Math.max(0, Math.floor((now.getTime() - Date.UTC(2026, 9, 1)) / 60000)); // monte à chaque nouvelle version du fichier
+    // Un seul jour : identifiants datés (refaire le fichier le même jour met les rappels à jour ; un autre jour en crée de nouveaux).
+    var dayTag = o.days === 1 ? '-' + keyOf(now).replace(/-/g, '') : '';
+    remEvents(o, now).forEach(function (r) {
+      var s = r.start, e = new Date(s.getTime() + r.dur * 60000);
+      var lines = ['BEGIN:VEVENT', 'UID:' + r.uid + dayTag + '@luna.local', 'DTSTAMP:' + icsUtc(now), 'SEQUENCE:' + seq,
+        'DTSTART:' + icsLocal(s), 'DTEND:' + icsLocal(e)];
+      if (o.days > 1) lines.push('RRULE:FREQ=DAILY;COUNT=' + o.days);
+      ev.push(lines.concat(['SUMMARY:' + icsEsc(r.summary), 'DESCRIPTION:' + icsEsc(r.desc), 'TRANSP:TRANSPARENT',
+        'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(r.summary), 'TRIGGER:-PT0M', 'END:VALARM', 'END:VEVENT']));
     });
     var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kioo Cycle//Rappels//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Kioo Cycle'];
     ev.forEach(function (e) { lines = lines.concat(e); });
@@ -4063,6 +4075,194 @@ function milestone(w) {
       downloaded: function () { setRStatus('Fichier « ' + name + ' » téléchargé (' + what + '). Ouvre-le pour l’ajouter à ton calendrier.'); },
       aborted: function () { setRStatus('Envoi annulé.'); },
       failed: function () { setRStatus('Le téléchargement a échoué.'); }
+    });
+  }
+
+  /* ---------- Rappels : envoi direct à Google Agenda ---------- */
+  // Un bouton envoie les rappels du jour dans un agenda « Kioo Cycle » à part, sur le compte Google de l'utilisateur.
+  // Tout part du navigateur de l'utilisateur vers Google : aucun serveur de l'appli, aucune donnée chez nous.
+  // Seule autorisation demandée : créer cet agenda et y gérer des événements (calendar.app.created) ; le reste de l'agenda reste inaccessible.
+  // Actif seulement si kioo-config.js contient un identifiant client Google ; sinon le bouton n'existe pas.
+  var G_SCOPE = 'https://www.googleapis.com/auth/calendar.app.created';
+  var G_API = 'https://www.googleapis.com/calendar/v3';
+  var KEY_GCAL = 'kioo.gcal.id', KEY_GSENT = 'kioo.gcal.sent'; // agenda créé sur cet appareil ; derniers identifiants envoyés (pour ne pas laisser de doublons)
+  var gStatus = '', gBusy = false, gLibTried = false;
+  var G_AUTH_MSG = {
+    lib: 'Connexion à Google impossible pour le moment (pas de réseau ?). Réessaie dans un instant.',
+    closed: 'Connexion à Google annulée. Rien n’a été envoyé.',
+    popup: 'Le navigateur a bloqué la fenêtre de connexion Google. Autorise-la, puis réessaie.',
+    denied: 'Accès refusé : rien n’a été envoyé.',
+    scope: 'Google n’a pas accordé l’accès demandé. Rien n’a été envoyé.',
+    other: 'La connexion à Google a échoué. Rien n’a été envoyé.'
+  };
+
+  function gClientId() { var c = window.KIOO_CONFIG; return c && typeof c.googleClientId === 'string' ? c.googleClientId.trim() : ''; }
+  function gEnabled() { return gClientId() !== ''; }
+  function gReady() { return !!(window.google && window.google.accounts && window.google.accounts.oauth2); }
+  // La bibliothèque de connexion de Google se charge dès l'affichage de l'écran Rappels (jamais avant) : au clic, la fenêtre doit pouvoir s'ouvrir tout de suite.
+  function gLoadLib() {
+    if (!gEnabled() || gReady() || gLibTried || navigator.onLine === false) return;
+    gLibTried = true;
+    var s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onerror = function () { gLibTried = false; if (s.parentNode) s.parentNode.removeChild(s); };
+    document.head.appendChild(s);
+  }
+  function gCalGet() { try { return localStorage.getItem(KEY_GCAL) || ''; } catch (e) { return ''; } }
+  function gCalSet(id) { try { if (id) localStorage.setItem(KEY_GCAL, id); else localStorage.removeItem(KEY_GCAL); } catch (e) {} }
+  function gSentGet() { try { var o = JSON.parse(localStorage.getItem(KEY_GSENT)); return o && Array.isArray(o.ids) ? o : null; } catch (e) { return null; } }
+  function gSentSet(o) { try { if (o) localStorage.setItem(KEY_GSENT, JSON.stringify(o)); else localStorage.removeItem(KEY_GSENT); } catch (e) {} }
+  function gTz() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } }
+  // Heure locale au format RFC 3339 ; avec le décalage seulement si le nom du fuseau est inconnu.
+  function gLocal(d, withOffset) {
+    var s = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':00';
+    if (!withOffset) return s;
+    var off = -d.getTimezoneOffset(), sg = off < 0 ? '-' : '+';
+    off = Math.abs(off);
+    return s + sg + pad(Math.floor(off / 60)) + ':' + pad(off % 60);
+  }
+  function setGStatus(msg) {
+    gStatus = msg;
+    var el = $('j-gstatus');
+    if (el) el.textContent = msg;
+  }
+  function gPaint() { var b = $('j-gk'); if (b) b.disabled = gBusy || !(rem.moments || rem.phases); }
+
+  // Jeton d'accès de courte durée (Google Identity Services, « token model »). À appeler directement depuis le clic : sinon le navigateur bloque la fenêtre.
+  // cb(code) en cas d'échec (clés de G_AUTH_MSG), cb(null, jeton) en cas de succès.
+  function gToken(cb) {
+    if (!gReady()) { cb('lib'); return; }
+    var done = false;
+    function fin(err, tok) { if (done) return; done = true; cb(err, tok); }
+    try {
+      var oa = window.google.accounts.oauth2;
+      var c = oa.initTokenClient({
+        client_id: gClientId(), scope: G_SCOPE, prompt: '',
+        callback: function (r) {
+          if (!r || r.error || !r.access_token) fin(r && r.error === 'access_denied' ? 'denied' : 'other');
+          else if (oa.hasGrantedAllScopes && !oa.hasGrantedAllScopes(r, G_SCOPE)) fin('scope');
+          else fin(null, r.access_token);
+        },
+        error_callback: function (e) { fin(e && e.type === 'popup_closed' ? 'closed' : e && e.type === 'popup_failed_to_open' ? 'popup' : 'other'); }
+      });
+      c.requestAccessToken();
+    } catch (e) { fin('other'); }
+  }
+
+  function gSleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  // Appel à l'API Google Agenda. Limite de débit (429, ou 403 « rateLimit ») : jusqu'à 3 nouvelles tentatives, de plus en plus espacées.
+  function gCall(tok, method, path, body, n) {
+    n = n || 0;
+    var h = { 'Authorization': 'Bearer ' + tok };
+    if (body) h['Content-Type'] = 'application/json';
+    return fetch(G_API + path, { method: method, headers: h, body: body ? JSON.stringify(body) : undefined }).then(function (r) {
+      return r.text().then(function (t) {
+        var j = null;
+        try { j = t ? JSON.parse(t) : null; } catch (e) {}
+        if ((r.status === 429 || (r.status === 403 && /rateLimit|quotaExceeded/i.test(t))) && n < 3) {
+          return gSleep(600 * Math.pow(2, n)).then(function () { return gCall(tok, method, path, body, n + 1); });
+        }
+        return { status: r.status, json: j };
+      });
+    }, function () { var e = new Error('net'); e.gNet = true; throw e; });
+  }
+  function gReason(res) {
+    try { var e = res.json.error; return (e.errors && e.errors[0] && e.errors[0].reason) || e.status || ''; } catch (x) { return ''; }
+  }
+  function gTail(sent) {
+    return sent > 0 ? ' ' + plural(sent, 'rappel est déjà parti', 'rappels sont déjà partis') + ' : renvoie, ils seront mis à jour sans doublon.' : ' Rien n’a été envoyé.';
+  }
+  function gHttpErr(res, sent) {
+    var st = res.status, why = gReason(res), m;
+    if (st === 401) m = 'L’accès à Google a expiré. Touche de nouveau le bouton.';
+    else if (st === 403) m = 'Google a refusé la demande (403' + (why ? ' · ' + why : '') + '). Vérifie la configuration : identifiant client, API Google Agenda activée.';
+    else if (st >= 500) m = 'Google a un souci en ce moment (' + st + '). Réessaie un peu plus tard.';
+    else m = 'Google n’a pas accepté la demande (' + st + (why ? ' · ' + why : '') + ').';
+    var e = new Error(m); e.gBase = m; e.gSent = sent; return e;
+  }
+
+  // Agenda « Kioo Cycle » à part : créé une fois, son identifiant est gardé sur l'appareil. Supprimer cet agenda retire tous les rappels d'un coup.
+  function gEnsureCal(tok, tz) {
+    var id = gCalGet();
+    if (id) return Promise.resolve(id);
+    var body = { summary: 'Kioo Cycle', description: 'Rappels créés par l’appli Kioo Cycle. Supprime cet agenda pour tout retirer.' };
+    if (tz) body.timeZone = tz;
+    return gCall(tok, 'POST', '/calendars', body).then(function (res) {
+      if (res.status >= 200 && res.status < 300 && res.json && res.json.id) { gCalSet(res.json.id); return res.json.id; }
+      throw gHttpErr(res, 0);
+    });
+  }
+  // Identifiant stable (lettres a–v et chiffres, comme l'exige Google) : renvoyer le même jour met à jour au lieu de doubler.
+  function gEventId(e, o, now) { return 'kioo' + (o.days > 1 ? 's' : '') + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + e.key; }
+  function gBody(e, o, tz) {
+    var end = new Date(e.start.getTime() + e.dur * 60000), off = !tz;
+    var b = { summary: e.summary, description: e.desc, status: 'confirmed', transparency: 'transparent',
+      start: { dateTime: gLocal(e.start, off) }, end: { dateTime: gLocal(end, off) },
+      reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 0 }] } }; // alarme à l'heure exacte, comme dans le fichier .ics
+    if (tz) { b.start.timeZone = tz; b.end.timeZone = tz; }
+    if (o.days > 1) b.recurrence = ['RRULE:FREQ=DAILY;COUNT=' + o.days];
+    return b;
+  }
+  function gUpsert(tok, calId, id, body) {
+    var base = '/calendars/' + encodeURIComponent(calId) + '/events', withId = { id: id };
+    Object.keys(body).forEach(function (k) { withId[k] = body[k]; });
+    return gCall(tok, 'POST', base, withId).then(function (res) {
+      if (res.status === 409) return gCall(tok, 'PUT', base + '/' + id, withId); // l'identifiant existe déjà (ou a été supprimé plus tôt) : mise à jour
+      return res;
+    });
+  }
+
+  // Envoie les rappels du jour. Renvoie une promesse ; en cas d'échec, l'erreur porte le message à afficher (gMsg).
+  function gSend(tok) {
+    var now = new Date(), o = { moments: rem.moments, phases: rem.phases, days: rem.days }, tz = gTz();
+    var evs = remEvents(o, now), ids = evs.map(function (e) { return gEventId(e, o, now); });
+    var dateTag = keyOf(now), prev = gSentGet(), retried = false, progress = 0;
+    function attempt() {
+      progress = 0;
+      return gEnsureCal(tok, tz).then(function (calId) {
+        var i = 0;
+        function next() {
+          if (i >= evs.length) return Promise.resolve();
+          var k = i++;
+          setGStatus('Envoi… ' + (k + 1) + ' sur ' + evs.length);
+          return gUpsert(tok, calId, ids[k], gBody(evs[k], o, tz)).then(function (res) {
+            if (res.status === 404) { var c = new Error('cal'); c.gCal = true; throw c; } // l'agenda a été supprimé : on le recrée
+            if (res.status < 200 || res.status >= 300) throw gHttpErr(res, progress);
+            progress++;
+            return gSleep(120).then(next);
+          });
+        }
+        return next().then(function () {
+          // rappels envoyés plus tôt le même jour et plus voulus maintenant (case décochée, un autre nombre de jours) : on les retire
+          var stale = prev && prev.cal === calId && prev.date === dateTag ? prev.ids.filter(function (id) { return ids.indexOf(id) < 0; }) : [];
+          return stale.reduce(function (p, id) {
+            return p.then(function () { return gCall(tok, 'DELETE', '/calendars/' + encodeURIComponent(calId) + '/events/' + id).then(function () {}, function () {}); });
+          }, Promise.resolve());
+        }).then(function () { gSentSet({ cal: calId, date: dateTag, ids: ids }); return evs.length; });
+      }).catch(function (e) {
+        if (e && e.gCal && !retried) { retried = true; gCalSet(''); gSentSet(null); prev = null; return attempt(); }
+        throw e;
+      });
+    }
+    return attempt().catch(function (e) {
+      if (e && e.gNet) e.gMsg = 'Pas de connexion : l’envoi s’est arrêté.' + gTail(progress);
+      else if (e && e.gBase) e.gMsg = e.gBase + gTail(progress);
+      else if (e && e.gCal) e.gMsg = 'Google ne trouve pas l’agenda « Kioo Cycle ». Réessaie.';
+      throw e;
+    });
+  }
+  function doGcal() {
+    if (gBusy || !gEnabled() || !(rem.moments || rem.phases)) return;
+    gBusy = true; gPaint(); setGStatus('');
+    function end(msg) { gBusy = false; gPaint(); setGStatus(msg); }
+    gToken(function (err, tok) { // appelé tout de suite, dans le clic
+      if (err) { if (err === 'lib') gLoadLib(); end(G_AUTH_MSG[err] || G_AUTH_MSG.other); return; }
+      setGStatus('Connecté. Envoi…');
+      gSend(tok).then(function (n) {
+        end(plural(n, 'rappel envoyé', 'rappels envoyés') + ' à Google Agenda, dans l’agenda « Kioo Cycle ». Renvoyer le même jour met à jour, sans doublon.');
+      }, function (e) {
+        end(e && e.gMsg ? e.gMsg : 'L’envoi à Google a échoué. Réessaie.');
+      });
     });
   }
 
@@ -4200,8 +4400,9 @@ function milestone(w) {
       case 'pl-start-tomorrow': pQuickStart('tomorrow'); break;
       case 'pl-start-go': pStartGo(); break;
       case 'pl-stage-go': pStageGo(); break;
-      case 'remind': remStatus = ''; go('reminders'); break;
+      case 'remind': remStatus = ''; if (!gBusy) gStatus = ''; go('reminders'); break;
       case 'make-ics': doIcs(); break;
+      case 'send-gcal': doGcal(); break;
       case 'copy': doCopy(); break;
       case 'restore': restore = null; restoreError = ''; go('restore'); break;
       case 'read-paste': var ta = $('j-paste'); loadRestore(ta ? ta.value : '', ''); break;
@@ -4253,6 +4454,7 @@ function milestone(w) {
       }
       var mk = $('j-mk');
       if (mk) mk.disabled = !(rem.moments || rem.phases);
+      gPaint();
     } else if (t.id === 'pl-start' || t.id === 'pl-stage') {
       pOnField(t);
     } else if (t.id === 'j-file' && t.files && t.files[0]) {
