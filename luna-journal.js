@@ -49,28 +49,45 @@
   if (!L || !root) return;
 
   /* ---------- Constantes ---------- */
-  var KEY = 'luna.journal', KEY_BK = 'luna.journal.lastBackup', KEY_ACTS = 'luna.activities', KEY_BEDSKIP = 'luna.bedSkip', KEY_PRAC = 'luna.practiced', KEY_INST = 'luna.instants';
+  var KEY = 'luna.journal', KEY_BK = 'luna.journal.lastBackup', KEY_ACTS = 'luna.activities', KEY_PRAC = 'luna.practiced', KEY_INST = 'luna.instants', KEY_NT = 'luna.noteTypes', KEY_MANTRA = 'luna.mantra';
 
   // Plan de la journée, en minutes APRÈS le réveil (R+). kind : 'releve' | 'test' | 'both'.
   // Pour changer le plan : modifier cette liste (l'ordre doit rester croissant).
+  // IMPORTANT : un moment est repéré par son NUMÉRO dans cette liste (champ `slot` des entrées enregistrées) : ne jamais retirer ni insérer un moment au milieu.
+  // Pour retirer un moment du plan sans abîmer l'historique, on met `off: true` (le moment disparaît du jour, de la liste et des rappels ; les anciennes entrées gardent leur libellé).
+  // e4d (19/11) : R+10h et R+11h passent en relevé seul (plus de test après R+8h). Un ancien test de ces moments reste lisible : son libellé ne dépend que de `slot` et de l'heure R+.
+  // `q` : à ce moment, l'appli pose la question du creux. Si `kind` n'est pas 'releve' (R+5h : 'test'), la question vient d'abord, puis le test.
+  // e5 (20/11) : `qs` = le jeu de questions du relevé de ce moment (QSETS) ; R+2h devient « relevé + test » et R+4h « humeur de fond, puis test » (demande du recueil, 06/11 et 19/11).
   var PLAN = [
-    { r: 30,  kind: 'releve', name: 'Au réveil',                 goal: 'Comment tu te sens après le réveil' },
-    { r: 120, kind: 'test',   name: 'Référence',                 goal: 'Niveau de départ : la référence des autres tests' },
+    { r: 30,  kind: 'releve', name: 'Au réveil',                 goal: 'Comment tu te sens après le réveil', qs: 'morning' },
+    { r: 120, kind: 'both',   name: 'Référence',                 goal: 'Niveau de départ : la référence des autres tests', qs: 'morning' },
     { r: 180, kind: 'test',   name: 'La montée continue ?',      goal: 'Plus haut que la référence ? La remise en route est-elle finie ?' },
-    { r: 240, kind: 'test',   name: 'Plateau du matin',          goal: 'Au niveau de la référence ou au-dessus ?' },
-    { r: 300, kind: 'test',   name: 'Fin du plateau',            goal: 'Première baisse avant le creux ?' },
-    { r: 360, kind: 'releve', name: 'Début du creux',            goal: 'Le creux commence-t-il ?' },
-    { r: 420, kind: 'releve', name: 'Creux',                     goal: 'Profondeur du creux ressenti' },
-    { r: 480, kind: 'both',   name: 'Sortie du creux',           goal: 'La vigilance est-elle revenue ?' },
-    { r: 540, kind: 'releve', name: 'Milieu de fin d’après-midi', goal: 'Sommet éventuel de fin d’après-midi, ressenti' },
-    { r: 600, kind: 'both',   name: 'Fin d’après-midi',          goal: 'Comparée au matin' },
-    { r: 660, kind: 'both',   name: 'Soirée',                    goal: 'Vigilance stable ?' },
-    { r: 720, kind: 'releve', name: 'Fin de journée',            goal: 'Comment finit la journée' },
-    { r: 780, kind: 'releve', name: 'Approche du sommeil',       goal: 'Somnolence ressentie, avant la mélatonine' }
+    { r: 240, kind: 'both',   name: 'Plateau du matin',          goal: 'Au niveau de la référence ou au-dessus ?', qs: 'humeur' },
+    { r: 300, kind: 'test',   name: 'Fin du plateau',            goal: 'Première baisse avant le creux ?', q: 'creux', qgoal: 'Le creux commence-t-il ?' },
+    { r: 360, kind: 'releve', name: 'Début du creux',            goal: 'Le creux commence-t-il ?', q: 'creux', qgoal: 'Y a-t-il un creux en ce moment ?' },
+    { r: 420, kind: 'releve', name: 'Creux',                     goal: 'Profondeur du creux ressenti', q: 'creux', qgoal: 'Y a-t-il un creux en ce moment ?', off: true },
+    { r: 480, kind: 'both',   name: 'Sortie du creux',           goal: 'La vigilance est-elle revenue ?', qs: 'day5' },
+    { r: 540, kind: 'releve', name: 'Milieu de fin d’après-midi', goal: 'Sommet éventuel de fin d’après-midi, ressenti', qs: 'day4' },
+    { r: 600, kind: 'releve', name: 'Fin d’après-midi',          goal: 'Comparée au matin', qs: 'day4' },
+    { r: 660, kind: 'releve', name: 'Soirée',                    goal: 'Vigilance stable ?', qs: 'day4' },
+    { r: 720, kind: 'releve', name: 'Fin de journée',            goal: 'Comment finit la journée', qs: 'day5' },
+    { r: 780, kind: 'releve', name: 'Approche du sommeil',       goal: 'Somnolence ressentie, avant la mélatonine', qs: 'day4' }
   ];
   var WIN = { before: 10, after: 30 }; // fenêtre d'un moment : de R+X − 10 min à R+X + 30 min
   var KIND_TXT = { releve: 'Relevé', test: 'Test', both: 'Relevé + test' };
-  function momTitle(m) { return rLabel(m.r) + ' · ' + KIND_TXT[m.kind] + ' · ' + m.name; }
+  function momTitle(m) { return rLabel(m.r) + ' · ' + KIND_TXT[m.kind] + ' · ' + m.name; } // reste pour les messages « ce test comptera pour le moment… »
+  // F2 (depuis le 09/11) : à R+6h et R+7h, l'appli pose la question du creux à la place du relevé. Le titre des rappels du calendrier le dit aussi (demandé par l'utilisateur, 09/11 02h13) ; l'heure de l'alarme ne change pas.
+  // e4b (19/11) : la question du creux passe à R+5h (puis le test) et R+6h ; R+7h est retiré du plan (`off`).
+  function isQ(m) { return !!m.q && !m.off; }             // un moment où l'appli pose la question du creux
+  function isQT(m) { return isQ(m) && m.kind !== 'releve'; } // la question d'abord, puis le test (R+5h)
+  var NPLAN = PLAN.filter(function (m) { return !m.off; }).length; // moments réellement au programme (12)
+  // e4d : s = état du moment (slotStates). Un jour du plan à 7 moments (avant le 21/11/2026) garde des tests à R+10h et R+11h, alors que le moment du plan est maintenant « Relevé » : l'étiquette suit le jour.
+  function kindTxt(m, s) { return s && s.chain && m.kind === 'releve' ? KIND_TXT.both : KIND_TXT[m.kind]; }
+  function momKind(m, s) { return isQT(m) ? 'Question du creux, puis test' : (m.q ? 'Question du creux' : kindTxt(m, s)); }
+  function momLabel(m, s) { return rLabel(m.r) + ' · ' + momKind(m, s) + ' · ' + m.name; }
+  function momGoal(m) { return isQT(m) ? m.qgoal + ' · ' + m.goal : (m.qgoal || m.goal); }
+  function momCardLabel(m, s) { return isQT(m) ? rLabel(m.r) + ' · ' + KIND_TXT[m.kind] + ' · ' + m.name : momLabel(m, s); } // carte « Maintenant » : la question a sa propre carte, la carte du moment ne porte que le test
+  function momCardGoal(m) { return isQT(m) ? m.goal : momGoal(m); }
 
   // Termes validés par l'utilisateur le 11/10 (Éveil : explication complète affichée sous la question).
   var FEEL = [
@@ -88,8 +105,48 @@
     { id: 'moral',     opts: ['Très mal', 'Pas top', 'Neutre', 'Bien', 'Très bien'] },
     { id: 'agitation', opts: ['Calme', 'Posé', 'Modéré', 'Agité', 'Très agité'] }
   ];
+  /* e5 (20/11) : le relevé en 6 questions possibles (`fv: 3`). « Humeur de fond » remplace « Moral » dans les relevés ; « Niaque » seulement le matin (R+30 min, R+2h).
+     Un relevé n'a que les questions de son moment (un seul champ à R+4h) : voir QSETS et PLAN[i].qs. Les anciennes réponses de « Moral » (`fv` 1 et 2) restent lisibles sous
+     « Moral (ancienne question) », jamais mélangées à Humeur de fond. Les débuts et fins d'activité gardent leurs 5 questions (FEEL) : ce n'est pas un relevé.
+     Termes : ceux validés le 11/10 pour Éveil, Énergie, Confort, Agitation ; Humeur de fond et Niaque : écrans validés le 06/11, mots de la Niaque confirmés le 20/11. */
+  var FEEL3 = [
+    { id: 'eveil',     label: 'Éveil',              group: 'corps',  opts: FEEL[0].opts, hint: FEEL[0].hint },
+    { id: 'energie',   label: 'Énergie physique',   group: 'corps',  opts: FEEL[1].opts },
+    { id: 'confort',   label: 'Confort physique',   group: 'corps',  opts: FEEL[2].opts },
+    { id: 'humeur',    label: 'Humeur de fond',     group: 'esprit', opts: ['Très mauvaise', 'Mauvaise', 'Neutre', 'Bonne', 'Très bonne'],
+      hint: 'Ton humeur de base de la journée, pas une émotion du moment.' },
+    { id: 'niaque',    label: 'Niaque',             group: 'esprit', opts: ['Aucune niaque', 'Peu de niaque', 'Moyenne', 'De la niaque', 'Beaucoup de niaque'],
+      hint: 'La niaque, c’est l’envie de faire, d’avancer.' },
+    { id: 'agitation', label: 'Agitation mentale',  group: 'esprit', opts: FEEL[4].opts }
+  ];
+  var QSETS = {
+    morning: ['eveil', 'energie', 'confort', 'humeur', 'niaque'],      // R+30 min, R+2h
+    humeur:  ['humeur'],                                               // R+4h : une seule question, puis le test
+    day4:    ['eveil', 'energie', 'confort', 'agitation'],             // R+9h, R+10h, R+11h, R+13h
+    day5:    ['eveil', 'energie', 'confort', 'agitation', 'humeur']    // R+8h, R+12h, et le relevé libre (le Moral d'avant devient l'Humeur de fond)
+  };
+  function feel3Def(id) { return FEEL3.filter(function (f) { return f.id === id; })[0] || null; }
+  // Jeu de questions du relevé en cours : celui du moment du plan ; `flow.qs` force un jeu (Relevé du matin hors fenêtre) ; sinon le relevé libre.
+  function qsetOf(fl) { return QSETS[(fl && fl.qs) || (fl && fl.slot != null && PLAN[fl.slot] && PLAN[fl.slot].qs) || 'day5']; }
+  // Sommeil de la nuit (carte « Ma nuit », e5) : échelles du Consensus Sleep Diary (traduction de Claude, non validée) ; souvenir des rêves : les mots de l'utilisateur (20/11).
+  var NIGHT_Q = [
+    { id: 'sq',    label: 'Qualité du sommeil', ask: 'Comment évalues-tu la qualité de ton sommeil ?', opts: ['Très mauvais', 'Mauvais', 'Moyen', 'Bon', 'Très bon'] },
+    { id: 'rest',  label: 'Reposé',             ask: 'Te sens-tu reposé ?',                            opts: ['Pas du tout reposé', 'Un peu reposé', 'Moyennement reposé', 'Bien reposé', 'Très bien reposé'] },
+    { id: 'dream', label: 'Rêves',              ask: 'Souvenir des rêves',                             opts: ['Aucun souvenir', 'Impression floue', 'Rêve(s) flou(s)', 'Rêve(s) net(s)'] }
+  ];
+  function nightOpt(id, v) { var q = NIGHT_Q.filter(function (x) { return x.id === id; })[0]; return q && v ? q.opts[v - 1] || '' : ''; }
   var ACTS_DEFAULT = ['Travail', 'Sport', 'Marche', 'Repos', 'Tâches', 'Loisirs'];
   var INST_DEFAULT = ['popo']; // premier instant déjà créé ; tu peux le retirer ou en ajouter dans Réglages
+  /* « Joint » (depuis e4f, 20/11) : un instant fourni d'office sur l'écran Instant (la liste de Réglages n'est pas touchée), avec un type facultatif.
+     Le type est un champ `jtype` de l'entrée « instant », écrit seulement quand le nom est « Joint » ; le « popo » et les autres instants ne changent pas. */
+  var JOINT = 'Joint';
+  var JTYPES = [['divertissement', 'Divertissement'], ['habitude', 'Habitude'], ['intention', 'Intention'], ['influence', 'Influence']];
+  function jKey(n) { return String(n == null ? '' : n).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+  function isJoint(n) { return jKey(n) === 'joint'; }
+  function jtypeOk(id) { return typeof id === 'string' && JTYPES.some(function (t) { return t[0] === id; }); }
+  function jtLabel(id) { var r = JTYPES.filter(function (t) { return t[0] === id; })[0]; return r ? r[1] : ''; }
+  var CREUX_MIN = 60; // un creux « en cours » depuis plus d'1 h : la carte (et la bannière de la Roue) demandent s'il est terminé
+  var CREUX_MAX = 4 * 3600e3; // un creux dure 4 h au maximum : au-delà, l'appli le coupe toute seule (demande de Jonathan, 09/11)
   var LONG_ACT_MIN = 180; // une activité « en cours » depuis plus de 3 h déclenche un rappel doux sur l'écran d'accueil
   var PVT = { duration: 180000, isiMin: 1000, isiMax: 4000, feedback: 1000, lapse: 355, falseStart: 100,
               timeout: 10000, debounce: 150, minValid: 10 };
@@ -287,11 +344,39 @@
     '.btn.secondary{background:none;border-color:var(--line2);color:var(--text);font-weight:600}',
     '.btn.ghost{background:none;color:var(--muted);min-height:44px;font-size:14px;font-weight:600}',
     '.btn.j-small{min-height:44px;font-size:14px;margin:4px 5px 0;width:auto}',
+    '#j-hist{display:flex;flex-direction:column;gap:8px}',
+    '.btn.j-rank{margin:0 5px;width:calc(100% - 10px);justify-content:space-between;min-height:48px;font-size:15px}',
+    '.btn.j-rank .j-rk{display:inline-flex;align-items:center;gap:2px;font-weight:700}',
+    '.btn.j-wakebtn{margin:0 5px;width:calc(100% - 10px);justify-content:space-between;min-height:58px;padding:6px 14px;text-align:left}',
+    '.j-wakebtn .j-wk1{display:flex;align-items:center;gap:12px;min-width:0}',
+    '.j-wakebtn .j-wke{font-size:28px;line-height:1;flex-shrink:0}',
+    '.j-wakebtn .j-wkt{display:flex;flex-direction:column;gap:1px;min-width:0}',
+    '.j-wakebtn .j-wkt b{font-size:16px}',
+    '.j-wakebtn .j-wks{font-size:12px;font-weight:600;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}',
+    '.j-wakebtn .j-rk{display:inline-flex;align-items:center;flex-shrink:0}',
+    '.j-tiles{margin:0 5px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}',
+    '.j-tile{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;min-height:136px;padding:14px 6px 10px;border-radius:16px;border:1px solid var(--line2);background:var(--card);color:var(--text);font-family:inherit;text-align:center;cursor:pointer}',
+    '.j-tile .ic{font-size:38px;line-height:1.1}',
+    '.j-tile .tn{font-size:14px;font-weight:700;line-height:1.2;overflow-wrap:normal;word-break:normal}',
+    '.j-tile .ts{font-size:11.5px;line-height:1.3;color:var(--muted);overflow-wrap:anywhere}',
+    '@media (max-width:340px){.j-tile .tn{font-size:12.5px}.j-tile .ts{font-size:11px}}',
+    // e5b : le mantra se lit comme un texte de lecture : police serif de lecture du système (New York sur iPhone), grande taille, interligne aéré, une phrase par ligne, groupes espacés.
+    '.j-card.j-mcard{padding:22px 20px 24px}',
+    '.j-mantra{font-family:ui-serif,"New York","Iowan Old Style",Charter,Georgia,serif;font-size:19px;line-height:1.75;letter-spacing:.005em;text-align:left;overflow-wrap:break-word;color:var(--text)}',
+    '.j-mantra .mg{margin:0 0 1.6em}.j-mantra .mg:last-child{margin-bottom:0}',
+    '.j-mantra p{margin:0 0 .8em}.j-mantra .mg p:last-child{margin-bottom:0}',
+    '@media (max-width:340px){.j-mantra{font-size:17.5px}.j-card.j-mcard{padding:18px 16px 20px}}',
+    '#m-text.j-ta{font-family:ui-serif,"New York","Iowan Old Style",Charter,Georgia,serif;font-size:17px;line-height:1.6}',
+    '.j-h.j-lastt{width:calc(100% - 10px);text-align:left;font:inherit;color:inherit;cursor:pointer;min-height:48px}',
+    '.j-h.j-lastt .when{font-size:13px}',
+    '.j-h .j-more{display:inline-flex;align-items:center;gap:2px;align-self:flex-end;font-size:13px;font-weight:700}',
     '.j-grid{margin:0 5px;display:grid;grid-template-columns:1fr 1fr;gap:8px}',
     '.j-grid .btn{padding:0 8px;font-size:14px;min-height:46px}',
     '.j-grid .btn.wide{grid-column:1 / -1}',
     '.j-now{margin:0 5px;background:var(--card);border:1px solid var(--line2);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}',
     '.j-now.act{border-left:4px solid var(--teal)}',
+    '.j-now.creux,.j-now.creuxq{border-left:4px solid #6BBF8A}',
+    '.j-now.creuxq .j-sel{width:100%;box-sizing:border-box}',
     '.j-now.bed{border-left:4px solid var(--violet)}',
     '.j-now .t1{font-size:17px;font-weight:700;line-height:1.25}',
     '.j-now .t2{font-size:13px;line-height:1.4;color:var(--muted)}',
@@ -321,6 +406,34 @@
     '.j-h .body{font-size:12.5px;line-height:1.4;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}',
     '.j-h .body.note{color:var(--text)}',
     '.j-h .body.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
+    '.j-h .kind.nt{padding:1px 9px;border-radius:12px;border:1px solid var(--line2);font-weight:700;max-width:60%;overflow-wrap:anywhere;text-align:center}',
+    '.j-nt{display:flex;flex-direction:column;gap:8px}',
+    '.j-nt .j-pick{position:relative;min-height:52px;padding:8px 6px;font-size:15px;overflow-wrap:normal;word-break:normal}',
+    '.j-nt .j-pick.u{overflow-wrap:anywhere}',
+    '.j-nt .j-pick .ck{position:absolute;top:-7px;right:-4px;width:20px;height:20px;border-radius:50%;background:var(--text);color:var(--bg);font-size:12px;line-height:20px;text-align:center;font-weight:800}',
+    '@media (max-width:340px){.j-nt .j-pick{font-size:13.5px}}',
+    '.j-fbar{display:flex;flex-direction:column;gap:6px;margin:0 5px 12px}',
+    '.j-fbar .lab{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-top:4px}',
+    '.j-chips{display:flex;flex-wrap:wrap;gap:6px}',
+    '.j-chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:4px 12px;border-radius:20px;border:1px solid var(--line2);background:var(--card);color:var(--text);font-size:13.5px;font-weight:600;line-height:1.2;cursor:pointer;font-family:inherit}',
+    '.j-chip .n{font-size:11.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}',
+    '.j-chip.on{border:2px solid var(--text);background:var(--nav-on);padding:3px 11px}',
+    '.j-chip.on .n{color:var(--text)}',
+    '.j-gt{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin:12px 5px 0}',
+    '.j-gt.sub{font-size:10.5px;letter-spacing:.1em;margin:6px 5px 0 14px}',
+    '.j-h .ans{margin-top:6px;padding-left:9px;border-left:3px solid #6BBF8A}',
+    '.j-h .ans.att{border-left-color:var(--nav-off)}',
+    '.j-h .ans.lnk{border-left-color:var(--dash);border-left-style:dashed}',
+    '.j-h .lkr{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 6px;margin-top:2px}',
+    '.j-h .lkc{font-size:12px;font-weight:700;color:var(--muted)}',
+    '.j-h .lkt{font-size:13.5px;flex:1 1 150px;min-width:0;overflow-wrap:anywhere}',
+    '.j-h.hl{outline:3px solid var(--nav-off);outline-offset:2px}',
+    '.j-from{margin:0 5px;padding:8px 10px;border-left:3px dashed var(--dash);background:var(--card);border-radius:0 10px 10px 0}',
+    '.j-from .alab{font-size:11.5px;font-weight:700;color:var(--muted)}',
+    '.j-from .t{margin-top:2px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}',
+    '.j-h .alab{font-size:11.5px;font-weight:700;color:var(--muted)}',
+    '.btn.danger{background:none;border:1px solid var(--coral);color:var(--coral-text);font-weight:600}',
+    '.j-h .meta{font-size:11.5px;line-height:1.35;color:var(--muted);font-variant-numeric:tabular-nums}',
     '.j-h .act{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex-wrap:wrap}',
     '.j-confirm{font-size:12.5px;color:var(--text)}',
     '.j-link{min-height:44px;padding:0 8px;background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit}',
@@ -340,6 +453,7 @@
     '.j-ta.mid{min-height:96px;margin:6px 0;width:100%;font-size:16px}',
     '.j-ta::placeholder,.j-sel::placeholder{color:var(--nav-off)}',
     '.j-card{margin:0 5px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}',
+    '.j-card.fin{border-left:4px solid #6AA9E8}',
     '.j-card p{font-size:13.5px;line-height:1.4;color:var(--muted)}',
     '.j-card p.lead{font-size:15px;color:var(--text)}',
     '.j-card p.last{font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}',
@@ -365,12 +479,17 @@
     '.j-num.txt{font-size:40px;color:var(--muted);letter-spacing:0}',
     '.j-unit{font-size:15px;font-weight:600;letter-spacing:.14em;color:var(--muted)}',
     '.j-unit[hidden]{display:none}',
+    '.j-jt[hidden]{display:none}',
+    '.j-jt .j-pick{padding:8px 6px;font-size:16px;overflow-wrap:normal;word-break:normal}',
+    '@media (max-width:340px){.j-jt .j-pick{font-size:13.5px}}',
     '.j-runhint{font-size:14px;line-height:1.4;text-align:center;color:var(--muted)}',
     '.j-metrics{display:flex;gap:8px}',
     '.j-metrics>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}',
     '.j-metrics b{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}',
     '.j-metrics b small{font-size:13px;font-weight:600;color:var(--muted)}',
     '.j-metrics span{font-size:12px;color:var(--muted)}',
+    '.j-metrics.wrap{flex-wrap:wrap;gap:14px 8px}',
+    '.j-metrics.wrap>div{flex:1 1 28%}',
     '.j-opt{display:flex;align-items:flex-start;gap:12px;min-height:44px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);cursor:pointer}',
     '.j-opt.on{border-color:var(--text)}',
     '.j-opt input{width:20px;height:20px;margin:2px 0 0;flex-shrink:0;accent-color:var(--text)}',
@@ -560,6 +679,29 @@
     return dateOfKey(k).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
   }
   function clockOf(ts) { return L.fmtClock(minOf(new Date(ts))); }
+  // « 6 nov. à 13h00 » : la vraie date de l'instant (pas la « journée » du Journal) ; l'année s'ajoute si ce n'est pas l'année en cours.
+  function whenText(ts) {
+    var d = new Date(ts), o = { day: 'numeric', month: 'short' };
+    if (d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
+    return d.toLocaleDateString('fr-FR', o) + ' à ' + clockOf(ts);
+  }
+  // Dates d'une note : création = `ts` (aussi pour les notes d'avant le 08/11) ; dernière modification = `modTs`, seulement si le texte a été changé.
+  function noteDates(e) {
+    var m = typeof e.modTs === 'number' && isFinite(e.modTs) && e.modTs > e.ts;
+    var a = ansAnswered(e) && typeof e.ansTs === 'number' && isFinite(e.ansTs) && e.ansTs > e.ts;
+    var r = attFilled(e) && typeof e.attTs === 'number' && isFinite(e.attTs) && e.attTs > e.ts;
+    return 'Créée le ' + whenText(e.ts) + (m ? ' · Modifiée le ' + whenText(e.modTs) : '') + (a ? ' · Répondu le ' + whenText(e.ansTs) + ' (' + delayText(e.ansTs - e.ts) + ')' : '') + (r ? ' · Note rattachée le ' + whenText(e.attTs) + ' (' + delayText(e.attTs - e.ts) + ')' : '');
+  }
+  // Réponse à un questionnement (depuis le 08/11, c2a3) : champs facultatifs `ans` (texte) et `ansTs` (heure de la première réponse), sur la même note.
+  function ansAnswered(e) { return !!e && e.kind === 'note' && typeof e.ans === 'string' && !!e.ans.trim(); }
+  function delayText(ms) { // « 12 min après », « 3 h après », « 2 j après »
+    var m = Math.floor(ms / 60000); // « après » = au moins : on arrondit vers le bas
+    var A = '\u00a0'; // espaces insécables : « 3 h après » ne se coupe pas en deux lignes
+    if (m < 1) return 'moins d’une minute' + A + 'après';
+    if (m < 60) return m + A + 'min' + A + 'après';
+    if (m < 1440) return Math.floor(m / 60) + A + 'h' + A + 'après';
+    return Math.floor(m / 1440) + A + 'j' + A + 'après';
+  }
   function relAt(ts, wake) { return L.mod(minOf(new Date(ts)) - wake); }
   function phaseAt(rel) {
     var P = L.phases;
@@ -691,23 +833,28 @@
     for (var i = 0; i < 16; i++) a.push(i);
     return ssShuffle(a, rnd).slice(0, n);
   }
-  function rsScoreTrial(arrows, sel) { // cp : à la bonne place ; ap : retrouvée n'importe où
-    var cp = 0, ap = 0, marks = [];
+  // cp : bon sens, bonne taille, bon ordre ; ap : retrouvée n'importe où ; dp : bon sens dans le bon ordre, taille ignorée (cp compris).
+  // Numéros 0 à 7 = flèches longues, 8 à 15 = courtes, même sens si numéro % 8 égal : deux numéros différents de même sens ne diffèrent que par la taille.
+  function rsScoreTrial(arrows, sel) {
+    var cp = 0, ap = 0, dp = 0, marks = [];
     for (var j = 0; j < arrows.length; j++) {
-      if (sel[j] === arrows[j]) { cp++; ap++; marks.push('cp'); }
-      else if (sel.indexOf(arrows[j]) >= 0) { ap++; marks.push('ap'); }
-      else marks.push('no');
+      if (sel[j] === arrows[j]) { cp++; ap++; dp++; marks.push('cp'); }
+      else {
+        if (sel[j] !== undefined && sel[j] % 8 === arrows[j] % 8) dp++;
+        if (sel.indexOf(arrows[j]) >= 0) { ap++; marks.push('ap'); }
+        else marks.push('no');
+      }
     }
-    return { cp: cp, ap: ap, marks: marks };
+    return { cp: cp, ap: ap, dp: dp, marks: marks };
   }
   function rsSummary(trials) {
-    var cp = 0, ap = 0, max = 0, lc = 0, lt = 0, to = 0, sum = 0, an = 0, marks = [];
+    var cp = 0, ap = 0, dp = 0, max = 0, lc = 0, lt = 0, to = 0, sum = 0, an = 0, marks = [];
     trials.forEach(function (t) {
       var sc = rsScoreTrial(t.a, t.s);
-      cp += sc.cp; ap += sc.ap; max += t.a.length; marks.push(sc.marks);
+      cp += sc.cp; ap += sc.ap; dp += sc.dp; max += t.a.length; marks.push(sc.marks);
       t.l.forEach(function (l) { lt++; if (l[0] === 1) lc++; if (l[0] === 2) to++; else { sum += l[1]; an++; } });
     });
-    return { cp: cp, ap: ap, max: max, lc: lc, lt: lt, to: to, avgRt: an ? Math.round(sum / an * 10) / 10 : null, marks: marks };
+    return { cp: cp, ap: ap, dp: dp, dl: dp - cp, max: max, lc: lc, lt: lt, to: to, avgRt: an ? Math.round(sum / an * 10) / 10 : null, marks: marks };
   }
 
   // Hand Swype. Un essai (stocké) = [règle (0 pointent, 1 se déplacent), sens où ils pointent, sens où ils se déplacent, sens de la réponse, ms] ; sens : 0 haut, 1 droite, 2 bas, 3 gauche.
@@ -872,21 +1019,37 @@
   }
 
   /* ---------- Plan des tests : logique pure ---------- */
-  // Reprise mot pour mot de `Annexe-plan-logique` (14/10, conversation « Tests cognitifs »), vérifiée là-bas par 4 506 contrôles. Ne pas modifier sans le dire :
+  // Reprise de `Annexe-plan-logique` (14/10, conversation « Tests cognitifs »), vérifiée là-bas par 4 506 contrôles. Ne pas modifier sans le dire :
   // le calendrier (7 plans, ordre des semaines, ordre des tests) doit rester le même que dans les maquettes. Seuls l'enveloppe et l'export sont ajoutés.
+  // e4d (19/11/2026, décidé avec l'utilisateur) : plus de test après R+8h. Les jours depuis le 21/11/2026 suivent le plan à 5 moments (TEST_R, PLANS, PVT2, SLOTS) ;
+  // les jours avant gardent le plan à 7 moments d'origine, inchangé (TEST_R7, PLANS7, PVT27, SLOTS7), pour que « Plan des tests » ne réécrive pas les jours déjà passés.
   var PL = (function () {
 /* pure:start */
 const DUR = { RS: 90, FL: 110, HS: 60, ML: 120, SS: 45 };   // secondes, estimées d'après les maquettes (À ajuster)
 const PVT = 180;                                             // PVT-B : 3 min
 const NAMES = { RS: 'Rotation span', FL: 'Flanker', HS: 'Hand Swype', ML: 'Memory List', SS: 'Symbol Search' };
-const TEST_R = [2, 3, 4, 5, 8, 10, 11];                      // R+X des 7 moments de test
-// 7 plans de journée : pour chacun, les 2 tests des 7 moments (calendrier vérifié par calcul le 14/10)
-const PLANS = [[["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["RS", "ML"], ["RS", "HS"], ["RS", "HS"], ["FL", "SS"]], [["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["HS", "SS"], ["FL", "SS"], ["RS", "ML"], ["FL", "SS"]], [["RS", "HS"], ["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["HS", "ML"], ["FL", "SS"], ["RS", "HS"]], [["HS", "ML"], ["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["FL", "SS"], ["FL", "SS"], ["RS", "HS"]], [["RS", "HS"], ["FL", "SS"], ["HS", "ML"], ["FL", "SS"], ["RS", "SS"], ["FL", "HS"], ["RS", "SS"]], [["FL", "SS"], ["HS", "ML"], ["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["RS", "HS"], ["FL", "SS"]], [["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["RS", "HS"], ["FL", "HS"], ["FL", "SS"], ["HS", "ML"]]];
-// Étape 2 du PVT-B : en plus de R+2h, 2 moments (index dans TEST_R) qui tournent selon le plan
-const PVT2 = [[1, 4], [2, 5], [3, 6], [1, 5], [2, 6], [3, 4], [2, 4]];
 const NDAYS = 98;                                            // 14 semaines
-// Les 13 moments de la journée (plan codé du 11/10) : relevé seul, test, ou test + relevé
+const FROM5 = '2026-11-21';                                  // premier jour du plan à 5 moments (les jours avant : plan à 7 moments)
+// Plan à 5 moments (depuis le 21/11/2026). Rotation validée par l'utilisateur le 19/11 : mêmes règles que le plan à 7 moments (Memory List une fois par jour, jamais avec Flanker,
+// jamais le même test à 1 h d'écart, 3 ou 4 passages par test et par moment sur 7 jours) ; seules les journées 2 et 7 changent par rapport aux 5 premières colonnes de l'ancien plan.
+const TEST_R = [2, 3, 4, 5, 8];                              // R+X des 5 moments de test
+const PLANS = [[["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["RS", "ML"], ["RS", "HS"]], [["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["HS", "SS"], ["ML", "SS"]], [["RS", "HS"], ["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["HS", "ML"]], [["HS", "ML"], ["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["FL", "SS"]], [["RS", "HS"], ["FL", "SS"], ["HS", "ML"], ["FL", "SS"], ["RS", "SS"]], [["FL", "SS"], ["HS", "ML"], ["RS", "FL"], ["HS", "SS"], ["RS", "FL"]], [["ML", "SS"], ["RS", "HS"], ["FL", "SS"], ["RS", "HS"], ["FL", "HS"]]];
+// Étape 2 du PVT-B : en plus de R+2h, 2 moments (index dans TEST_R) qui tournent selon le plan (jamais deux moments à 1 h d'écart)
+const PVT2 = [[1, 3], [1, 3], [1, 3], [2, 4], [2, 4], [3, 4], [2, 4]];
+// Les 13 moments de la journée : relevé seul, test, ou test + relevé (R+10h et R+11h : relevé seul depuis le 21/11/2026)
 const SLOTS = [
+  { r: 0.5, kind: 'rel' },
+  { r: 2, kind: 'test', ti: 0 }, { r: 3, kind: 'test', ti: 1 }, { r: 4, kind: 'test', ti: 2 }, { r: 5, kind: 'test', ti: 3 },
+  { r: 6, kind: 'rel' }, { r: 7, kind: 'rel' },
+  { r: 8, kind: 'testrel', ti: 4 }, { r: 9, kind: 'rel' },
+  { r: 10, kind: 'rel' }, { r: 11, kind: 'rel' },
+  { r: 12, kind: 'rel' }, { r: 13, kind: 'rel' }
+];
+// Plan à 7 moments d'origine (plan codé du 11/10 ; calendrier vérifié par calcul le 14/10), jusqu'au 20/11/2026 : NE PAS MODIFIER
+const TEST_R7 = [2, 3, 4, 5, 8, 10, 11];
+const PLANS7 = [[["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["RS", "ML"], ["RS", "HS"], ["RS", "HS"], ["FL", "SS"]], [["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["HS", "SS"], ["FL", "SS"], ["RS", "ML"], ["FL", "SS"]], [["RS", "HS"], ["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["HS", "ML"], ["FL", "SS"], ["RS", "HS"]], [["HS", "ML"], ["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["FL", "SS"], ["FL", "SS"], ["RS", "HS"]], [["RS", "HS"], ["FL", "SS"], ["HS", "ML"], ["FL", "SS"], ["RS", "SS"], ["FL", "HS"], ["RS", "SS"]], [["FL", "SS"], ["HS", "ML"], ["RS", "FL"], ["HS", "SS"], ["RS", "FL"], ["RS", "HS"], ["FL", "SS"]], [["FL", "SS"], ["RS", "HS"], ["FL", "SS"], ["RS", "HS"], ["FL", "HS"], ["FL", "SS"], ["HS", "ML"]]];
+const PVT27 = [[1, 4], [2, 5], [3, 6], [1, 5], [2, 6], [3, 4], [2, 4]];
+const SLOTS7 = [
   { r: 0.5, kind: 'rel' },
   { r: 2, kind: 'test', ti: 0 }, { r: 3, kind: 'test', ti: 1 }, { r: 4, kind: 'test', ti: 2 }, { r: 5, kind: 'test', ti: 3 },
   { r: 6, kind: 'rel' }, { r: 7, kind: 'rel' },
@@ -894,6 +1057,9 @@ const SLOTS = [
   { r: 10, kind: 'testrel', ti: 5 }, { r: 11, kind: 'testrel', ti: 6 },
   { r: 12, kind: 'rel' }, { r: 13, kind: 'rel' }
 ];
+// Quel calendrier un jour suit-il ? `key` = date ISO du jour du plan (null : aperçu sans premier jour choisi → plan actuel). Les dates ISO se comparent comme du texte.
+function ver(key) { return key && key < FROM5 ? 7 : 5; }
+function tbl(v) { return v === 7 ? { TEST_R: TEST_R7, PLANS: PLANS7, PVT2: PVT27, SLOTS: SLOTS7 } : { TEST_R: TEST_R, PLANS: PLANS, PVT2: PVT2, SLOTS: SLOTS }; }
 
 function pad2(n) { return (n < 10 ? '0' : '') + n; }
 function fmtDur(sec) {
@@ -916,23 +1082,26 @@ function parseHM(s) {
   return h < 24 && mi < 60 ? h * 60 + mi : null;
 }
 // Moments (index dans TEST_R) où le PVT-B est passé, selon le plan et l'étape (1, 2 ou 3)
-function pvtMoments(plan, stage) {
-  if (stage === 1) return [0, 1, 2, 3, 4, 5, 6];
-  if (stage === 2) return [0].concat(PVT2[plan]);
+// (`v` : 7 pour un jour avant le 21/11/2026, sinon 5 ; voir `ver`)
+function pvtMoments(plan, stage, v) {
+  const t = tbl(v);
+  if (stage === 1) return t.TEST_R.map((_, i) => i);
+  if (stage === 2) return [0].concat(t.PVT2[plan]);
   return [0];
 }
-function momentSec(plan, ti, stage) {
-  const tests = PLANS[plan][ti].reduce((a, t) => a + DUR[t], 0);
-  return tests + (pvtMoments(plan, stage).indexOf(ti) >= 0 ? PVT : 0);
+function momentSec(plan, ti, stage, v) {
+  const tests = tbl(v).PLANS[plan][ti].reduce((a, t) => a + DUR[t], 0);
+  return tests + (pvtMoments(plan, stage, v).indexOf(ti) >= 0 ? PVT : 0);
 }
-function daySec(plan, stage) {
+function daySec(plan, stage, v) {
   let s = 0;
-  for (let ti = 0; ti < 7; ti++) s += momentSec(plan, ti, stage);
+  const n = tbl(v).TEST_R.length;
+  for (let ti = 0; ti < n; ti++) s += momentSec(plan, ti, stage, v);
   return s;
 }
-function avgDaySec(stage) {
+function avgDaySec(stage, v) {
   let s = 0;
-  for (let p = 0; p < 7; p++) s += daySec(p, stage);
+  for (let p = 0; p < 7; p++) s += daySec(p, stage, v);
   return s / 7;
 }
 function mulberry32(a) {
@@ -955,8 +1124,8 @@ function weekOrder(seed, week) {
 }
 function planForDay(i, seed) { return weekOrder(seed, Math.floor(i / 7))[i % 7]; }
 // Ordre des 2 tests dans un moment : tiré au hasard (reproductible), le PVT-B reste toujours en premier
-function testOrder(i, ti, plan, seed) {
-  const pair = PLANS[plan][ti];
+function testOrder(i, ti, plan, seed, v) {
+  const pair = tbl(v).PLANS[plan][ti];
   const flip = mulberry32(seed * 7919 + i * 131 + ti * 17 + 99)() < 0.5;
   return flip ? [pair[1], pair[0]] : [pair[0], pair[1]];
 }
@@ -980,15 +1149,15 @@ function milestone(w) {
   return null;
 }
 /* pure:end */
-    return { DUR: DUR, PVT: PVT, NAMES: NAMES, TEST_R: TEST_R, PLANS: PLANS, PVT2: PVT2, NDAYS: NDAYS, SLOTS: SLOTS, fmtDur: fmtDur, fmtMin: fmtMin, fmtR: fmtR, clockStr: clockStr,
+    return { DUR: DUR, PVT: PVT, NAMES: NAMES, TEST_R: TEST_R, PLANS: PLANS, PVT2: PVT2, NDAYS: NDAYS, SLOTS: SLOTS, TEST_R7: TEST_R7, PLANS7: PLANS7, PVT27: PVT27, SLOTS7: SLOTS7, FROM5: FROM5, ver: ver, tbl: tbl, fmtDur: fmtDur, fmtMin: fmtMin, fmtR: fmtR, clockStr: clockStr,
              parseHM: parseHM, pvtMoments: pvtMoments, momentSec: momentSec, daySec: daySec, avgDaySec: avgDaySec, mulberry32: mulberry32, weekOrder: weekOrder,
              planForDay: planForDay, testOrder: testOrder, weekOf: weekOf, isRodage: isRodage, parseISO: parseISO, addDays: addDays, daysBetween: daysBetween,
              isoOf: isoOf, milestone: milestone };
   })();
 
   /* ---------- Données ---------- */
-  var entries = [], storageOk = true, lastBackup = null, actNames = ACTS_DEFAULT.slice(), instNames = INST_DEFAULT.slice();
-  var KINDS = ['releve', 'test', 'note', 'activite', 'repas', 'coucher', 'pas', 'instant'];
+  var entries = [], storageOk = true, lastBackup = null, actNames = ACTS_DEFAULT.slice(), instNames = INST_DEFAULT.slice(), noteTypeNames = [], todos = [];
+  var KINDS = ['releve', 'test', 'note', 'activite', 'creux', 'creuxq', 'repas', 'coucher', 'pas', 'instant', 'nuit'];
 
   function lite(e) {
     return e && typeof e === 'object' && typeof e.id === 'string' && KINDS.indexOf(e.kind) >= 0 && isFinite(e.ts) ? e : null;
@@ -1009,6 +1178,7 @@ function milestone(w) {
     }
     entries.sort(byTs);
     try { var b = Number(localStorage.getItem(KEY_BK)); lastBackup = b > 0 ? b : null; } catch (e) {}
+    loadMantra();
     try {
       var a = JSON.parse(localStorage.getItem(KEY_ACTS));
       if (Array.isArray(a)) actNames = cleanNames(a);
@@ -1017,7 +1187,30 @@ function milestone(w) {
       var ai = JSON.parse(localStorage.getItem(KEY_INST));
       if (Array.isArray(ai)) instNames = cleanNames(ai);
     } catch (e) {}
-    if (normalizeActs()) persist();
+    try { // types de note créés dans Réglages (depuis le 08/11) : vide au départ
+      var nt = JSON.parse(localStorage.getItem(KEY_NT));
+      if (Array.isArray(nt)) noteTypeNames = cleanTypeNames(nt);
+    } catch (e) {}
+    try { // délai de la bannière de sauvegarde (depuis le 09/11) : 4 h tant que rien n'est choisi ; 0 = jamais
+      var bh = localStorage.getItem(KEY_BKH);
+      if (bh !== null && /^\d+$/.test(bh) && BK_HOURS.indexOf(Number(bh)) >= 0) bkHours = Number(bh);
+    } catch (e) {}
+    try { // to-do (depuis le 09/11) : liste à part, vide au départ ; illisible → copie de côté, jamais écrasée sans trace
+      var rawT = localStorage.getItem(KEY_TD);
+      if (rawT) {
+        try { todos = cleanTodos(JSON.parse(rawT)); }
+        catch (e2) { try { localStorage.setItem(KEY_TD + '.corrupt', rawT); } catch (e3) {} }
+      }
+    } catch (e) {}
+    var chA = normalizeActs(), cutR = creuxSweep(), tdMoved = 0, tdFlag = null;
+    if (cutR) cutMsg = creuxCutText(cutR);
+    try { tdFlag = localStorage.getItem(KEY_TDM); } catch (e) {}
+    if (todos.length && tdFlag !== '1') tdMoved = moveTodos(todos); // les to-do de l'ancien onglet deviennent des notes (une seule fois)
+    var saved0 = true;
+    if (chA || cutR || tdMoved) saved0 = persist();
+    if (todos.length && tdFlag !== '1' && saved0 && storageOk) { try { localStorage.setItem(KEY_TDM, '1'); } catch (e) {} }
+    if (tdMoved) cutMsg = (cutMsg ? cutMsg + ' ' : '') + plural(tdMoved, 'to-do reprise', 'to-do reprises') + ' comme notes de catégorie To-do (Reflet → Notes → To-do). L’onglet To-do n’existe plus.';
+    todos = [];
   }
   function persist() {
     try { localStorage.setItem(KEY, JSON.stringify({ v: 2, entries: entries })); storageOk = true; } catch (e) { storageOk = false; }
@@ -1027,6 +1220,46 @@ function milestone(w) {
   }
   function saveActNames() { try { localStorage.setItem(KEY_ACTS, JSON.stringify(actNames)); } catch (e) {} }
   function saveInstNames() { try { localStorage.setItem(KEY_INST, JSON.stringify(instNames)); } catch (e) {} }
+  function saveNoteTypeNames() { try { localStorage.setItem(KEY_NT, JSON.stringify(noteTypeNames)); } catch (e) {} }
+  /* To-do (onglet du bas, du 09/11 au 19/11) : { id, ts (création), text (chose à faire), detail (détail de l'analyse, facultatif), done: true + doneTs (faite le …) }.
+     Depuis le 19/11 l'onglet n'existe plus : To-do est une catégorie de note. Les to-do déjà saisies (clé luna.todos, ou champ `todos` d'un fichier de sauvegarde d'avant) sont reprises UNE FOIS comme notes de catégorie To-do
+     (moveTodos) ; la clé luna.todos n'est jamais effacée ni réécrite (filet de sécurité : une ancienne version la relit). `luna.todosMoved` = « déjà reprises ». */
+  var KEY_TD = 'luna.todos', KEY_TDM = 'luna.todosMoved', TD_TEXT = 300, TD_DETAIL = 5000, TD_MAX = 2000;
+  function cleanTodo(o) {
+    if (!o || typeof o !== 'object' || typeof o.id !== 'string' || !o.id || o.id.length > 80) return null;
+    if (typeof o.ts !== 'number' || !isFinite(o.ts) || o.ts <= 0 || o.ts >= 4e12) return null;
+    var text = typeof o.text === 'string' ? o.text.trim().slice(0, TD_TEXT) : '';
+    if (!text) return null;
+    var t = { id: o.id, ts: o.ts, text: text };
+    var d = typeof o.detail === 'string' ? o.detail.trim().slice(0, TD_DETAIL) : '';
+    if (d) t.detail = d;
+    if (o.done === true) { t.done = true; if (typeof o.doneTs === 'number' && isFinite(o.doneTs) && o.doneTs > o.ts && o.doneTs < 4e12) t.doneTs = o.doneTs; }
+    return t;
+  }
+  function cleanTodos(a) {
+    var seen = {}, out = [];
+    (Array.isArray(a) ? a : []).forEach(function (x) { var t = cleanTodo(x); if (t && !seen[t.id]) { seen[t.id] = true; out.push(t); } });
+    return out.sort(byTs).slice(0, TD_MAX);
+  }
+  function tdNoteId(t) { return ('td-' + t.id).slice(0, 40); } // identifiant stable : reprendre deux fois la même to-do ne fait jamais deux notes
+  // Reprend des to-do comme notes de catégorie To-do : le texte = la chose à faire (+ « Détail de l'analyse »), la date de création est gardée, « faite » devient une note rattachée « Mise en place : Fait le … ».
+  // Renvoie le nombre de notes ajoutées (celles dont l'identifiant existe déjà sont sautées).
+  function moveTodos(list) {
+    var have = {}, add = 0;
+    entries.forEach(function (e) { have[e.id] = true; });
+    list.forEach(function (t) {
+      var id = tdNoteId(t);
+      if (have[id]) return;
+      var e = baseEntry('note', t.ts, L.getWake());
+      e.id = id;
+      e.text = (t.text + (t.detail ? '\n\nDétail de l’analyse : ' + t.detail : '')).slice(0, 5000);
+      e.ntype = 'todo';
+      if (t.done) { e.att = 'Fait' + (t.doneTs ? ' le ' + whenText(t.doneTs) : ''); if (t.doneTs && t.doneTs > t.ts) e.attTs = t.doneTs; }
+      entries.push(e); have[id] = true; add++;
+    });
+    entries.sort(byTs);
+    return add;
+  }
   // Liste de motifs (activités, instants) : textes de 40 caractères au plus, sans doublon (majuscules ignorées), 30 au plus.
   function cleanNames(a) {
     var out = [];
@@ -1046,9 +1279,39 @@ function milestone(w) {
     list.push(name);
     return 'ok';
   }
+  /* Bannière « Dernière sauvegarde il y a N h » (depuis le 09/11) : Roue et Journal. Apparaît si la dernière sauvegarde est plus vieille que le délai (4 h au départ, réglable dans Réglages)
+     ET qu'il y a du nouveau depuis (une entrée, une réponse, une to-do notée ou cochée) ; ou si aucune sauvegarde n'a jamais été faite ici alors qu'il y a des données.
+     « Plus tard » la cache 1 h, en mémoire seulement. Une sauvegarde reste un geste de l'utilisateur : la bannière ouvre l'écran Sauvegarde. */
+  var KEY_BKH = 'luna.bkHours', BK_HOURS = [2, 4, 6, 8, 12, 0], bkHours = 4, bkSnooze = 0;
+  function bkNewSince(t) {
+    function newer(x) { return typeof x === 'number' && isFinite(x) && x > t; }
+    return entries.some(function (e) { return newer(e.ts) || newer(e.end) || newer(e.modTs) || newer(e.ansTs) || newer(e.attTs) || newer(e.catTs); }) ||
+           todos.some(function (d) { return newer(d.ts) || newer(d.doneTs); });
+  }
+  function agoText(ms) {
+    var m = Math.floor(ms / 60000), A = ' ';
+    if (m < 60) return 'il' + A + 'y' + A + 'a' + A + Math.max(1, m) + A + 'min';
+    var h = Math.floor(m / 60);
+    return 'il' + A + 'y' + A + 'a' + A + (h < 48 ? h + A + 'h' : Math.floor(h / 24) + A + 'j');
+  }
+  function bkInfo() {
+    var now = Date.now();
+    if (!bkHours || now < bkSnooze || (!entries.length && !todos.length)) return null;
+    if (!lastBackup) return { title: 'Aucune sauvegarde faite sur cet appareil', never: true };
+    if (lastBackup > now || now - lastBackup < bkHours * 3600e3 || !bkNewSince(lastBackup)) return null;
+    return { title: 'Dernière sauvegarde ' + agoText(now - lastBackup) };
+  }
+  function bkCard(info) {
+    if (!info) return '';
+    return '<div class="banner bk" role="status"><div class="txt"><b>' + esc(info.title) + '</b>' +
+      '<button type="button" class="k-go" data-act="bk-go">Sauvegarder maintenant ›</button></div>' +
+      '<button type="button" class="k-x" data-act="bk-later" aria-label="Masquer ce rappel pendant 1 heure">×</button></div>';
+  }
+  function saveBkHours() { try { localStorage.setItem(KEY_BKH, String(bkHours)); } catch (e) {} }
   function markBackup() {
     lastBackup = Date.now();
     try { localStorage.setItem(KEY_BK, String(lastBackup)); } catch (e) {}
+    updateAlert();
   }
 
   // Une seule activité « en cours » à la fois : les autres sont closes au début de la suivante.
@@ -1064,6 +1327,70 @@ function milestone(w) {
     entries.forEach(function (e) { if (e.kind === 'activite' && e.end == null && (!best || e.ts > best.ts)) best = e; });
     return best;
   }
+
+  /* Creux (depuis le 09/11, f1) : un seul creux « en cours » à la fois. « Pas encore » repousse la question d'1 h, en mémoire seulement. */
+  var creuxSnooze = {};
+  function currentCreux() {
+    var best = null;
+    entries.forEach(function (e) { if (e.kind === 'creux' && e.end == null && (!best || e.ts > best.ts)) best = e; });
+    return best;
+  }
+  function creuxById(id) { return entries.filter(function (e) { return e.kind === 'creux' && e.id === id; })[0]; }
+  function creuxAsk(c) { var n = Date.now(); return !!c && (n - c.ts >= CREUX_MIN * 60000 || creuxQMoment(c) >= 0) && n >= (creuxSnooze[c.id] || 0); }
+  // Deux creux ne se chevauchent pas (une fin à l'heure exacte d'un début est permise). `end` = null : creux ouvert.
+  function creuxOverlap(ts, end, id) {
+    var inf = 1e15, a1 = end == null ? inf : end;
+    return entries.filter(function (c) {
+      return c.kind === 'creux' && c.id !== id && ts < (c.end == null ? inf : c.end) && c.ts < a1;
+    })[0] || null;
+  }
+  // B (09/11, f2c) : un creux signalé librement dont le DÉBUT tombe dans la fenêtre (−10 / +30 min) d'une question du creux compte comme « oui » à cette question
+  // (la question disparaît). Renvoie le numéro du moment, ou -1. Calculé à la volée : si le creux est modifié ou supprimé, la question revient.
+  function freeSlotAt(ts, wake) {
+    var rel = relAt(ts, wake), out = -1;
+    PLAN.forEach(function (m, i) { if (isQ(m) && rel >= m.r - WIN.before && rel <= m.r + WIN.after) out = i; });
+    return out;
+  }
+  function creuxFreeSlot(c) { return (!c || c.kind !== 'creux' || c.origin === 'question') ? -1 : freeSlotAt(c.ts, c.wake); }
+  function creuxOriginTxt(c) {
+    if (c.origin !== 'question') { var fs = creuxFreeSlot(c); return 'signalement libre' + (fs >= 0 ? ', compté comme « oui » à la question de ' + rLabel(PLAN[fs].r) : ''); }
+    var m = c.slot != null ? PLAN[c.slot] : null;
+    return m ? 'réponse « oui » à la question de ' + rLabel(m.r) + (qLate(c) ? ' (réponse tardive)' : '') : 'réponse « oui » à la question du moment prévu';
+  }
+  // Un creux ouvert depuis 4 h est coupé tout seul (fin = début + 4 h, marquée `endAuto`). Un creux resté ouvert quand un autre commence est coupé au début du suivant.
+  // Renvoie le dernier creux coupé (ou null) ; l'appelant enregistre.
+  function creuxSweep() {
+    var cs = entries.filter(function (e) { return e.kind === 'creux'; }).sort(byTs), now = Date.now(), cut = null;
+    cs.forEach(function (c, i) {
+      if (c.end != null) return;
+      var end = Math.min(c.ts + CREUX_MAX, cs[i + 1] ? cs[i + 1].ts : Infinity);
+      if (end <= now) { c.end = end; c.endAuto = true; cut = c; }
+    });
+    return cut;
+  }
+  var cutMsg = ''; // « Creux de 14h10 terminé automatiquement… » : montré sur l'écran Journal jusqu'à la prochaine action
+  // F2 : la question du creux (depuis e4b : R+5h et R+6h). Heure prévue d'un moment = début du jour du Journal + réveil + R+.
+  function plannedTs(tk, wake, r) { var p = tk.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]), 0, wake + r, 0).getTime(); }
+  function creuxAt(ts) { // un creux ouvert (ou déjà terminé) à cet instant ?
+    return entries.filter(function (c) { return c.kind === 'creux' && c.ts < ts && (c.end == null || c.end > ts); })[0] || null; // « déjà » ouvert : commencé avant l'heure prévue
+  }
+  function qLate(e) { // réponse donnée hors de la fenêtre du moment (−10 / +30 min) : gardée avec son heure réelle, mais ce n'est pas « la réponse à R+6h »
+    var m = e.slot != null ? PLAN[e.slot] : null, at = e.kind === 'creux' ? (e.ansTs || e.ts) : e.ts;
+    if (!m) return false;
+    var rel = relAt(at, e.wake);
+    return !(rel >= m.r - WIN.before && rel <= m.r + WIN.after);
+  }
+  function creuxQMoment(c) { // numéro du moment « question » dont la fenêtre est ouverte alors que ce creux était déjà ouvert à l'heure prévue (sinon -1)
+    var now = Date.now(), wake = L.getWake(), tk = dayKey(now, wake), out = -1;
+    PLAN.forEach(function (m, i) {
+      if (!isQ(m)) return;
+      var P = plannedTs(tk, wake, m.r);
+      if (c.ts < P && now >= P - WIN.before * 60000 && now <= P + WIN.after * 60000) out = i;
+    });
+    return out;
+  }
+  var qDraft = {}; // note libre en cours de frappe dans la carte de la question (en mémoire)
+  function creuxCutText(c) { return 'Creux de ' + clockOf(c.ts) + ' terminé automatiquement à ' + clockOf(c.end) + (c.end - c.ts >= CREUX_MAX ? ' (4 h au maximum).' : '.'); }
 
   // Heure du réveil qui suit un coucher, ou null si inconnue.
   function nightEnd(c) {
@@ -1106,8 +1433,9 @@ function milestone(w) {
       return Array.isArray(t) && t.length === 4 && (t[0] === 0 || t[0] === 1) && (t[1] === 0 || t[1] === 1) && (t[2] === 0 || t[2] === 1) &&
              isFinite(t[3]) && t[3] >= 0 && t[3] < 1e6;
     }).map(function (t) { return [t[0], t[1], t[2], Math.round(t[3])]; }) : [];
+    // (f3) « pas de mesure » (med null) reste null : avant, isFinite(null) le changeait en 0 à la restauration
     return { ver: ver, cfg: typeof s.cfg === 'string' ? s.cfg.slice(0, 80) : '', n: n, correct: c, used: u, excluded: x,
-             med: isFinite(med) && med >= 0 ? Math.round(med * 10) / 10 : null, durationMs: int(s.durationMs, 0, 1e7) || 0, trials: tr };
+             med: med !== null && isFinite(med) && med >= 0 ? Math.round(med * 10) / 10 : null, durationMs: int(s.durationMs, 0, 1e7) || 0, trials: tr };
   }
   // Liste d'entiers de lo à hi, de minLen à maxLen éléments, sans doublon si `distinct` ; sinon null.
   function intList(v, lo, hi, minLen, maxLen, distinct) {
@@ -1219,6 +1547,30 @@ function milestone(w) {
     if (k === 'note' || k === 'repas') {
       if (typeof e.text !== 'string' || !e.text.trim()) return null;
       o.text = e.text.slice(0, k === 'note' ? 5000 : 1000);
+      if (k === 'note' && e.modTs != null) { // date de dernière modification (depuis le 08/11) : gardée si elle est lisible et après la création
+        var mt = Number(e.modTs);
+        if (isFinite(mt) && mt > ts && mt < 4e12) o.modTs = mt;
+      }
+      if (k === 'note' && typeof e.ntype === 'string' && noteTypeOf(e.ntype).id) { // catégorie de note (depuis le 08/11) : gardée si elle est connue ; sous-catégorie (depuis le 19/11) : seulement avec une catégorie
+        o.ntype = noteTypeOf(e.ntype).id;
+        var nsb = subClean(e.nsub);
+        if (nsb) o.nsub = nsb;
+      }
+      if (k === 'note' && o.ntype !== undefined || (k === 'note' && e.catTs != null)) { // heure du dernier classement (depuis le 19/11) : sert seulement à dire « du nouveau depuis la dernière sauvegarde »
+        var ct0 = Number(e.catTs);
+        if (e.catTs != null && isFinite(ct0) && ct0 > ts && ct0 < 4e12) o.catTs = ct0;
+      }
+      if (k === 'note' && typeof e.from === 'string' && e.from && e.from.length <= 40 && e.from !== e.id) o.from = e.from; // note d'origine (depuis le 19/11, e2) : l'identifiant seul ; la note d'origine peut arriver plus tard (autre fichier) ou ne plus exister
+      if (k === 'note' && typeof e.att === 'string' && e.att.trim()) { // note rattachée (depuis le 19/11) : gardée ; son heure l'est si elle est lisible et après la création
+        o.att = e.att.slice(0, 5000);
+        var att0 = Number(e.attTs);
+        if (e.attTs != null && isFinite(att0) && att0 > ts && att0 < 4e12) o.attTs = att0;
+      }
+      if (k === 'note' && typeof e.ans === 'string' && e.ans.trim()) { // réponse à un questionnement (c2a3) : gardée ; son heure l'est si elle est lisible et après la création
+        o.ans = e.ans.slice(0, 5000);
+        var at = Number(e.ansTs);
+        if (e.ansTs != null && isFinite(at) && at > ts && at < 4e12) o.ansTs = at;
+      }
       return o;
     }
     if (k === 'pas') { // « Pas ce moment » : un moment du plan laissé de côté, avec un mot facultatif
@@ -1236,10 +1588,45 @@ function milestone(w) {
       if (e.memo) o.memo = true;
       return o;
     }
+    if (k === 'nuit') { // « Ma nuit » (depuis e5, 20/11) : qualité du sommeil, reposé, souvenir des rêves (4 niveaux), texte libre ; tout est facultatif mais au moins une réponse
+      var nsq = int(e.sq, 1, 5), nrs = int(e.rest, 1, 5), ndr = int(e.dream, 1, 4), ndt = typeof e.dtext === 'string' ? e.dtext.trim().slice(0, 1000) : '';
+      if (nsq === null && nrs === null && ndr === null && !ndt) return null;
+      if (nsq !== null) o.sq = nsq;
+      if (nrs !== null) o.rest = nrs;
+      if (ndr !== null) o.dream = ndr;
+      if (ndt) o.dtext = ndt;
+      return o;
+    }
     if (k === 'instant') { // un seul moment, sans fin : seul le nom et l'heure comptent
       var iname = typeof e.name === 'string' ? e.name.trim().slice(0, 40) : '';
       if (!iname) return null;
       o.name = iname;
+      if (isJoint(iname) && jtypeOk(e.jtype)) o.jtype = e.jtype; // type du joint (facultatif), seulement sur un instant « Joint »
+      return o;
+    }
+    if (k === 'creuxq') { // réponse « non » à la question du creux (F2) : le moment (R+6h / R+7h) et une note libre
+      var qs2 = int(e.slot, 0, PLAN.length - 1);
+      if (qs2 === null || !PLAN[qs2].q || e.ans !== 'non') return null;
+      o.slot = qs2; o.ans = 'non';
+      var qn = typeof e.note === 'string' ? e.note.trim().slice(0, 500) : '';
+      if (qn) o.note = qn;
+      return o;
+    }
+    if (k === 'creux') { // un creux (depuis le 09/11, f1) : un début, une fin déclarée « à peu près » (ou rien : en cours), l'origine et deux notes facultatives
+      var ce = e.end == null ? null : Number(e.end);
+      if (ce !== null && isFinite(ce) && ce >= ts) {
+        if (ce > ts + CREUX_MAX) { o.end = ts + CREUX_MAX; o.endAuto = true; } // plus de 4 h : coupé à 4 h
+        else { o.end = ce; if (e.endAuto === true) o.endAuto = true; }
+      } else o.end = null;
+      o.origin = e.origin === 'question' ? 'question' : 'libre';
+      if (o.origin === 'question') { // réponse « oui » à la question de R+6h / R+7h (F2) : le moment et l'heure de la réponse
+        var qsl = int(e.slot, 0, PLAN.length - 1), qat = Number(e.ansTs);
+        if (qsl !== null && PLAN[qsl].q) { o.slot = qsl; if (isFinite(qat) && Math.abs(qat - ts) <= 12 * 3600e3) o.ansTs = qat; }
+        else o.origin = 'libre';
+      }
+      var cn = typeof e.note === 'string' ? e.note.trim().slice(0, 500) : '', cen = typeof e.endNote === 'string' ? e.endNote.trim().slice(0, 500) : '';
+      if (cn) o.note = cn;
+      if (cen && o.end !== null) o.endNote = cen;
       return o;
     }
     if (k === 'activite') {
@@ -1264,6 +1651,19 @@ function milestone(w) {
     }
     o.slot = e.slot == null ? null : int(e.slot, 0, 99);
     o.plan = o.slot !== null && e.plan !== 'libre' ? 'prevu' : 'libre';
+    if (k === 'test' && e.plan === 'creux') { // F3 : test de fin de creux (ni « prévu » ni « libre »), avec le creux qu'il marque
+      o.slot = null; o.plan = 'creux';
+      var fcid = typeof e.cid === 'string' ? e.cid.slice(0, 40) : '';
+      if (fcid) o.cid = fcid;
+    }
+    if (k === 'releve' && Number(e.fv) === 3) { // depuis e5 : un relevé n'a que les questions de son moment (une seule à R+4h) ; au moins une réponse
+      var f3 = cleanFeel(e.feel, feelIds(FEEL3), true);
+      if (!f3) return null;
+      o.feel = f3; o.fv = 3;
+      var dt3 = typeof e.detail === 'string' ? e.detail.trim().slice(0, 500) : '';
+      if (dt3) o.detail = dt3;
+      return o;
+    }
     if (k === 'releve') {
       var f2 = cleanFeel(e.feel, ids5, false);
       if (!f2) return null;
@@ -1295,23 +1695,194 @@ function milestone(w) {
 
   /* ---------- État de l'écran ---------- */
   var screen = 'home';
+  var ret = 'home'; // e4c : écran où revient « Enregistrer » / « Annuler » d'un formulaire ouvert depuis l'Historique (« history »), sinon le Journal (« home »)
   var flow = newFlow();
   var form = null;          // formulaire en cours : activité, repas, coucher, modification
-  var noteText = '', noteTs = 0;
+  var noteText = '', noteTs = 0, noteSel = { id: '', sub: '', other: false, txt: '' }, noteFrom = ''; // noteFrom : identifiant de la note d'origine quand on crée « à partir de… » (depuis le 19/11, e2)
+  // Catégories de note (depuis le 19/11, évolution 1). Types de note : depuis le 08/11. Champ facultatif `ntype` (identifiants inchangés : questionnement, affirmation, todo, u:<nom>) ; '' = sans catégorie.
+  // `nsub` = sous-catégorie (texte libre, 30 caractères au plus) : la liste d'une catégorie = celles de départ + celles que des notes portent déjà. `att` (+ `attTs`) = note rattachée : son nom dépend de la catégorie (attLabel).
+  // Catégories et sous-catégories de départ : celles du classement manuel de l'utilisateur (« Feuille de route personnel », 19/11). Couleurs des pastilles : proposées par Claude ; encre foncée fixe pour garder le contraste en jour comme en nuit.
+  var NS_LEN = 30, INK = '#2A2140';
+  var NOTE_TYPES = [
+    { id: '', name: 'Sans catégorie', bg: 'var(--p-not,var(--card))', ink: 'var(--p-ink,var(--text))', hint: 'Une note non classée : tu pourras la ranger plus tard (Reflet → Notes → Sans catégorie).' },
+    { id: 'questionnement', name: 'Questionnement', bg: '#FFD6A8', ink: INK, hint: 'Une question que tu te poses sur toi ou sur la vie…', subs: ['Recherche', 'Perso', 'Perso (astre)'] },
+    { id: 'affirmation', name: 'Affirmation', bg: '#C9F0F7', ink: INK, hint: 'Une phrase qui te décrit, ou que tu choisis de te dire.', subs: ['Personnelle', 'Constat personnel', 'Règle'] },
+    { id: 'todo', name: 'To-do', bg: '#E4E0D4', ink: INK, hint: 'Une découverte sur toi à mettre en place, pas une corvée.', subs: ['Recherche internet', 'Vidéo', 'Personnel', 'Action', 'Action sur Kioo', 'Réflexion personnelle'] },
+    { id: 'constat', name: 'Constat', bg: '#D8E6B8', ink: INK, hint: 'Ce que tu observes sur toi, sur ta journée, sur les autres.' },
+    { id: 'idee', name: 'Idée', bg: '#FFF1B8', ink: INK, hint: 'Une idée à garder : un projet, une application, une histoire…' },
+    { id: 'reflexion', name: 'Réflexion isolée', bg: '#F5D0E6', ink: INK, hint: 'Une réflexion qui se suffit à elle-même.' },
+    { id: 'meditation', name: 'Méditation', bg: '#CBD5F4', ink: INK, hint: 'Ce que tu as vécu, visualisé ou ressenti en méditant.' },
+    { id: 'scenario', name: 'Scénario', bg: '#E6CFF5', ink: INK, hint: 'Une idée d’histoire, de film, de scène.' },
+    { id: 'trading', name: 'Trading', bg: '#BFE3D4', ink: INK, hint: 'Une note sur le trading.' },
+    { id: 'kioo', name: 'Kioo', bg: '#F7C9C0', ink: INK, hint: 'Une idée ou une remarque sur l’appli Kioo Cycle.' },
+    { id: 'az', name: 'A-Z', bg: '#D9D2C5', ink: INK, hint: 'Une note de ta liste A-Z.' },
+    { id: 'synchro', name: 'Synchronicité', bg: '#F2E2A8', ink: INK, hint: 'Un signe, une coïncidence, une heure miroir. Tradition symbolique : une lecture personnelle, pas une mesure.', subs: ['Heure miroir'] },
+    { id: 'diverse', name: 'Note diverse', bg: '#E3E3E3', ink: INK, hint: 'Une note qui ne va dans aucune autre catégorie.' }
+  ];
+  // Types libres (depuis le 08/11) : créés dans Réglages, un nom de 20 caractères au plus, 10 au plus, une seule couleur (lilas, proposée par Claude).
+  // Une note garde `ntype: 'u:<nom>'` : son type reste lisible même si le type est retiré de la liste, renommé ou absent d'un autre appareil.
+  // Depuis le 19/11 : un type libre qui porte le nom d'une catégorie de départ (« Constats », « idee »…) est cette catégorie, pas un doublon.
+  var NT_LEN = 20, NT_MAX = 10, NT_CUSTOM = { bg: '#E0D4FF', ink: INK };
+  function typeName(x) {
+    var n = typeof x === 'string' ? x.replace(/\s+/g, ' ').trim() : '';
+    return n && n.length <= NT_LEN && !/[\u0000-\u001f\u007f]/.test(n) ? n : '';
+  }
+  function catKey(n) { // « Constats », « constat » et « Constat » sont la même catégorie ; les accents et le pluriel ne comptent pas
+    var k = String(n).toLowerCase();
+    try { k = k.normalize('NFD').replace(/[̀-ͯ]/g, ''); } catch (e) {}
+    return k.replace(/[^a-z0-9]+/g, ' ').trim().replace(/s$/, '');
+  }
+  var CAT_ALIAS = { 'divers': 'diverse', 'note diverse': 'diverse', 'notes diverse': 'diverse', 'reflexion': 'reflexion', 'reflexion isolee': 'reflexion', 'todo': 'todo' };
+  function builtinByName(n) {
+    var k = catKey(n);
+    k = CAT_ALIAS[k] || k;
+    for (var i = 1; i < NOTE_TYPES.length; i++) if (NOTE_TYPES[i].id === k || catKey(NOTE_TYPES[i].name) === k) return NOTE_TYPES[i];
+    return null;
+  }
+  function typeReserved(n) { return !!builtinByName(n); }
+  function cleanTypeNames(a) {
+    var out = [];
+    (Array.isArray(a) ? a : []).forEach(function (x) {
+      var n = typeName(x), low = n.toLowerCase();
+      if (!n || typeReserved(n) || out.some(function (y) { return y.toLowerCase() === low; })) return;
+      out.push(n);
+    });
+    return out.slice(0, NT_MAX);
+  }
+  // Ajoute un type libre : 'ok', 'doublon', 'reserve' (c'est une catégorie de départ) ou 'pleine'.
+  function addTypeName(n) {
+    var low = n.toLowerCase();
+    if (typeReserved(n)) return 'reserve';
+    if (noteTypeNames.some(function (y) { return y.toLowerCase() === low; })) return 'doublon';
+    if (noteTypeNames.length >= NT_MAX) return 'pleine';
+    noteTypeNames.push(n);
+    return 'ok';
+  }
+  function noteTypeOf(id) {
+    for (var i = 1; i < NOTE_TYPES.length; i++) if (NOTE_TYPES[i].id === id) return NOTE_TYPES[i];
+    if (typeof id === 'string' && id.slice(0, 2) === 'u:') {
+      var n = typeName(id.slice(2));
+      if (n) {
+        var b = builtinByName(n);
+        if (b) return b;
+        return { id: 'u:' + n, name: n, bg: NT_CUSTOM.bg, ink: NT_CUSTOM.ink, hint: 'Une catégorie que tu as créée dans Réglages.', custom: true };
+      }
+    }
+    return NOTE_TYPES[0];
+  }
+  // Les catégories proposées : celles de départ, celles de Réglages, et celle de la note ouverte si elle a été retirée de la liste depuis (elle reste choisissable).
+  function noteTypeChoices(cur) {
+    var list = NOTE_TYPES.slice();
+    noteTypeNames.forEach(function (n) { list.push(noteTypeOf('u:' + n)); });
+    if (cur && !list.some(function (t) { return t.id === cur; })) list.push(noteTypeOf(cur));
+    return list;
+  }
+  function subClean(x) {
+    var n = typeof x === 'string' ? x.replace(/\s+/g, ' ').trim() : '';
+    return n && n.length <= NS_LEN && !/[\u0000-\u001f\u007f]/.test(n) ? n : '';
+  }
+  // Sous-catégories d'une catégorie : celles de départ, puis celles que des notes de cette catégorie portent déjà, puis celle de la note ouverte.
+  function subChoices(catId, cur) {
+    var t = noteTypeOf(catId), list = (t.subs || []).slice();
+    if (!t.id) return list;
+    entries.forEach(function (e) { if (e.kind === 'note' && e.nsub && noteTypeOf(e.ntype).id === t.id && list.indexOf(e.nsub) < 0) list.push(e.nsub); });
+    if (cur && list.indexOf(cur) < 0) list.push(cur);
+    return list;
+  }
+  function canonSub(catId, txt) { // « action » → « Action » si cette sous-catégorie existe déjà (majuscules ignorées)
+    var low = txt.toLowerCase(), hit = subChoices(catId, '').filter(function (s) { return s.toLowerCase() === low; })[0];
+    return hit || txt;
+  }
+  // Note rattachée (depuis le 19/11) : un champ texte par note, nommé comme la 3e colonne du classement de l'utilisateur ; `att` + `attTs` (heure de la première fois).
+  // Un questionnement a en plus sa « Réponse » (`ans`, depuis le 08/11).
+  function attLabel(id) { return id === 'affirmation' ? 'À écrire' : id === 'todo' ? 'Mise en place' : id === 'questionnement' ? 'Remarque' : 'Action / remarque'; }
+  function attHint(id) {
+    return id === 'affirmation' ? 'La phrase telle que tu veux l’écrire…' : id === 'todo' ? 'Comment tu l’as mise en place, ce que tu as fait…' :
+      id === 'questionnement' ? 'Une remarque, en plus de la réponse…' : 'Une action à faire, une remarque sur cette note…';
+  }
+  function attFilled(e) { return !!e && e.kind === 'note' && typeof e.att === 'string' && !!e.att.trim(); }
+  // État « fait » d'une note, pour le filtre de l'historique : questionnement répondu, to-do mise en place.
+  function doneOf(e) { return noteTypeOf(e.ntype).id === 'todo' ? attFilled(e) : ansAnswered(e); }
+  // Le choix en cours (catégorie + sous-catégorie) : celui de l'écran « Note libre » ou celui de « Modifier la note ».
+  function curSel() { return screen === 'note' ? noteSel : (form && form.type === 'edit' && form.kind === 'note' ? form.sel : null); }
+  function selSub(s) { return s && s.id ? (s.other ? canonSub(s.id, subClean(s.txt)) : (s.sub || '')) : ''; }
+  function noteSubBlock(sel) {
+    var c = noteTypeOf(sel.id), h = '';
+    if (c.id) {
+      h += '<div class="j-field"><label class="j-lab" for="f-sub">Sous-catégorie</label><select id="f-sub" class="j-sel" data-nt="sub"><option value="">Aucune</option>' +
+        subChoices(c.id, sel.other ? '' : sel.sub).map(function (s) { return '<option value="' + esc(s) + '"' + (!sel.other && sel.sub === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') +
+        '<option value="__other"' + (sel.other ? ' selected' : '') + '>Autre sous-catégorie…</option></select></div>';
+      if (sel.other) h += '<input id="f-subother" class="j-sel" type="text" maxlength="' + NS_LEN + '" data-nt="subother" placeholder="Nom de la sous-catégorie" aria-label="Nom de la nouvelle sous-catégorie" value="' + esc(sel.txt || '') + '">';
+    }
+    return h + '<p class="j-p" style="margin:0 5px">' + esc(c.hint) + '</p>';
+  }
+  function noteTypeBlock(sel) {
+    var c = noteTypeOf(sel.id);
+    return '<div class="j-field"><label class="j-lab" for="f-cat">Catégorie</label><select id="f-cat" class="j-sel" data-nt="cat">' +
+      noteTypeChoices(c.id).map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === c.id ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('') +
+      '</select></div><div id="j-ntsub" class="j-nt">' + noteSubBlock(sel) + '</div>';
+  }
+  // Rubrique « Réponse » de « Modifier la note » : visible pour un Questionnement, ou tant qu'une réponse existe (on ne cache jamais une réponse écrite).
+  var ANS_COL = { bg: '#C8EBD2', ink: '#14301F', bar: '#6BBF8A' };
+  function ansBlock() {
+    if (!form || form.kind !== 'note') return '';
+    if (noteTypeOf(form.sel.id).id !== 'questionnement' && !(form.ans || '').trim()) return '';
+    var ne = entries.filter(function (x) { return x.id === form.id; })[0];
+    var has = ansAnswered(ne) && typeof ne.ansTs === 'number' && ne.ansTs > ne.ts;
+    return '<div class="j-field"><label class="j-lab" for="f-ans">Réponse</label>' +
+      '<textarea id="f-ans" class="j-ta mid" data-field="ans" maxlength="5000" placeholder="Ta réponse à cette question…">' + esc(form.ans || '') + '</textarea>' +
+      '<span class="j-fhint">' + (has ? 'Répondu le ' + esc(whenText(ne.ansTs)) + ' (' + esc(delayText(ne.ansTs - ne.ts)) + '). L’heure de la réponse ne change pas.' : 'L’heure à laquelle tu réponds est notée, avec le délai depuis la question.') + '</span></div>';
+  }
+  // Rubrique de la note rattachée : son nom suit la catégorie choisie (À écrire, Mise en place, Remarque, Action / remarque).
+  function attBlock() {
+    if (!form || form.kind !== 'note') return '';
+    var cid = noteTypeOf(form.sel.id).id, ne = entries.filter(function (x) { return x.id === form.id; })[0];
+    var has = attFilled(ne) && typeof ne.attTs === 'number' && ne.attTs > ne.ts;
+    return '<div class="j-field"><label class="j-lab" for="f-att">' + esc(attLabel(cid)) + '</label>' +
+      '<textarea id="f-att" class="j-ta mid" data-field="att" maxlength="5000" placeholder="' + esc(attHint(cid)) + '">' + esc(form.att || '') + '</textarea>' +
+      '<span class="j-fhint">' + (has ? 'Ajouté le ' + esc(whenText(ne.attTs)) + ' (' + esc(delayText(ne.attTs - ne.ts)) + '). L’heure d’ajout ne change pas.' : 'L’heure à laquelle tu l’ajoutes est notée.') + '</span></div>';
+  }
+  // Choix d'une catégorie : sur l'écran « Note libre » ou « Modifier la note ». On ne redessine que ce qui dépend d'elle (sous-catégories, réponse, note rattachée) : le texte tapé et le clavier restent.
+  function setNoteType(id) {
+    var s = curSel();
+    if (!s) return;
+    var c = noteTypeOf(id).id;
+    if (c !== s.id) { s.id = c; s.sub = ''; s.other = false; s.txt = ''; }
+    var sb = $('j-ntsub'); if (sb) sb.innerHTML = noteSubBlock(s);
+    if (screen !== 'note') {
+      var ab = $('j-ans'); if (ab) ab.innerHTML = ansBlock(); // la rubrique « Réponse » apparaît avec « Questionnement »
+      var tb = $('j-att'); if (tb) tb.innerHTML = attBlock(); // le nom de la note rattachée suit la catégorie
+      var gb = $('f-go'); if (gb) gb.disabled = !formValid();
+    }
+  }
+  function setNoteSub(v) {
+    var s = curSel();
+    if (!s) return;
+    if (v === '__other') { s.other = true; s.sub = ''; } else { s.other = false; s.sub = v; s.txt = ''; }
+    var sb = $('j-ntsub'); if (sb) sb.innerHTML = noteSubBlock(s);
+    var f = $(s.other ? 'f-subother' : 'f-sub'); if (f) f.focus({ preventScroll: true });
+    if (screen !== 'note') { var gb = $('f-go'); if (gb) gb.disabled = !formValid(); }
+  }
+  function setNoteSubText(v) {
+    var s = curSel();
+    if (!s) return;
+    s.txt = v;
+    if (screen !== 'note') { var gb = $('f-go'); if (gb) gb.disabled = !formValid(); }
+  }
   var pendingDel = null, notice = '';
   var backupStatus = '';
-  var rem = { moments: true, phases: false, days: 1 }, remStatus = '';
+  var rem = { moments: true, phases: false, backups: true, days: 1 }, remStatus = '';
   var restore = null, restoreError = '';
-  var setDraft = { act: '', inst: '' }, setNotice = ''; // Réglages : texte en cours de saisie, message
+  var setDraft = { act: '', inst: '', nt: '' }, setNotice = '', setNoticeIn = ''; // Réglages : texte en cours de saisie, message
 
   function newFlow(o) {
     o = o || {};
-    return { mode: o.mode || 'releve', test: o.test || 'pvt', slot: o.slot == null ? null : o.slot, feel: {}, detail: '', feelTs: 0, ts: 0, wake: 0, result: null,
-             tMode: 'test', prac: null, chain: null, chainMsg: '' };
+    return { mode: o.mode || 'releve', test: o.test || 'pvt', slot: o.slot == null ? null : o.slot, qs: o.qs || '', thought: '', feel: {}, detail: '', feelTs: 0, ts: 0, wake: 0, result: null,
+             tMode: 'test', prac: null, chain: null, chainMsg: '', fin: o.fin || '', finMsg: o.finMsg || '', finDone: o.finDone || '' };
   }
 
   /* ---------- Aujourd'hui : moments du plan ---------- */
-  // Quand le recueil est en cours (plan « run »), les 7 moments de test du plan sont des moments ENCHAÎNÉS : le PVT-B (selon l'étape),
+  // Quand le recueil est en cours (plan « run »), les moments de test du plan (7 avant le 21/11/2026, 5 depuis) sont des moments ENCHAÎNÉS : le PVT-B (selon l'étape),
   // puis 2 tests dans l'ordre du jour (PL.testOrder). Avant le premier jour et après la fin, un moment garde son rôle d'avant (PVT-B seul).
   // Fenêtre : le moment doit être COMMENCÉ dans sa fenêtre (−10 / +30 min) ; une fois commencé, l'enchaînement peut la dépasser (choix de Claude, À ajuster).
   var STEP_NAME = { pvt: 'PVT-B', rs: 'Rotation span', fl: 'Flanker', hs: 'Hand Swype', ml: 'Memory List', ss: 'Symbol Search' };
@@ -1319,8 +1890,14 @@ function milestone(w) {
   function stepsText(list) { return list.map(function (t) { return STEP_NAME[t]; }).join(' · '); }
 
   function todayInfo() {
-    var now = new Date(), wake = L.getWake(), tk = dayKey(now.getTime(), wake), done = {}, skip = {};
+    var now = new Date(), wake = L.getWake(), tk = dayKey(now.getTime(), wake), done = {}, skip = {}, qa = {};
     entries.forEach(function (e) {
+      if (e.kind === 'creuxq' || (e.kind === 'creux' && (e.origin === 'question' || creuxFreeSlot(e) >= 0))) { // F2 : réponse à la question du creux ; B : un creux libre commencé dans la fenêtre compte comme « oui »
+        var free = e.kind === 'creux' && e.origin !== 'question', qsl = free ? creuxFreeSlot(e) : e.slot, qans = e.kind === 'creux' ? 'oui' : 'non';
+        var qat = e.kind === 'creux' ? (free ? e.ts : (e.ansTs || e.ts)) : e.ts, cur = qsl != null ? qa[qsl] : null; // « oui » l'emporte sur « non » ; à réponse égale, la plus ancienne du jour compte
+        if (qsl != null && dayKey(qat, e.wake) === tk && (!cur || (qans === 'oui' && cur.ans === 'non') || (qans === cur.ans && qat < cur.ts))) qa[qsl] = { ts: qat, ans: qans, e: e, free: free };
+        return;
+      }
       if (e.day !== tk || e.slot == null) return;
       if (e.kind === 'pas') { if (!skip[e.slot] || e.ts > skip[e.slot].ts) skip[e.slot] = e; return; }
       if (e.kind !== 'releve' && e.kind !== 'test') return;
@@ -1328,13 +1905,25 @@ function milestone(w) {
       if (e.test) { if (!d.tests[e.test] || e.ts < d.tests[e.test].ts) d.tests[e.test] = e; return; } // les autres tests ne comptent que dans un moment enchaîné
       if (!d[e.kind] || e.ts < d[e.kind].ts) d[e.kind] = e;
     });
-    return { now: now, wake: wake, tk: tk, rel: L.mod(minOf(now) - wake), done: done, skip: skip };
+    return { now: now, wake: wake, tk: tk, rel: L.mod(minOf(now) - wake), done: done, skip: skip, qa: qa };
   }
   function slotStates(info) {
     var open = -1, next = -1, ps = pState(info.tk), pd = ps.s === 'run' ? pDay(ps.i, info.tk) : null;
     var list = PLAN.map(function (m, i) {
+      if (m.off) return { kind: 'off', status: '', off: true, needR: false, needT: false, part: false, chain: null, skip: null, canNote: false, win: '', at: '', endAt: '' }; // e4b : moment retiré du plan (R+7h)
+      var qp = null; // la question du creux de ce moment (s'il y en a une)
+      if (isQ(m)) { // F2 : question du creux. Répondue = « fait » ; creux déjà ouvert à l'heure prévue = la question devient « ton creux est-il terminé ? » (carte du creux) ; sinon elle reste ouverte jusqu'à la réponse
+        var qa1 = info.qa[i] || null, qs = m.r - WIN.before, qe = m.r + WIN.after, qcov = qa1 ? null : creuxAt(plannedTs(info.tk, info.wake, m.r)), qk, qst;
+        if (qa1) { qk = 'done'; qst = (qa1.ans === 'oui' ? 'Oui' : 'Non') + ' · ' + clockOf(qa1.ts); }
+        else if (qcov) { qk = 'done'; qst = 'Creux en cours à l’heure prévue'; }
+        else if (info.rel >= qs) { qk = 'open'; qst = info.rel <= qe ? 'À répondre' : 'En attente'; }
+        else { qk = 'soon'; qst = 'À venir'; if (!isQT(m) && next < 0) next = i; }
+        qp = { kind: qk, status: qst, qpend: qk === 'open', freeQ: !!(qa1 && qa1.free) };
+        if (!isQT(m)) return { kind: qk, status: qst, q: true, qpend: qp.qpend, freeQ: qp.freeQ, needR: false, needT: false, part: false, chain: null, skip: null, canNote: false,
+                 win: L.fmt(info.wake + qs) + ' – ' + L.fmt(info.wake + qe), at: L.fmtClock(info.wake + m.r), endAt: L.fmt(info.wake + qe) };
+      }
       var d = info.done[i] || { tests: {} }, sk = info.skip[i] || null, s = m.r - WIN.before, e = m.r + WIN.after, kind, status;
-      var ti = pd ? TI_SLOT.indexOf(i) : -1, ch = null, part, needR, needT, last;
+      var ti = pd ? pd.slots.indexOf(i) : -1, ch = null, part, needR, needT, last;
       if (ti >= 0) {
         var mo = pd.moments[ti], steps = (mo.pvt ? ['pvt'] : []).concat(mo.tests.map(function (t) { return t.toLowerCase(); }));
         var todo = steps.filter(function (t) { return !(t === 'pvt' ? d.test : d.tests[t]); });
@@ -1355,8 +1944,13 @@ function milestone(w) {
       }
       else if (info.rel > e) { kind = 'past'; status = part ? 'Incomplet' : 'Passé'; }
       else { kind = 'soon'; status = 'À venir'; if (next < 0) next = i; }
-      return { kind: kind, status: status, needR: needR, needT: needT, part: part, chain: ch, skip: sk, canNote: kind === 'past' && !!ch && !sk,
-               win: L.fmt(info.wake + s) + ' – ' + L.fmt(info.wake + e), at: L.fmtClock(info.wake + m.r), endAt: L.fmt(info.wake + e) };
+      var out = { kind: kind, status: status, needR: needR, needT: needT, part: part, chain: ch, skip: sk, canNote: kind === 'past' && !!ch && !sk,
+                  win: L.fmt(info.wake + s) + ' – ' + L.fmt(info.wake + e), at: L.fmtClock(info.wake + m.r), endAt: L.fmt(info.wake + e) };
+      if (qp) { // e4b, R+5h : la question puis le test. Le moment n'est « fait » que si les deux le sont ; la question a sa propre carte (qpend), le test garde la sienne.
+        out.qt = true; out.qk = qp.kind; out.qst = qp.status; out.qpend = qp.qpend; out.freeQ = qp.freeQ;
+        if (kind === 'done' && qp.kind !== 'done') { out.kind = qp.kind; out.status = qp.status; }
+      }
+      return out;
     });
     return { list: list, open: open, next: next };
   }
@@ -1385,11 +1979,18 @@ function milestone(w) {
     return f && v ? f.opts[v - 1] : '';
   }
   // « Corps : … · Esprit : … » (relevés complets)
-  function feelWords(f, legacy) {
+  function feelWords(f, legacy) { // relevés d'avant e5 (fv 1 et 2) : l'ancien « Moral » est nommé « Moral (ancienne question) » et reste à part
     var t = function (id) { return optText(id, f[id], legacy); };
     var corps = (legacy ? ['confort', 'energie'] : ['eveil', 'energie', 'confort']).map(t).filter(Boolean).join(', ');
-    var esprit = ['moral', 'agitation'].map(t).filter(Boolean).join(', ');
-    return 'Corps : ' + corps + ' · Esprit : ' + esprit;
+    return 'Corps : ' + corps + ' · Esprit : ' + t('agitation') + ' · Moral (ancienne question) : ' + t('moral');
+  }
+  // Relevés depuis e5 (fv 3) : seulement les réponses données, chacune avec le nom de sa question (« Humeur de fond : Bonne »)
+  function optText3(id, v) { var d = feel3Def(id); return d && v ? d.opts[v - 1] || '' : ''; }
+  function feelWords3(f) {
+    var corps = ['eveil', 'energie', 'confort'].map(function (id) { return optText3(id, f[id]); }).filter(Boolean).join(', ');
+    var rows = corps ? ['Corps : ' + corps] : [];
+    ['humeur', 'niaque', 'agitation'].forEach(function (id) { if (f[id]) rows.push(feel3Def(id).label + ' : ' + optText3(id, f[id])); });
+    return rows.join(' · ');
   }
   // « Éveil Éveillé · Moral Bien » (ressentis partiels des activités)
   function feelShort(f) {
@@ -1404,11 +2005,12 @@ function milestone(w) {
     a = a || {}; b = b || {};
     return FEEL.every(function (f) { return (a[f.id] || 0) === (b[f.id] || 0); });
   }
-  function feelComplete() { return FEEL.every(function (f) { return flow.feel[f.id]; }); }
+  function feelComplete() { return qsetOf(flow).every(function (id) { return flow.feel[id]; }); }
 
   /* ---------- Historique ---------- */
-  var KIND_LABEL = { releve: 'Relevé', test: 'Test', note: 'Note', activite: 'Activité', repas: 'Repas', coucher: 'Coucher', pas: 'Pas ce moment', instant: 'Instant' };
+  var KIND_LABEL = { releve: 'Relevé', test: 'Test', note: 'Note', activite: 'Activité', creux: 'Creux', creuxq: 'Question du creux', repas: 'Repas', coucher: 'Coucher', pas: 'Pas ce moment', instant: 'Instant', nuit: 'Nuit' };
   function planTxt(e) {
+    if (e.plan === 'creux') return 'fin de creux';
     if (e.plan !== 'prevu') return 'libre';
     var m = PLAN[e.slot];
     return 'prévu' + (m ? ' · ' + rLabel(m.r) : '') + (e.pj && PL.isRodage(e.pj.d) ? ' · rodage' : '');
@@ -1419,16 +2021,78 @@ function milestone(w) {
                : 'Temps au lit : connu après ton prochain réveil' + (c.memo ? ' · noté de mémoire' : '');
   }
 
-  function histCard(e, today, full) {
-    var ph = phaseAt(e.rel), line = '', body = '', kindTxt = KIND_LABEL[e.kind], editable = false, nowMs = Date.now();
+  /* Liens entre notes (depuis le 19/11, e2) : `from` = identifiant de la note d'origine, posé à la création (« Créer à partir de… »). Le lien inverse n'est PAS écrit :
+     on le retrouve en cherchant les notes dont `from` est celle-ci (rien n'est ajouté à la note d'origine). */
+  var lkIdx = null; // { byId, kids } : construit à chaque dessin de l'historique, jamais gardé
+  function lkBuild() {
+    var byId = {}, kids = {};
+    entries.forEach(function (x) { if (x.kind === 'note') byId[x.id] = x; });
+    entries.forEach(function (x) { if (x.kind === 'note' && typeof x.from === 'string' && x.from && x.from !== x.id) (kids[x.from] = kids[x.from] || []).push(x); });
+    return { byId: byId, kids: kids };
+  }
+  function lkExcerpt(t) { var q = String(t || '').replace(/\s+/g, ' ').trim(); return q.length > 80 ? q.slice(0, 79).trim() + '…' : q; }
+  function lkName(o) { var c = noteTypeOf(o.ntype); return c.id ? c.name + (o.nsub ? ' · ' + o.nsub : '') : 'Note'; }
+  function lkItem(o) {
+    return '<div class="lkr"><span class="lkc">' + esc(lkName(o)) + '</span><span class="lkt">« ' + esc(lkExcerpt(o.text)) + ' »</span>' +
+      '<button type="button" class="j-link" data-act="link-go" data-id="' + esc(o.id) + '" aria-label="Voir la note : ' + esc(lkExcerpt(o.text)) + '">Voir</button></div>';
+  }
+  function lkBlock(e) {
+    if (!lkIdx || e.kind !== 'note') return '';
+    var h = '';
+    if (typeof e.from === 'string' && e.from && e.from !== e.id) {
+      var o = lkIdx.byId[e.from];
+      h += '<div class="ans lnk"><div class="alab">Créée à partir de</div>' + (o ? lkItem(o) : '<div class="body">une note qui n’existe plus</div>') + '</div>';
+    }
+    var ks = (lkIdx.kids[e.id] || []).slice().sort(function (a, b) { return a.ts - b.ts; });
+    if (ks.length) h += '<div class="ans lnk"><div class="alab">À l’origine de</div>' + ks.slice(0, 5).map(lkItem).join('') +
+      (ks.length > 5 ? '<div class="body">et ' + (ks.length - 5) + ' autre' + (ks.length - 5 > 1 ? 's' : '') + '</div>' : '') + '</div>';
+    return h;
+  }
+  /* « Ma nuit » (e5) : le coucher du soir d'avant (jour précédent du réveil) et, s'il y en a un, le dernier instant « Joint » avant ce coucher (12 h au plus avant) : deux faits notés, rien n'est interprété. */
+  function bedOfNight(e) {
+    var prev = addDays(e.day, -1), best = null;
+    entries.forEach(function (x) { if (x.kind === 'coucher' && x.day === prev && (!best || x.ts > best.ts)) best = x; });
+    return best;
+  }
+  function jointBefore(ts) {
+    for (var i = entries.length - 1; i >= 0; i--) { var x = entries[i]; if (x.kind === 'instant' && isJoint(x.name) && x.ts < ts && ts - x.ts <= 12 * 3600e3) return x; }
+    return null;
+  }
+  function nightRows(e) {
+    var rows = [], c = bedOfNight(e);
+    if (e.dream) rows.push('Rêves : ' + nightOpt('dream', e.dream));
+    if (c) {
+      rows.push('Coucher ' + clockOf(c.ts) + ' · ' + bedText(c));
+      var j = jointBefore(c.ts);
+      if (j) rows.push('Dernier joint avant le coucher : ' + clockOf(j.ts) + ' (' + durText((c.ts - j.ts) / 60000) + ' avant' + (jtypeOk(j.jtype) ? ' · ' + jtLabel(j.jtype) : '') + ')');
+    }
+    return rows;
+  }
+  function histCard(e, today, full, mode) {
+    var ph = phaseAt(e.rel), line = '', body = '', kindTxt = KIND_LABEL[e.kind], kindSty = '', editable = false, nowMs = Date.now();
     if (e.kind === 'note') {
-      line = ph.name; body = '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.text) + '</div>';
+      line = ph.name; editable = true;
+      var cid = noteTypeOf(e.ntype).id, subTxt = cid && e.nsub ? ' · ' + e.nsub : '';
+      if (cid) { var nty = noteTypeOf(e.ntype); kindTxt = nty.name + subTxt; kindSty = 'background:' + nty.bg + ';color:' + nty.ink; }
+      var answered = ansAnswered(e), attd = attFilled(e);
+      if (answered && cid === 'questionnement') { kindTxt = 'Questionnement' + subTxt + ' · répondu\u00a0✓'; kindSty = 'background:' + ANS_COL.bg + ';color:' + ANS_COL.ink; } // texte ET couleur : lisible sans la couleur
+      else if (attd && cid === 'todo') { kindTxt = 'To-do' + subTxt + ' · mis en place\u00a0✓'; kindSty = 'background:' + ANS_COL.bg + ';color:' + ANS_COL.ink; }
+      body = '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.text) + '</div>' +
+        (answered ? '<div class="ans"><div class="alab">Réponse</div><div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.ans) + '</div></div>' : '') +
+        (attd ? '<div class="ans att"><div class="alab">' + esc(attLabel(cid)) + '</div><div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.att) + '</div></div>' : '') +
+        (full ? lkBlock(e) : '') +
+        (full ? '<div class="meta">' + esc(noteDates(e)) + '</div>' : '');
     } else if (e.kind === 'repas') {
       line = ph.name; body = '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.text) + '</div>'; editable = true;
     } else if (e.kind === 'coucher') {
       line = 'Coucher'; body = '<div class="body">' + esc(bedText(e)) + '</div>'; editable = true;
+    } else if (e.kind === 'nuit') { // « Ma nuit » : ressenti déclaré, rien de mesuré
+      editable = true;
+      line = ['sq', 'rest'].filter(function (id) { return e[id]; }).map(function (id) { return NIGHT_Q.filter(function (q) { return q.id === id; })[0].label + ' : ' + nightOpt(id, e[id]); }).join(' · ') || 'Rêves';
+      body = nightRows(e).map(function (t) { return '<div class="body">' + esc(t) + '</div>'; }).join('') +
+        (e.dtext ? '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.dtext) + '</div>' : '');
     } else if (e.kind === 'instant') {
-      line = e.name; editable = true;
+      line = e.name + (jtypeOk(e.jtype) ? ' · ' + jtLabel(e.jtype) : ''); editable = true;
     } else if (e.kind === 'activite') {
       editable = true;
       var endTxt = e.end == null ? 'en cours depuis ' + durText((nowMs - e.ts) / 60000) : clockOf(e.end) + ' (' + durText((e.end - e.ts) / 60000) + ')';
@@ -1436,6 +2100,17 @@ function milestone(w) {
       body = (e.comment ? '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.comment) + '</div>' : '') +
         (e.feelStart ? '<div class="body">Début : ' + esc(feelShort(e.feelStart)) + (e.feelStartLate ? ' (noté après coup)' : '') + '</div>' : '') +
         (e.feelEnd ? '<div class="body">Fin : ' + esc(feelShort(e.feelEnd)) + (e.feelEndLate ? ' (noté après coup)' : '') + '</div>' : '');
+    } else if (e.kind === 'creux') {
+      editable = true;
+      line = 'Début ' + clockOf(e.ts) + (e.end == null ? ' · en cours depuis ' + durText((nowMs - e.ts) / 60000) : ' → fin ' + clockOf(e.end) + ' (' + durText((e.end - e.ts) / 60000) + ')');
+      body = '<div class="body">Début : ' + esc(creuxOriginTxt(e)) + '</div>' +
+        (e.note ? '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.note) + '</div>' : '') +
+        (e.end != null ? '<div class="body">' + (e.endAuto ? 'Fin automatique : le creux n’avait pas été terminé (4 h au maximum)' : 'Fin déclarée, à peu près') + '</div>' + (e.endNote ? '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.endNote) + '</div>' : '') : '');
+    } else if (e.kind === 'creuxq') {
+      var qm = PLAN[e.slot];
+      line = 'Réponse « non » · question de ' + (qm ? rLabel(qm.r) : 'R+5h / R+6h');
+      body = '<div class="body">' + (qm ? (qLate(e) ? 'Réponse tardive : donnée hors de la fenêtre du moment (prévu à ' + L.fmtClock(e.wake + qm.r) + ')' : 'Dans la fenêtre du moment (prévu à ' + L.fmtClock(e.wake + qm.r) + ')') : 'Pas de creux') + '</div>' +
+        (e.note ? '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.note) + '</div>' : '');
     } else if (e.kind === 'pas') {
       var pm = PLAN[e.slot];
       line = ph.name + (pm ? ' · ' + rLabel(pm.r) : '');
@@ -1463,9 +2138,13 @@ function milestone(w) {
       kindTxt = 'Relevé + test';
     } else {
       line = ph.name;
-      body = '<div class="body">' + esc(feelWords(e.feel, e.fv !== 2)) + '</div>' +
+      body = '<div class="body">' + esc(e.fv === 3 ? feelWords3(e.feel) : feelWords(e.feel, e.fv !== 2)) + '</div>' +
         (e.detail ? '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.detail) + '</div>' : '');
       kindTxt = 'Relevé · ' + planTxt(e);
+    }
+    if (mode === 'last') { // e4c : « Dernier test » sur le Journal : un bouton à deux lignes qui ouvre l'Historique sur les tests
+      return '<button type="button" class="j-h j-lastt" data-k="test" data-act="last-tests" aria-label="Dernier test : ' + esc(kindTxt + ', ' + dayText(e.day, today) + ' à ' + clockOf(e.ts) + ', ' + line) + '. Ouvrir les tests dans Reflet"><span class="r1"><span class="when">' + esc(dayText(e.day, today)) + ' · ' + clockOf(e.ts) + '</span><span class="kind">' +
+        esc(kindTxt) + '</span></span><span class="r2"><span class="dot" style="background:' + ph.color + '"></span><span>' + esc(line) + '</span></span><span class="j-more">Tous les tests ' + ICON_CHEV + '</span></button>';
     }
     var act = '';
     if (full) {
@@ -1473,12 +2152,13 @@ function milestone(w) {
         ? '<div class="act"><span class="j-confirm">Supprimer pour de bon ?</span>' +
           '<button type="button" class="j-link danger" data-act="del-yes" data-id="' + esc(e.id) + '">Oui, supprimer</button>' +
           '<button type="button" class="j-link" data-act="del-no">Annuler</button></div>'
-        : '<div class="act">' + (editable ? '<button type="button" class="j-link" data-act="edit" data-id="' + esc(e.id) + '">Modifier</button>' : '') +
+        : '<div class="act">' + (e.kind === 'note' ? '<button type="button" class="j-link" data-act="note-from" data-id="' + esc(e.id) + '" aria-label="Créer une note à partir de cette note">Créer à partir de…</button>' : '') +
+          (editable ? '<button type="button" class="j-link" data-act="edit" data-id="' + esc(e.id) + '">Modifier</button>' : '') +
           '<button type="button" class="j-link" data-act="del" data-id="' + esc(e.id) + '">Supprimer</button></div>';
     }
     // couleur de la carte (comme la touche qui l'a créée) ; « pas ce moment » : aucune ; ancien relevé combiné : celle du relevé
     var kc = e.kind === 'test' || e.test ? 'test' : e.kind === 'pas' ? '' : e.pvt ? 'releve' : e.kind;
-    return '<div class="j-h"' + (kc ? ' data-k="' + kc + '"' : '') + '><div class="r1"><span class="when">' + esc(dayText(e.day, today)) + ' · ' + clockOf(e.ts) + '</span><span class="kind">' +
+    return '<div class="j-h" data-eid="' + esc(e.id) + '"' + (kc ? ' data-k="' + kc + '"' : '') + '><div class="r1"><span class="when">' + esc(dayText(e.day, today)) + ' · ' + clockOf(e.ts) + '</span><span class="kind' + (kindSty ? ' nt" style="' + kindSty : '') + '">' +
       esc(kindTxt) + '</span></div><div class="r2"><span class="dot" style="background:' + ph.color + '"></span><span>' + esc(line) +
       '</span></div>' + body + act + '</div>';
   }
@@ -1490,8 +2170,8 @@ function milestone(w) {
   var KEY_PLAN = 'luna.plan';
   var pcfg = { start: null, seed: 0, stages: [] };
   var psel = null, pform = null, pnotice = '';
-  var TI_SLOT = PL.TEST_R.map(function (h) { for (var i = 0; i < PLAN.length; i++) if (PLAN[i].r === h * 60) return i; return -1; }); // moment de test -> moment du plan existant
-  var STAGE_TXT = { 1: 'PVT-B aux 7 moments', 2: 'PVT-B à R+2h + 2 moments qui tournent', 3: 'PVT-B à R+2h seulement' };
+  function tiSlots(v) { return PL.tbl(v).TEST_R.map(function (h) { for (var i = 0; i < PLAN.length; i++) if (PLAN[i].r === h * 60) return i; return -1; }); } // moment de test -> moment du plan existant (v : 7 avant le 21/11/2026, 5 depuis)
+  function stageTxt(s) { return s === 1 ? 'PVT-B aux ' + PL.TEST_R.length + ' moments' : s === 2 ? 'PVT-B à R+2h + 2 moments qui tournent' : 'PVT-B à R+2h seulement'; }
 
   function pValidDate(v) {
     var d = typeof v === 'string' ? PL.parseISO(v) : null;
@@ -1551,10 +2231,11 @@ function milestone(w) {
   }
   function pDay(i, tk) { // tout ce qu'il faut pour afficher le jour i du plan
     var key = pcfg.start ? PL.isoOf(PL.addDays(PL.parseISO(pcfg.start), i)) : null;
-    var st = pStageOn(key || tk), p = PL.planForDay(i, pcfg.seed), pv = PL.pvtMoments(p, st);
-    return { i: i, key: key, plan: p, stage: st, week: PL.weekOf(i), rodage: PL.isRodage(i), sec: PL.daySec(p, st),
-      moments: PL.TEST_R.map(function (h, ti) {
-        return { ti: ti, slot: TI_SLOT[ti], r: h * 60, pvt: pv.indexOf(ti) >= 0, tests: PL.testOrder(i, ti, p, pcfg.seed), sec: PL.momentSec(p, ti, st) };
+    var v = PL.ver(key), tb = PL.tbl(v), sl = tiSlots(v); // e4d : un jour avant le 21/11/2026 garde son plan à 7 moments
+    var st = pStageOn(key || tk), p = PL.planForDay(i, pcfg.seed), pv = PL.pvtMoments(p, st, v);
+    return { i: i, key: key, plan: p, stage: st, v: v, week: PL.weekOf(i), rodage: PL.isRodage(i), sec: PL.daySec(p, st, v), slots: sl,
+      moments: tb.TEST_R.map(function (h, ti) {
+        return { ti: ti, slot: sl[ti], r: h * 60, pvt: pv.indexOf(ti) >= 0, tests: PL.testOrder(i, ti, p, pcfg.seed, v), sec: PL.momentSec(p, ti, st, v) };
       }) };
   }
   function pDateText(key, long) {
@@ -1582,7 +2263,7 @@ function milestone(w) {
     }
     var d = pDay(ps.i, info.tk);
     return '<div class="j-now">' + kick + '<div class="t1">Jour ' + (ps.i + 1) + ' sur ' + PL.NDAYS + ' · semaine ' + d.week + (d.rodage ? ' · rodage' : '') + '</div>' +
-      '<div class="t2">Plan de journée ' + (d.plan + 1) + ' sur 7 · 7 moments de test · ' + pDur(d.sec) + ' en tout</div>' + btn('Voir la journée') + '</div>';
+      '<div class="t2">Plan de journée ' + (d.plan + 1) + ' sur 7 · ' + d.moments.length + ' moments de test · ' + pDur(d.sec) + ' en tout</div>' + btn('Voir la journée') + '</div>';
   }
 
   // Écran « Plan des tests » : la journée choisie (aujourd'hui par défaut)
@@ -1604,6 +2285,7 @@ function milestone(w) {
         '<div class="pl-b"><span class="pl-n">' + esc(PLAN[m.slot].name) + '</span><span class="pl-seq">' + seq.join(' ') + '</span></div>' +
         '<div class="pl-d">' + pDur(m.sec) + '</div></li>';
     }).join('');
+    if (d.v === 7 && d.key) state += (state ? ' ' : '') + 'Ce jour suit le plan à 7 moments (jusqu’au ' + pDayMonth(PL.isoOf(PL.addDays(PL.parseISO(PL.FROM5), -1))) + '). Depuis le ' + pDayMonth(PL.FROM5) + ', il n’y a plus de test après R+8h : R+10h et R+11h sont des relevés seuls.';
     return (state ? '<p class="j-p">' + esc(state) + '</p>' : '') +
       '<div class="pl-nav"><button type="button" class="btn secondary" data-act="pl-prev" aria-label="Jour précédent"' + (i <= 0 ? ' disabled' : '') + '>' + ICON_BACK + '</button>' +
       '<div class="pl-navc"><b>' + esc(label) + '</b><span>' + esc(sub) + '</span></div>' +
@@ -1664,7 +2346,7 @@ function milestone(w) {
     var f = pform, si = pStartInfo(), gi = pStageInfo(tk);
     var opts = [1, 2, 3].map(function (s) { return '<option value="' + s + '"' + (f.stage === s ? ' selected' : '') + '>Étape ' + s + '</option>'; }).join('');
     var list = '<ul class="pl-stages">' + [1, 2, 3].map(function (s) {
-      return '<li><b>Étape ' + s + '</b> · ' + STAGE_TXT[s] + ' · ≈ ' + PL.fmtMin(PL.avgDaySec(s)) + ' par jour</li>';
+      return '<li><b>Étape ' + s + '</b> · ' + stageTxt(s) + ' · ≈ ' + PL.fmtMin(PL.avgDaySec(s, 5)) + ' par jour</li>';
     }).join('') + '</ul>';
     return '<div class="pl-setbody">' +
       '<div class="j-field"><label class="j-lab" for="pl-start">Premier jour du recueil</label>' +
@@ -1689,7 +2371,7 @@ function milestone(w) {
     return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
       '<div class="titlerow"><h1 tabindex="-1">Plan des tests</h1>' +
       '<label class="wake">Réveil <input class="wake-input" type="time" aria-label="Heure de réveil" required></label></div>' +
-      '<p class="sub">' + (PL.NDAYS / 7) + ' semaines · 7 moments de test par jour</p></header>' +
+      '<p class="sub">' + (PL.NDAYS / 7) + ' semaines · ' + PL.TEST_R.length + ' moments de test par jour' + (pcfg.start && pcfg.start < PL.FROM5 ? ' (7 avant le ' + pDayMonth(PL.FROM5) + ')' : '') + '</p></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       (pnotice ? '<p class="j-ok" role="status">' + esc(pnotice) + '</p>' : '') +
       '<div id="pl-top" style="display:flex;flex-direction:column;gap:12px"></div>' +
@@ -1755,8 +2437,8 @@ function milestone(w) {
     if (ps.open >= 0) {
       var m = PLAN[ps.open], s = ps.list[ps.open];
       return '<div class="j-now"><span class="j-kick">MAINTENANT</span>' +
-        '<div class="t1">' + esc(momTitle(m)) + '</div>' +
-        '<div class="t2">' + esc(m.goal) + '</div>' + programLine(s) +
+        '<div class="t1">' + esc(momCardLabel(m, s)) + '</div>' +
+        '<div class="t2">' + esc(momCardGoal(m)) + '</div>' + programLine(s) +
         '<div class="t3">Fenêtre ' + s.win + ' · prévu à ' + s.at + '</div>' +
         '<div class="btns"><button type="button" class="btn primary" data-act="moment" data-id="' + ps.open + '">' + actionLabel(s) + '</button>' +
         (s.chain && !s.part && !s.skip ? '<button type="button" class="btn ghost" data-act="skip-open" data-id="' + ps.open + '">Pas ce moment</button>' : '') + '</div></div>';
@@ -1764,7 +2446,7 @@ function milestone(w) {
     if (ps.next >= 0) {
       var n = PLAN[ps.next], sn = ps.list[ps.next];
       return '<div class="j-now"><span class="j-kick">PROCHAIN MOMENT</span>' +
-        '<div class="t1">' + esc(momTitle(n)) + '</div>' +
+        '<div class="t1">' + esc(momLabel(n, sn)) + '</div>' +
         '<div class="t3">Dès ' + L.fmt(info.wake + n.r - WIN.before) + ' · prévu à ' + sn.at + '</div>' + programLine(sn) +
         '<div class="t2">Rien à faire maintenant. Un relevé libre reste possible à tout moment.</div></div>';
     }
@@ -1780,21 +2462,186 @@ function milestone(w) {
       '<div class="btns"><button type="button" class="btn primary" data-act="act-end">Terminer</button>' +
       '<button type="button" class="btn secondary" data-act="edit" data-id="' + esc(a.id) + '">Modifier</button></div></div>';
   }
-  function needBed(info) {
-    if (info.rel >= 600) return false; // la question n'a de sens que le matin (10 premières heures après le réveil)
-    var prev = addDays(info.tk, -1);
-    if (entries.some(function (e) { return e.kind === 'coucher' && e.day === prev; })) return false;
-    try { if (localStorage.getItem(KEY_BEDSKIP) === info.tk) return false; } catch (e) {}
-    return true;
+  // F2 : la question reste dans le Journal jusqu'à la réponse (Oui : on choisit l'heure du début ; Non : notée tout de suite)
+  function qCard(i, s, info) {
+    var m = PLAN[i], inWin = info.rel <= m.r + WIN.after;
+    return '<div class="j-now creuxq"><span class="j-kick">QUESTION · ' + rLabel(m.r) + '</span><div class="t1">Ressens-tu un creux ?</div>' +
+      (isQT(m) && s.needT && inWin ? '<div class="t2">Le test vient juste après.</div>' : '') +
+      '<div class="t3">' + (inWin ? 'Prévue à ' + s.at + ' · fenêtre ' + s.win : 'Prévue à ' + s.at + ', restée sans réponse : ta réponse sera notée « tardive »') + '</div>' +
+      '<input type="text" class="j-sel" id="j-qnote-' + i + '" maxlength="500" placeholder="Note libre (facultatif)" aria-label="Note libre (facultatif)" value="' + esc(qDraft[i] || '') + '">' +
+      '<div class="btns"><button type="button" class="btn primary" data-act="q-yes" data-id="' + i + '">Oui</button>' +
+      '<button type="button" class="btn secondary" data-act="q-no" data-id="' + i + '">Non</button></div></div>';
   }
-  function bedCard() {
-    var last = null;
-    entries.forEach(function (e) { if (e.kind === 'coucher') last = e; });
-    return '<div class="j-now bed"><span class="j-kick">COUCHER</span><div class="t1">À quelle heure t’es-tu couché hier soir ?</div>' +
-      '<div class="t2">De mémoire, c’est très bien.</div>' +
-      '<div class="inrow"><input id="j-bedin" class="j-sel" type="time" value="' + (last ? clockInput(last.ts) : '') + '" aria-label="Heure du coucher hier soir">' +
-      '<button type="button" class="btn primary" data-act="bed-card-go">Enregistrer</button></div>' +
-      '<div class="btns"><button type="button" class="btn ghost" data-act="bed-skip">Pas cette fois</button></div></div>';
+  function qCards(info, ps) {
+    if (currentCreux()) return ''; // un creux est ouvert : c'est la carte du creux qui pose la question
+    return ps.list.map(function (s, i) { return s.qpend ? qCard(i, s, info) : ''; }).join('');
+  }
+  function creuxCard(c, info) {
+    var min = (info.now.getTime() - c.ts) / 60000, ask = creuxAsk(c);
+    return '<div class="j-now creux"><span class="j-kick">CREUX EN COURS</span><div class="t1">Depuis ' + clockOf(c.ts) + '</div>' +
+      '<div class="t3">' + durText(min) + ' · début : ' + esc(creuxOriginTxt(c)) + '</div>' +
+      '<div class="t3">Terminé automatiquement à ' + clockOf(c.ts + CREUX_MAX) + ' (4 h au maximum)</div>' +
+      (ask ? '<div class="t1">' + (min >= CREUX_MIN ? 'Ça fait plus d’une heure. Ton creux est-il terminé ?' : 'Question de ' + rLabel(PLAN[creuxQMoment(c)].r) + ' : ton creux est-il terminé ?') + '</div>' : '') +
+      '<div class="btns"><button type="button" class="btn primary" data-act="creux-end">Terminer le creux</button>' +
+      (ask ? '<button type="button" class="btn secondary" data-act="creux-later">Pas encore</button>'
+           : '<button type="button" class="btn secondary" data-act="edit" data-id="' + esc(c.id) + '">Modifier</button>') + '</div></div>';
+  }
+  /* ---------- Mon réveil : Ma nuit, Relevé du matin, Mantra (e5, 20/11) ---------- */
+  // Un bouton en haut du Journal ouvre un écran à 3 icônes. « Ma nuit » remplace la carte « Coucher » du matin (le coucher de la veille y est demandé s'il n'a pas été noté) et ajoute
+  // la qualité du sommeil, « reposé » et le souvenir des rêves : ressenti déclaré, rien de mesuré. « Relevé du matin » lance le relevé de R+30 min (avec la première pensée du matin).
+  // « Mantra » affiche le texte de l'utilisateur : il reste sur l'appareil (localStorage + fichier de sauvegarde) et n'est JAMAIS écrit dans le code (le site est public).
+  var mantra = '', mForm = null, night = null;
+  function loadMantra() { try { var m = localStorage.getItem(KEY_MANTRA); mantra = typeof m === 'string' ? m.slice(0, 10000) : ''; } catch (e) { mantra = ''; } }
+  function saveMantra() {
+    try { if (mantra) localStorage.setItem(KEY_MANTRA, mantra); else localStorage.removeItem(KEY_MANTRA); return true; } catch (e) { return false; }
+  }
+  function nightOf(tk) { var r = null; entries.forEach(function (e) { if (e.kind === 'nuit' && e.day === tk && (!r || e.ts > r.ts)) r = e; }); return r; }
+  function bedOfDay(day) { // le coucher du soir d'avant le réveil du jour `day`
+    var prev = addDays(day, -1), best = null;
+    entries.forEach(function (x) { if (x.kind === 'coucher' && x.day === prev && (!best || x.ts > best.ts)) best = x; });
+    return best;
+  }
+  function wakeBtn(info, ps) {
+    var bits = [], s0 = ps.list[0];
+    if (info.rel < 600) { // le matin seulement (les 10 premières heures, comme l'ancienne carte « Coucher »)
+      if (!nightOf(info.tk)) bits.push('ma nuit à noter');
+      if (s0 && s0.kind === 'open') bits.push('relevé du matin à faire');
+      else if (s0 && s0.kind === 'soon') bits.push('relevé du matin à ' + s0.at);
+    }
+    var sub = bits.length ? bits.join(' · ') : 'Ma nuit · relevé du matin · mantra';
+    return '<button type="button" class="btn secondary j-wakebtn" data-act="wake-open"><span class="j-wk1"><span class="j-wke" aria-hidden="true">☀️</span><span class="j-wkt"><b>Mon réveil</b>' +
+      '<span class="j-wks">' + esc(sub.charAt(0).toUpperCase() + sub.slice(1)) + '</span></span></span><span class="j-rk">' + ICON_CHEV + '</span></button>';
+  }
+  function vWake() {
+    var info = todayInfo(), ps = slotStates(info), s0 = ps.list[0], nd = nightOf(info.tk);
+    var rel = !s0 ? '' : s0.kind === 'done' ? s0.status : s0.kind === 'open' ? 'À faire maintenant' : s0.kind === 'soon' ? 'Prévu à ' + s0.at : 'Passé · un relevé libre reste possible';
+    var tiles = [
+      ['night-open', '🌙', 'Ma nuit', nd ? 'Notée · ' + clockOf(nd.ts) : 'À noter'],
+      ['morning-releve', '☀️', 'Relevé du matin', rel],
+      ['mantra-open', '🙏', 'Mantra', mantra ? 'À lire' : 'À écrire']
+    ];
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
+      '<h1 tabindex="-1">Mon réveil</h1><p class="sub">Réveil à ' + L.fmtClock(info.wake) + ' · ta nuit, ton ressenti, ton mantra</p></header>' +
+      '<main style="padding-top:14px;gap:14px">' + (notice ? '<p class="j-ok" role="status">' + esc(notice) + '</p>' : '') +
+      '<div class="j-tiles">' + tiles.map(function (t) {
+        return '<button type="button" class="j-tile" data-act="' + t[0] + '"><span class="ic" aria-hidden="true">' + t[1] + '</span><span class="tn">' + t[2] + '</span><span class="ts">' + esc(t[3]) + '</span></button>';
+      }).join('') + '</div>' +
+      '<p class="j-p">Ce que tu notes ici est du ressenti déclaré : l’appli le garde tel quel, sans l’interpréter.</p></main>';
+  }
+  function openWake() { pendingDel = null; ret = 'home'; go('wake'); }
+  // « Relevé du matin » : le moment R+30 min s'il est ouvert ; sinon un relevé du matin libre (mêmes questions), sauf s'il est déjà fait.
+  function openMorningReleve() {
+    var s0 = slotStates(todayInfo()).list[0];
+    if (s0 && s0.kind === 'done') { notice = 'Ton relevé du matin est déjà fait (' + s0.status.replace(/^Fait · /, '') + '). Tu peux écrire une note à tout moment.'; render(); return; }
+    ret = 'wake';
+    if (s0 && s0.kind === 'open' && s0.needR) flow = newFlow({ slot: 0, mode: 'releve' });
+    else flow = newFlow({ mode: 'releve', qs: 'morning' });
+    go('feel');
+  }
+
+  // Ma nuit : un formulaire (aussi pour corriger une nuit depuis Reflet). Le coucher n'est demandé que pour la nuit d'aujourd'hui, et seulement s'il n'est pas déjà noté.
+  function openNight(id, from) {
+    var info = todayInfo(), e = id ? entries.filter(function (x) { return x.id === id && x.kind === 'nuit'; })[0] : nightOf(info.tk);
+    if (id && !e) return;
+    var day = e ? e.day : info.tk, c = bedOfDay(day), bedLast = null;
+    entries.forEach(function (x) { if (x.kind === 'coucher') bedLast = x; });
+    night = { id: e ? e.id : null, day: day, sq: e && e.sq ? String(e.sq) : '', rest: e && e.rest ? String(e.rest) : '', dream: e && e.dream ? String(e.dream) : '', dtext: e && e.dtext ? e.dtext : '',
+              bed: '', bedNew: day === info.tk && !c, bedKnown: c, bedHint: bedLast ? clockInput(bedLast.ts) : '', error: '' };
+    ret = from === 'history' ? 'history' : 'wake';
+    go('night');
+  }
+  function nightValid() {
+    var n = night;
+    if (!n) return false;
+    if (n.bed && !validClock(n.bed)) return false;
+    var has = !!(n.sq || n.rest || n.dream || (n.dtext || '').trim());
+    return n.id ? has : (has || !!(n.bedNew && n.bed));
+  }
+  function nightSelect(q, cur) {
+    return '<div class="j-field"><label class="j-lab" for="n-' + q.id + '">' + esc(q.ask) + '</label><select id="n-' + q.id + '" class="j-sel" data-night="' + q.id + '"><option value="">Choisir…</option>' +
+      q.opts.map(function (o, i) { return '<option value="' + (i + 1) + '"' + (String(i + 1) === String(cur) ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></div>';
+  }
+  function vNight() {
+    var n = night;
+    if (!n) { screen = 'wake'; return vWake(); }
+    var bed = n.bedKnown ? '<p class="j-fhint" style="font-size:13px">Coucher déjà noté : ' + clockOf(n.bedKnown.ts) + ' (' + esc(bedText(n.bedKnown)) + ').</p>'
+      : n.bedNew ? '<div class="j-field"><label class="j-lab" for="n-bed">À quelle heure t’es-tu couché hier soir ?</label>' +
+          '<input id="n-bed" class="j-sel" type="time" data-night="bed" value="' + esc(n.bed) + '" aria-label="Heure du coucher hier soir">' +
+          '<span class="j-fhint">De mémoire, c’est très bien. Laisse vide si tu ne veux pas le noter' + (n.bedHint ? ' (ton dernier coucher noté : ' + n.bedHint + ')' : '') + '.</span></div>'
+      : '<p class="j-fhint" style="font-size:13px">Aucun coucher noté pour cette nuit.</p>';
+    return formHeader('Ma nuit', n.id ? 'Corrige ce que tu as noté' : 'Hier soir → ce matin · tout est facultatif') +
+      '<main style="padding-top:14px;gap:16px">' + formError() +
+      '<section class="j-sec"><h2>COUCHER</h2>' + bed + '</section>' +
+      '<section class="j-sec"><h2>SOMMEIL</h2>' + nightSelect(NIGHT_Q[0], n.sq) + nightSelect(NIGHT_Q[1], n.rest) + '</section>' +
+      '<section class="j-sec"><h2>RÊVES</h2>' + nightSelect(NIGHT_Q[2], n.dream) +
+      '<div class="j-field"><label class="j-lab" for="n-dtext">Ce dont tu te souviens (facultatif)</label>' +
+      '<textarea id="n-dtext" class="j-ta mid" maxlength="1000" data-night="dtext" placeholder="Un rêve, une image, une sensation…">' + esc(n.dtext) + '</textarea></div></section>' +
+      '<div class="chips"><span class="chip hy">Ressenti déclaré</span></div>' +
+      '<p class="j-p">Qualité du sommeil et « reposé » : questions du Consensus Sleep Diary (traduction de Claude, non validée). Souvenir des rêves : tes mots. Le temps passé au lit n’est pas du sommeil mesuré : il comprend le temps pour s’endormir et les éveils de la nuit.</p></main>' +
+      formFoot('night-go', n.id ? 'Enregistrer les changements' : 'Enregistrer ma nuit', nightValid());
+  }
+  function doNight() {
+    var n = night;
+    if (!n || !nightValid()) return;
+    var now = Date.now(), wake = L.getWake(), msgs = [], e;
+    if (n.bedNew && n.bed) {
+      var bts = tsFromClock(n.bed, now), b = baseEntry('coucher', bts, wake), d = dateOfKey(n.day);
+      d.setMinutes(wake);
+      b.memo = true; // noté après coup
+      if (d.getTime() > bts && d.getTime() - bts < 20 * 3600e3) b.wakeTs = d.getTime(); // le réveil de ce matin
+      entries.push(b);
+      msgs.push('Coucher noté à ' + clockOf(bts));
+    }
+    var sq = int(n.sq, 1, 5), rs = int(n.rest, 1, 5), dr = int(n.dream, 1, 4), tx = (n.dtext || '').trim().slice(0, 1000);
+    if (sq !== null || rs !== null || dr !== null || tx) {
+      e = n.id ? entries.filter(function (x) { return x.id === n.id; })[0] : null;
+      if (!e) { e = baseEntry('nuit', now, wake); entries.push(e); }
+      ['sq', 'rest', 'dream', 'dtext'].forEach(function (k) { delete e[k]; });
+      if (sq !== null) e.sq = sq;
+      if (rs !== null) e.rest = rs;
+      if (dr !== null) e.dream = dr;
+      if (tx) e.dtext = tx;
+      msgs.push(n.id ? 'Nuit modifiée' : 'Nuit notée');
+    }
+    night = null;
+    afterSave(msgs.join(' · ') + '.');
+  }
+
+  // Mantra : mise en forme à l'affichage seulement, le texte enregistré n'est jamais modifié.
+  // Une ligne vide sépare deux groupes (plus d'espace) ; un retour à la ligne = une ligne ; une phrase qui finit par . ! ? … et que suit une majuscule passe à la ligne.
+  function mantraHtml(t) {
+    var groups = String(t || '').replace(/\r\n?/g, '\n').split(/\n[ \t]*\n+/), out = '';
+    for (var i = 0; i < groups.length; i++) {
+      var lines = groups[i].replace(/([.!?…])[ \t]+(?=[A-ZÀ-ÖØ-Ý«“"])/g, '$1\n').split('\n'), ps = '';
+      for (var k = 0; k < lines.length; k++) { var ln = lines[k].replace(/^\s+|\s+$/g, ''); if (ln) ps += '<p>' + esc(ln) + '</p>'; }
+      if (ps) out += '<div class="mg">' + ps + '</div>';
+    }
+    return out;
+  }
+  function vMantra() {
+    var ed = !!mForm, head = '<header class="subhead"><div class="top">' + back('home', 'Mon réveil') + '<span class="brand">Kioo Cycle</span></div><h1 tabindex="-1">Mantra</h1>';
+    if (!ed) {
+      return head + '<p class="sub">Ton texte · sur cet appareil seulement</p></header>' +
+        '<main style="padding-top:14px;gap:12px">' + (notice ? '<p class="j-ok" role="status">' + esc(notice) + '</p>' : '') +
+        '<section class="j-card j-mcard"><div class="j-mantra" id="j-mantra">' + mantraHtml(mantra) + '</div></section>' +
+        '<button type="button" class="btn secondary" data-act="mantra-edit" style="margin:0 5px;width:calc(100% - 10px)">Modifier</button></main>';
+    }
+    return head + '<p class="sub">' + (mantra ? 'Modifie ton texte' : 'Écris ou colle ton texte, une seule fois') + '</p></header>' +
+      '<main style="padding-top:14px;gap:12px">' +
+      '<div class="j-field" style="margin:0 5px"><label class="j-lab" for="m-text">Ton mantra ou ton affirmation</label>' +
+      '<textarea id="m-text" class="j-ta" style="margin:0;width:100%;min-height:300px" maxlength="10000" data-mantra="1" placeholder="Colle ici ton mantra…">' + esc(mForm.text) + '</textarea></div>' +
+      '<p class="j-p">Il reste sur cet appareil et dans ton fichier de sauvegarde. Il n’est écrit nulle part dans le code de l’appli, qui est public.</p></main>' +
+      '<div class="foot"><button type="button" class="btn primary" id="m-go" data-act="mantra-save"' + (mForm.text.trim() ? '' : ' disabled') + '>Enregistrer</button>' +
+      '<button type="button" class="btn ghost" data-act="mantra-cancel">Annuler</button></div>';
+  }
+  function openMantra() { pendingDel = null; ret = 'wake'; mForm = mantra ? null : { text: '' }; go('mantra'); }
+  function saveMantraForm() {
+    if (!mForm || !mForm.text.trim()) return;
+    mantra = mForm.text.trim().slice(0, 10000);
+    var ok = saveMantra();
+    mForm = null;
+    notice = ok ? 'Mantra enregistré sur cet appareil.' : 'Attention : l’appareil refuse d’enregistrer ce texte.';
+    go('mantra');
   }
 
   function setHtml(el, html) { // ne réécrit pas si rien n'a changé (évite de perdre un champ en cours de saisie)
@@ -1803,29 +2650,36 @@ function milestone(w) {
   function updateHome() {
     var top = $('j-top');
     if (!top) return;
-    var info = todayInfo(), ps = slotStates(info), ca = currentAct();
+    var info = todayInfo(), ps = slotStates(info), ca = currentAct(), cc = currentCreux();
     var typing = document.activeElement && top.contains(document.activeElement) && document.activeElement.tagName === 'INPUT';
-    if (!typing) setHtml(top, momentCard(info, ps) + (ca ? actCard(ca, info) : '') + (needBed(info) ? bedCard() : ''));
+    setHtml($('j-wake'), wakeBtn(info, ps));
+    if (!typing) setHtml(top, bkCard(bkInfo()) + qCards(info, ps) + momentCard(info, ps) + (cc ? creuxCard(cc, info) : '') + (ca ? actCard(ca, info) : ''));
     setHtml($('j-planbox'), pBoxHtml(info));
 
-    var nDone = ps.list.filter(function (s) { return s.kind === 'done'; }).length;
-    $('j-plansum').textContent = 'Plan du jour · ' + PLAN.length + ' moments · ' + nDone + ' fait' + (nDone > 1 ? 's' : '');
+    var nDone = ps.list.filter(function (s) { return s.kind === 'done'; }).length, nShown = 0;
+    $('j-plansum').textContent = 'Plan du jour · ' + NPLAN + ' moments · ' + nDone + ' fait' + (nDone > 1 ? 's' : '');
     $('j-points').innerHTML = ps.list.map(function (s, i) {
+      if (s.off) return ''; // moment retiré du plan (R+7h) : ni ligne ni numéro
+      nShown++;
       var c = s.chain, extra = '';
       if (c) extra += '<span class="j-ptg">' + esc((PLAN[i].kind !== 'test' ? 'Relevé · ' : '') + stepsText(c.steps)) + (s.part ? ' · ' + c.nDone + ' sur ' + c.total + ' faits' : '') + '</span>';
+      if (s.qt) extra += '<span class="j-ptg">Question du creux : ' + esc(s.qst) + '</span>';
+      if (s.freeQ) extra += '<span class="j-ptg">Compté d’après ton signalement libre du creux</span>';
       if (s.skip && s.skip.text) extra += '<span class="j-ptg j-ptw">« ' + esc(s.skip.text) + ' »</span>';
       if (s.canNote) extra += '<button type="button" class="j-link j-ptl" data-act="skip-open" data-id="' + i + '">Noter pourquoi</button>';
-      return '<li class="j-pt ' + s.kind + '"><div class="j-n">' + (s.kind === 'done' ? ICON_CHECK : (i + 1)) + '</div>' +
-        '<div class="j-ptx"><span class="j-ptn">' + rLabel(PLAN[i].r) + ' · ' + KIND_TXT[PLAN[i].kind] + '</span><span class="j-ptg">' + esc(PLAN[i].goal) + '</span>' + extra + '</div>' +
+      return '<li class="j-pt ' + s.kind + '"><div class="j-n">' + (s.kind === 'done' ? ICON_CHECK : nShown) + '</div>' +
+        '<div class="j-ptx"><span class="j-ptn">' + rLabel(PLAN[i].r) + ' · ' + momKind(PLAN[i], s) + '</span><span class="j-ptg">' + esc(momGoal(PLAN[i])) + '</span>' + extra + '</div>' +
         '<div class="j-pts"><span class="j-st">' + s.status + '</span><span class="j-win">' + s.at + '</span></div></li>';
     }).join('');
 
-    var recent = entries.slice().reverse();
-    $('j-hnote').textContent = entries.length ? plural(entries.length, 'entrée', 'entrées') : '';
-    $('j-hist').innerHTML = entries.length
-      ? '<div class="j-hist">' + recent.slice(0, 3).map(function (e) { return histCard(e, info.tk, false); }).join('') + '</div>' +
-        '<button type="button" class="btn secondary j-small" data-act="history">Tout l’historique ' + ICON_CHEV + '</button>'
-      : '<div class="j-empty">Rien pour l’instant. Ton premier relevé, test, repas ou ta première activité apparaîtra ici ; pas de courbe tant qu’il n’y a pas de données.</div>';
+    // e4c : plus de 3 dernières entrées ici (elles sont dans l'onglet Historique) ; un bloc « À ranger » (notes sans catégorie, disparaît à 0) et le dernier test
+    var nNone = 0, lastT = null, k;
+    entries.forEach(function (e) { if (e.kind === 'note' && noteTid(e) === 'none') nNone++; });
+    for (k = entries.length - 1; k >= 0; k--) if (entries[k].kind === 'test') { lastT = entries[k]; break; }
+    setHtml($('j-hist'),
+      (nNone ? '<div class="j-sect j-gap"><span class="j-kick">À RANGER</span></div>' +
+        '<button type="button" class="btn secondary j-rank" data-act="rank"><span>' + plural(nNone, 'note sans catégorie', 'notes sans catégorie') + '</span><span class="j-rk">Ranger ' + ICON_CHEV + '</span></button>' : '') +
+      (lastT ? '<div class="j-sect j-gap"><span class="j-kick">DERNIER TEST</span></div>' + histCard(lastT, info.tk, false, 'last') : ''));
   }
 
   /* ---------- Écrans ---------- */
@@ -1836,10 +2690,11 @@ function milestone(w) {
       '<div class="top"><span class="brand">Kioo Cycle</span><span class="module">Module Corps</span></div>' +
       '<div class="titlerow"><h1 tabindex="-1">Journal</h1>' +
       '<label class="wake">Réveil <input class="wake-input" type="time" aria-label="Heure de réveil" required></label></div>' +
-      '<p class="sub">' + PLAN.length + ' moments par jour, calés sur ton réveil (R+ = heures depuis le réveil)</p></header>' +
+      '<p class="sub">' + NPLAN + ' moments par jour, calés sur ton réveil (R+ = heures depuis le réveil)</p></header>' +
       '<main>' +
       (storageOk ? '' : '<p class="j-warn" role="alert">Cet appareil refuse d’enregistrer les données (navigation privée ?). Sauvegarde ton fichier avant de quitter.</p>') +
-      (notice ? '<p class="j-ok" role="status">' + esc(notice) + '</p>' : '') +
+      ((notice || cutMsg) ? '<p class="j-ok" role="status">' + esc(notice || cutMsg) + '</p>' : '') +
+      '<div id="j-wake"></div>' +
       '<div id="j-top" style="display:flex;flex-direction:column;gap:10px"></div>' +
       '<div id="j-planbox"></div>' +
       '<details class="j-det" id="j-plan"><summary id="j-plansum"></summary><ol class="j-points" id="j-points"></ol></details>' +
@@ -1850,8 +2705,8 @@ function milestone(w) {
       '<button type="button" class="btn secondary" data-act="instant">Instant</button>' +
       '<button type="button" class="btn secondary" data-act="test-libre">Test libre</button>' +
       '<button type="button" class="btn secondary" data-act="meal">Repas</button>' +
-      '<button type="button" class="btn secondary wide" data-act="note">' + ICON_PEN + 'Note</button></div>' +
-      '<div class="j-sect j-gap"><span class="j-kick">HISTORIQUE</span><span class="j-aside" id="j-hnote"></span></div>' +
+      '<button type="button" class="btn secondary" data-act="note">' + ICON_PEN + 'Note</button>' +
+      '<button type="button" class="btn secondary" data-act="' + (currentCreux() ? 'creux-end' : 'creux-start') + '">' + (currentCreux() ? 'Terminer le creux' : 'Creux') + '</button></div>' +
       '<div id="j-hist"></div>' +
       '<button type="button" class="btn secondary j-small" data-act="bed">Noter un coucher ' + ICON_CHEV + '</button>' +
       '<button type="button" class="btn secondary j-small" data-act="backup">Sauvegarder / Restaurer ' + ICON_CHEV + '</button>' +
@@ -1878,28 +2733,37 @@ function milestone(w) {
   }
 
   function vFeel() {
-    var d = new Date(), ph = phaseAt(L.mod(minOf(d) - L.getWake())), ok = feelComplete();
-    var both = flow.mode === 'both', m = flow.slot != null ? PLAN[flow.slot] : null, ch = flow.chain;
-    var mod = ch ? rLabel(m.r) + ' · relevé puis tests' : (both ? 'Étape 1 sur 2' : (m ? rLabel(m.r) + ' · prévu' : 'Relevé libre'));
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="module">' + mod + '</span></div>' +
-      '<h1 tabindex="-1">Ressenti</h1><p class="sub">Comment te sens-tu là, maintenant (ces 5 dernières minutes) ?</p>' +
-      '<div class="nowline"><span class="dot" style="background:' + ph.color + '"></span><span>' + L.fmtClock(minOf(d)) + ' · ' + esc(ph.name) + '</span></div></header>' +
+    var d = new Date(), ph = phaseAt(L.mod(minOf(d) - L.getWake())), ok = feelComplete(), qs = qsetOf(flow), defs = qs.map(feel3Def);
+    var both = flow.mode === 'both', m = flow.slot != null ? PLAN[flow.slot] : null, ch = flow.chain, single = qs.length === 1;
+    var mod = ch ? rLabel(m.r) + ' · relevé puis tests' : (both ? 'Étape 1 sur 2' : (m ? rLabel(m.r) + ' · prévu' : (flow.qs ? 'Relevé du matin' : 'Relevé libre')));
+    var corps = defs.filter(function (f) { return f.group === 'corps'; }), esprit = defs.filter(function (f) { return f.group === 'esprit'; });
+    var sub = single ? (ch || both ? 'Le test vient juste après.' : 'Une seule question.') : 'Comment te sens-tu là, maintenant (ces 5 dernières minutes) ?'; // une humeur de fond n'est pas « les 5 dernières minutes »
+    var morning = flow.slot === 0 || flow.qs === 'morning' && flow.slot == null;
+    return '<header class="subhead"><div class="top">' + back('home', ret === 'wake' ? 'Mon réveil' : 'Journal') + '<span class="module">' + mod + '</span></div>' +
+      '<h1 tabindex="-1">' + (single ? 'Une seule question' : 'Ressenti') + '</h1><p class="sub">' + sub + '</p>' +
+      (single ? '' : '<div class="nowline"><span class="dot" style="background:' + ph.color + '"></span><span>' + L.fmtClock(minOf(d)) + ' · ' + esc(ph.name) + '</span></div>') + '</header>' +
       '<main style="gap:18px;padding-top:14px">' +
-      '<section class="j-sec"><h2>CORPS · LE VAISSEAU</h2>' + feelField(FEEL[0], 'flow') + feelField(FEEL[1], 'flow') + feelField(FEEL[2], 'flow') + '</section>' +
-      '<section class="j-sec"><h2>ESPRIT · LE PILOTE</h2>' + feelField(FEEL[3], 'flow') + feelField(FEEL[4], 'flow') + '</section>' +
+      (corps.length ? '<section class="j-sec"><h2>CORPS · LE VAISSEAU</h2>' + corps.map(function (f) { return feelField(f, 'flow'); }).join('') + '</section>' : '') +
+      (esprit.length ? '<section class="j-sec"><h2>ESPRIT · LE PILOTE</h2>' + esprit.map(function (f) { return feelField(f, 'flow'); }).join('') + '</section>' : '') +
       '<details class="j-det" id="j-detbox"' + (flow.detail ? ' open' : '') + '><summary>Ajouter un détail (facultatif)</summary>' +
-      '<textarea id="j-detail" class="j-ta mid" maxlength="500" placeholder="Ce qui explique ce ressenti : mal dormi, café, douleur…" aria-label="Détail du ressenti">' + esc(flow.detail) + '</textarea></details></main>' +
+      '<textarea id="j-detail" class="j-ta mid" maxlength="500" placeholder="Ce qui explique ce ressenti : mal dormi, café, douleur…" aria-label="Détail du ressenti">' + esc(flow.detail) + '</textarea></details>' +
+      (morning ? '<section class="j-sec"><h2>PREMIÈRE PENSÉE DU MATIN</h2><div class="j-field"><label class="j-lab" for="j-thought">Ce qui t’est venu en premier (facultatif)</label>' +
+        '<textarea id="j-thought" class="j-ta mid" maxlength="1000" placeholder="Ta première pensée en te réveillant…" aria-label="Première pensée du matin">' + esc(flow.thought) + '</textarea>' +
+        '<span class="j-fhint">Elle est aussi gardée dans tes notes, catégorie « Première pensée ».</span></div></section>' : '') + '</main>' +
       '<div class="foot"><button type="button" class="btn primary" id="j-next" data-act="' + (ch ? 'chain-feel' : (both ? 'intro' : 'save-releve')) + '"' + (ok ? '' : ' disabled') + '>' +
-      (ch ? 'Suivant · ' + STEP_NAME[ch.steps[0]] : (both ? 'Suivant · test de vigilance' : 'Enregistrer le relevé')) + '</button>' +
+      (ch ? 'Suivant · ' + STEP_NAME[ch.steps[0]] : (both ? 'Suivant : le test' : 'Enregistrer le relevé')) + '</button>' +
       '<span class="j-hint" id="j-feelhint">' + feelHint(ok, both) + '</span></div>';
   }
-  function feelHint(ok, both) { return ok ? (flow.chain ? 'Le relevé est gardé, puis viennent les tests' : (both ? 'Étape suivante : 3 minutes de test' : 'Prêt à enregistrer')) : 'Les 5 réponses sont nécessaires'; }
+  function feelHint(ok, both) {
+    var n = qsetOf(flow).length;
+    return ok ? (flow.chain ? 'Le relevé est gardé, puis viennent les tests' : (both ? 'Étape suivante : 3 minutes de test' : 'Prêt à enregistrer')) : (n === 1 ? 'La réponse est nécessaire' : 'Les ' + n + ' réponses sont nécessaires');
+  }
 
   function vIntro() {
     var m = flow.slot != null ? PLAN[flow.slot] : null, both = flow.mode === 'both';
-    var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : 'Test libre : il sera enregistré, hors des moments du plan.';
+    var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : finIntro(false);
     return '<header class="subhead"><div class="top">' + (both ? back('feel', 'Ressenti') : (m ? back('home', 'Journal') : back('tests', 'Tests'))) +
-      '<span class="module">' + (both ? 'Étape 2 sur 2' : (m ? slotTag(m) : 'Test libre')) + '</span></div>' +
+      '<span class="module">' + (both ? 'Étape 2 sur 2' : (m ? slotTag(m) : finTag())) + '</span></div>' +
       '<h1 tabindex="-1">Test de vigilance</h1><p class="sub">PVT-B · 3 minutes</p></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       (notice ? '<p class="j-warn" role="alert">' + esc(notice) + '</p>' : '') +
@@ -1938,7 +2802,7 @@ function milestone(w) {
       '<div class="chips" style="margin:0"><span class="chip main">Mesuré (toi, 1 test)</span><span class="chip hy">' + DEVICE_TXT[r.device] + ' · ' + plural(r.n, 'réponse', 'réponses') + '</span></div></section>' +
       (enough ? '' : '<p class="j-warn" role="alert">Trop peu de réponses (' + r.n + ', il en faut au moins ' + PVT.minValid + ') : ce test ne peut pas être enregistré. Refais-le quand tu es prêt.</p>') +
       (both ? '<section class="j-card"><h2 class="j-kick">TON RESSENTI</h2>' +
-        '<p class="lead" style="font-size:14px;line-height:1.5;color:var(--text)">' + esc(feelWords(flow.feel, false)) + '</p>' +
+        '<p class="lead" style="font-size:14px;line-height:1.5;color:var(--text)">' + esc(feelWords3(flow.feel)) + '</p>' +
         (flow.detail.trim() ? '<p style="font-size:13px;color:var(--muted)">' + esc(flow.detail.trim()) + '</p>' : '') + '</section>' : '') +
       '<p class="j-p">Un seul test ne dit presque rien : c’est la répétition sur plusieurs jours qui compte. Pas de seuil de santé ici.</p></main>' +
       '<div class="foot">' +
@@ -1956,9 +2820,10 @@ function milestone(w) {
   }
   function vTests() {
     var tk = todayInfo().tk;
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="module">Test libre</span></div>' +
-      '<h1 tabindex="-1">Choisir un test</h1><p class="sub">À tout moment · enregistré hors des moments du plan</p></header>' +
+    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="module">' + finTag() + '</span></div>' +
+      '<h1 tabindex="-1">Choisir un test</h1><p class="sub">' + (flow.fin ? 'Pour marquer la fin du creux · enregistré hors des moments du plan' : 'À tout moment · enregistré hors des moments du plan') + '</p></header>' +
       '<main style="padding-top:14px;gap:10px">' +
+      (flow.fin && flow.finMsg ? '<p class="j-ok" role="status">' + esc(flow.finMsg) + '</p>' : '') +
       TESTS.map(function (t) {
         var l = lastPass(t.id);
         return '<button type="button" class="j-pick" data-act="test-pick" data-id="' + t.id + '">' +
@@ -1966,7 +2831,8 @@ function milestone(w) {
           '<span class="p2">' + esc(t.cog) + '</span>' +
           '<span class="p3">' + (l ? 'Dernier passage : ' + esc(dayText(l.day, tk)).toLowerCase() + ', ' + clockOf(l.ts) : 'Jamais passé') + '</span></button>';
       }).join('') +
-      '<p class="j-p">Un test libre ne valide aucun moment du plan. Il est gardé et compté dans ton numéro de passage, mais il n’entre ni dans ta référence ni dans la lecture par heure.</p></main>';
+      '<p class="j-p">' + (flow.fin ? 'Un test de fin de creux ne valide aucun moment du plan. Il est gardé avec l’étiquette « fin de creux », à part des tests prévus et libres, et compté dans ton numéro de passage, mais il n’entre ni dans ta référence ni dans la lecture par heure.'
+                            : 'Un test libre ne valide aucun moment du plan. Il est gardé et compté dans ton numéro de passage, mais il n’entre ni dans ta référence ni dans la lecture par heure.') + '</p></main>';
   }
 
   /* ---------- Tests : descripteurs ---------- */
@@ -1987,11 +2853,11 @@ function milestone(w) {
 
   function vSsIntro() {
     var m = flow.slot != null ? PLAN[flow.slot] : null, practiced = tPracticed('ss');
-    var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : 'Test libre : il sera enregistré, hors des moments du plan et hors de ta référence.';
+    var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : finIntro(true);
     if (!m && L.mod(minOf(new Date()) - L.getWake()) < 120) msg += ' Avant R+2h, il sera noté « avant R+2h » (l’inertie du réveil peut durer 2 à 4 h : Jewett 1999).';
     var demoTop = [0, 3], demoFoil = [0, 5];
     return '<header class="subhead"><div class="top">' + (m ? back('home', 'Journal') : back('tests', 'Tests')) +
-      '<span class="module">' + (m ? slotTag(m) : 'Test libre') + '</span></div>' +
+      '<span class="module">' + (m ? slotTag(m) : finTag()) + '</span></div>' +
       '<h1 tabindex="-1">Symbol Search</h1><p class="sub">Vitesse de traitement · ≈ ' + SS.estSec + ' s</p></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       (notice ? '<p class="j-warn" role="alert">' + esc(notice) + '</p>' : '') +
@@ -2038,7 +2904,7 @@ function milestone(w) {
   }
   function ssRefHtml(r, libre) {
     var h = '<section class="j-card"><h2 class="j-kick">TA RÉFÉRENCE</h2><div class="chips" style="margin:0"><span class="chip hy">À ajuster</span></div>';
-    if (libre) h += '<p>Test libre : il est comparé à ta référence mais n’y entre pas (« libre : hors référence »).</p>';
+    if (libre) h += '<p>' + finRef() + '</p>';
     if (r.med === null) return h + '<p>Pas de chiffre principal pour ce passage : aucune réponse juste n’a pu être comptée.</p></section>';
     var c = ssRefCompare(ssRefPrev(r.cfg, r.device), r.med);
     if (!c.ok) {
@@ -2080,7 +2946,7 @@ function milestone(w) {
       '<p class="j-fhint" style="color:var(--text)"><b>Chiffre principal :</b> le temps médian des réponses justes (le premier chiffre). Plus bas = plus rapide.</p>' +
       '<p class="j-fhint">Durée du passage : ' + ssDur(r.durationMs) + ' (estimée : ≈ ' + SS.estSec + ' s)</p>' +
       '<div class="chips" style="margin:0"><span class="chip main">Mesuré (toi, ' + ssPlural(count, 'test', 'tests') + ')</span><span class="chip hy">' + DEVICE_TXT[r.device] + ' · ' + (INPUT_TXT[r.input] || r.input) + '</span>' +
-      '<span class="chip hy">' + (libre ? 'test libre' : prevuTxt()) + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
+      '<span class="chip hy">' + (libre ? finChip() : prevuTxt()) + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
       (r.acc < SS.minAcc ? '<p class="j-ok">Sous 70 % de réponses justes, l’étude lue écartait le passage de ses analyses.</p>' : '') +
       ssRefHtml(r, libre) +
       '<section class="j-card"><dl class="ss-facts" style="margin:0"><div><dt>Justes hors des temps comptés (moins de 0,2 s ou plus de 5 s)</dt><dd>' + r.excluded + '</dd></div></dl></section>' +
@@ -2185,32 +3051,42 @@ function milestone(w) {
     pracNote: function () { return '<p class="lead">L’entraînement n’est pas noté dans les passages.</p><p>Tu peux le refaire autant que tu veux.</p>'; },
     fig: function (r) { return r.sc.cp; }, figE: function (p) { return p.cp; },
     ref: { fmt: fmtN1, diff: function (d) { var a = Math.abs(d); return a < 0.05 ? 'aucun écart' : fmtN1(a) + (a >= 2 ? ' flèches' : ' flèche') + (d > 0 ? ' de plus' : ' de moins'); },
-           above: 'Plus de flèches à la bonne place que dans tous tes passages précédents.', below: 'Moins de flèches à la bonne place que dans tous tes passages précédents.',
+           above: 'Plus de flèches dans le bon ordre que dans tous tes passages précédents.', below: 'Moins de flèches dans le bon ordre que dans tous tes passages précédents.',
            axLo: '← moins de flèches', axHi: 'plus de flèches →', none: 'Pas de chiffre principal pour ce passage.' },
-    mainTxt: 'les flèches à la bonne place (le premier chiffre). Plus haut = mieux retenu.',
+    mainTxt: 'les flèches dans le bon ordre (le premier chiffre). Plus haut = mieux retenu.',
+    metricsCls: 'wrap',
     metrics: function (r) {
       var s = r.sc;
-      return metric(s.cp + '<small> / ' + s.max + '</small>', 'Flèches à la bonne place') + metric(s.ap + '<small> / ' + s.max + '</small>', 'Retrouvées, ordre ignoré') + metric(s.lc + '<small> / ' + s.lt + '</small>', 'Lettres justes');
+      return metric(s.cp + '<small> / ' + s.max + '</small>', 'Flèches dans le bon ordre') +
+        metric(s.dl + '<small> / ' + s.max + '</small>', 'Bon sens, bon ordre, mauvaise taille') +
+        metric(s.dp + '<small> / ' + s.max + '</small>', 'Bon sens, bon ordre, taille ignorée') +
+        metric(s.ap + '<small> / ' + s.max + '</small>', 'Retrouvées, ordre ignoré') + metric(s.lc + '<small> / ' + s.lt + '</small>', 'Lettres justes');
     },
     facts: function (r) {
       var s = r.sc, rows = r.rec.trials.map(function (t, i) {
         var cells = s.marks[i].map(function (m) {
-          return '<i class="rs-m ' + m + '" title="' + (m === 'cp' ? 'à la bonne place' : m === 'ap' ? 'retrouvée ailleurs' : 'non retrouvée') + '"></i>';
+          return '<i class="rs-m ' + m + '" title="' + (m === 'cp' ? 'dans le bon ordre' : m === 'ap' ? 'retrouvée ailleurs' : 'non retrouvée') + '"></i>';
         }).join('');
         return '<div class="rs-row"><span>Essai ' + (i + 1) + '</span><span class="rs-cells">' + cells + '</span></div>';
       }).join('');
       return '<section class="j-card"><div class="rs-marks">' + rows + '</div>' +
-        '<div class="rs-leg"><span><i class="rs-m cp"></i> bonne place</span><span><i class="rs-m ap"></i> retrouvée ailleurs</span><span><i class="rs-m no"></i> non retrouvée</span></div>' +
+        '<div class="rs-leg"><span><i class="rs-m cp"></i> bon ordre</span><span><i class="rs-m ap"></i> retrouvée ailleurs</span><span><i class="rs-m no"></i> non retrouvée</span></div>' +
         '<dl class="ss-facts" style="margin:0">' + factRow('Temps moyen par lettre', s.avgRt === null ? '·' : (s.avgRt / 1000).toFixed(1).replace('.', ',') + ' s') + '</dl></section>';
     },
     read: function () {
-      return secHtml('Le chiffre qui compte', 'Établi', 'Flèches à la bonne place, sur 15. Plus haut = mieux retenu. C’est le score partiel du protocole. Les autres lignes du résultat (flèches retrouvées ailleurs, lettres jugées, temps par lettre) sont des repères à côté.') +
+      return secHtml('Le chiffre qui compte', 'Établi', 'Flèches dans le bon ordre (bon sens et bonne taille), sur 15. Plus haut = mieux retenu. C’est le score partiel du protocole. Les autres lignes du résultat sont des repères à côté : flèches de bon sens dans le bon ordre avec une mauvaise taille, puis avec la taille ignorée (ce second compte contient le premier chiffre), flèches retrouvées ailleurs, lettres jugées, temps par lettre. Les deux comptes sur la taille sont des comptes faits par Kioo Cycle à partir de tes réponses : ils ne font pas partie du score du protocole.') +
         readCompare() +
         secHtml('Pas de barème', 'Établi', 'Dans les sources lues, aucune norme ni seuil « bon / mauvais » pour cette version téléphone. L’appli n’en invente pas. Aucun seuil de santé non plus : un professionnel décide.') +
         secHtml('Prudence', 'Établi', 'Un passage seul est bruité. Chez les étudiants de l’étude (Hakun 2023), la part de variation d’un passage à l’autre qui est un vrai changement, et non du hasard, est de 0,37 (0,48 d’un jour à l’autre), sur une échelle où 1 = tout est fiable. Environ 57 % de la variation du score vient de l’erreur de mesure. Un passage hors de la fourchette n’est donc pas un signal : c’est la répétition, à la même heure R+X, sur plusieurs jours, qui compte.') +
         secHtml('Sources', 'Établi', link('https://pmc.ncbi.nlm.nih.gov/articles/PMC9919550/', 'Hakun et al. 2023, version téléphone') + ' · ' + link('https://www.millisecond.com/library/v7/rotationspantask/rotationspantask/rotationspantask.manual', 'Manuel du Rotation Span, Millisecond') + '. Non lus : Kane et al. 2004 et Shah et Miyake 1996, le protocole d’origine.');
     },
-    histLine: function (p) { return p.cp + '/' + p.max + ' flèches à la bonne place'; },
+    histLine: function (p) {
+      // Les passages déjà enregistrés ne sont pas revérifiés au chargement : si les essais manquent ou sont abîmés, on retombe sur les chiffres gardés, sans faire planter l'historique.
+      var good = p && Array.isArray(p.trials) && p.trials.length > 0 && p.trials.every(function (t) { return t && Array.isArray(t.a) && Array.isArray(t.s) && Array.isArray(t.l); });
+      if (!good) return typeof (p && p.cp) === 'number' && typeof p.max === 'number' ? p.cp + '/' + p.max + ' flèches dans le bon ordre' : 'résultat non lisible';
+      var s = rsSummary(p.trials);
+      return s.cp + '/' + s.max + ' flèches dans le bon ordre (' + s.dp + '/' + s.max + ' sans la taille)';
+    },
     pack: function (r) { return CL.rs(r.rec); } };
 
   TD.hs = { name: 'Hand Swype', cog: 'Flexibilité', estSec: HS.estSec, pracDur: '≈ 30 s', cfg: HS_CFG,
@@ -2390,7 +3266,7 @@ function milestone(w) {
   function tRefHtml(id, r, libre) {
     var td = TD[id], R = td.ref, cur = td.fig(r);
     var h = '<section class="j-card"><h2 class="j-kick">TA RÉFÉRENCE</h2><div class="chips" style="margin:0"><span class="chip hy">À ajuster</span></div>';
-    if (libre) h += '<p>Test libre : il est comparé à ta référence mais n’y entre pas (« libre : hors référence »).</p>';
+    if (libre) h += '<p>' + finRef() + '</p>';
     if (cur === null || cur === undefined) return h + '<p>' + R.none + '</p></section>';
     var c = ssRefCompare(tRefPrev(id, r), cur);
     if (!c.ok) {
@@ -2414,10 +3290,10 @@ function milestone(w) {
 
   function vTIntro() {
     var id = flow.test, td = TD[id], m = flow.slot != null ? PLAN[flow.slot] : null, practiced = tPracticed(id), est = ssDur(td.estSec * 1000);
-    var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : 'Test libre : il sera enregistré, hors des moments du plan et hors de ta référence.';
+    var msg = m ? 'Ce test comptera pour le moment « ' + momTitle(m) + ' ».' : finIntro(true);
     if (!m && L.mod(minOf(new Date()) - L.getWake()) < 120) msg += ' Avant R+2h, il sera noté « avant R+2h » (l’inertie du réveil peut durer 2 à 4 h : Jewett 1999).';
     return '<header class="subhead"><div class="top">' + (m ? back('home', 'Journal') : back('tests', 'Tests')) +
-      '<span class="module">' + (m ? slotTag(m) : 'Test libre') + '</span></div>' +
+      '<span class="module">' + (m ? slotTag(m) : finTag()) + '</span></div>' +
       '<h1 tabindex="-1">' + esc(td.name) + '</h1><p class="sub">' + esc(td.cog) + ' · ≈ ' + est + '</p></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       (notice ? '<p class="j-warn" role="alert">' + esc(notice) + '</p>' : '') +
@@ -2457,11 +3333,11 @@ function milestone(w) {
     return '<header><span class="module" style="display:block">Fin du test' + chainTag() + '</span><h1 tabindex="-1" style="margin-top:4px">Résultat</h1></header>' +
       '<main style="padding-top:14px;gap:12px">' +
       '<section class="j-card"><div class="nowline" style="margin:0"><span class="dot" style="background:' + ph.color + '"></span><span>' + clockOf(r.ts) + ' · ' + esc(ph.name) + '</span></div>' +
-      '<div class="j-metrics">' + td.metrics(r) + '</div>' +
+      '<div class="j-metrics' + (td.metricsCls ? ' ' + td.metricsCls : '') + '">' + td.metrics(r) + '</div>' +
       '<p class="j-fhint" style="color:var(--text)"><b>Chiffre principal :</b> ' + td.mainTxt + '</p>' +
       '<p class="j-fhint">Durée du passage : ' + ssDur(r.durationMs) + ' (estimée : ≈ ' + ssDur(td.estSec * 1000) + ')</p>' +
       '<div class="chips" style="margin:0"><span class="chip main">Mesuré (toi, ' + ssPlural(count, 'test', 'tests') + ')</span><span class="chip hy">' + DEVICE_TXT[r.device] + ' · ' + (INPUT_TXT[r.input] || r.input) + '</span>' +
-      '<span class="chip hy">' + (libre ? 'test libre' : prevuTxt()) + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
+      '<span class="chip hy">' + (libre ? finChip() : prevuTxt()) + (early ? ' · avant R+2h' : '') + '</span></div></section>' +
       tRefHtml(id, r, libre) +
       td.facts(r) +
       (td.table ? td.table(r) : '') +
@@ -2471,15 +3347,22 @@ function milestone(w) {
       '<button type="button" class="btn ghost" data-act="discard">Ne pas enregistrer</button></div>';
   }
 
+  // Rappel de la note d'origine sur l'écran « Note libre » quand on crée « à partir de… » (depuis le 19/11, e2).
+  function fromOf() { return noteFrom ? entries.filter(function (x) { return x.id === noteFrom && x.kind === 'note'; })[0] || null : null; }
+  function fromBox() {
+    var o = fromOf();
+    if (!o) return '';
+    return '<div class="j-from" id="j-from"><div class="alab">À partir de · ' + esc(lkName(o)) + ' · ' + esc(whenText(o.ts)) + '</div><div class="t">' + esc(o.text) + '</div></div>';
+  }
   function vNote() {
-    var d = new Date(noteTs), ph = phaseAt(relAt(noteTs, L.getWake()));
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
-      '<h1 tabindex="-1">Note libre</h1><p class="sub">Ce qui te vient en tête, rangé avec l’heure</p>' +
+    var d = new Date(noteTs), ph = phaseAt(relAt(noteTs, L.getWake())), fo = fromOf();
+    return '<header class="subhead"><div class="top">' + backHome() + '<span class="brand">Kioo Cycle</span></div>' +
+      '<h1 tabindex="-1">Note libre</h1><p class="sub">' + (fo ? 'Une note liée à celle-ci, rangée avec l’heure' : 'Ce qui te vient en tête, rangé avec l’heure') + '</p>' +
       '<div class="nowline"><span class="dot" style="background:' + ph.color + '"></span><span>' + L.fmtClock(minOf(d)) + ' · ' + esc(ph.name) + '</span></div></header>' +
-      '<main style="padding-top:14px;gap:8px"><label for="j-note" class="j-lab" style="margin:0 5px">Ta note</label>' +
+      '<main style="padding-top:14px;gap:8px">' + fromBox() + '<div class="j-nt" id="j-nt">' + noteTypeBlock(noteSel) + '</div><label for="j-note" class="j-lab" style="margin:0 5px">Ta note</label>' +
       '<textarea id="j-note" class="j-ta" placeholder="Écris ce qui te vient…" maxlength="5000">' + esc(noteText) + '</textarea></main>' +
       '<div class="foot"><button type="button" class="btn primary" id="j-notesave" data-act="save-note"' + (noteText.trim() ? '' : ' disabled') + '>Enregistrer la note</button>' +
-      '<span class="j-hint">Elle apparaîtra dans l’historique, avec l’heure et la phase</span></div>';
+      '<span class="j-hint">Elle apparaîtra dans Reflet, avec l’heure et la phase</span></div>';
   }
 
   /* ---------- Formulaires : activité, repas, coucher, modification ---------- */
@@ -2489,8 +3372,9 @@ function milestone(w) {
   function timeIn(field, value, label) {
     return '<input class="j-sel" type="time" data-field="' + field + '" value="' + esc(value || '') + '" aria-label="' + esc(label) + '">';
   }
+  function backHome() { return back('home', ret === 'history' ? 'Reflet' : ret === 'wake' ? 'Mon réveil' : 'Journal'); }
   function formHeader(title, sub) {
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
+    return '<header class="subhead"><div class="top">' + backHome() + '<span class="brand">Kioo Cycle</span></div>' +
       '<h1 tabindex="-1">' + title + '</h1><p class="sub">' + sub + '</p></header>';
   }
   function formFoot(act, label, enabled) {
@@ -2499,18 +3383,23 @@ function milestone(w) {
   }
   function formError() { return form && form.error ? '<p class="j-warn" role="alert">' + esc(form.error) + '</p>' : ''; }
 
+  function selKey(s) { return noteTypeOf(s.id).id + '|' + selSub(s); }
   function formValid() {
     if (!form) return false;
     switch (form.type) {
       case 'act-start': return !!form.name.trim() && validClock(form.time);
       case 'instant': return !!form.name.trim() && validClock(form.time);
       case 'act-end': return validClock(form.time);
+      case 'creux-start': return validClock(form.time);
+      case 'creux-end': return validClock(form.time);
       case 'meal': return !!form.text.trim() && validClock(form.time);
       case 'bed': return validClock(form.time);
       case 'edit':
         if (form.kind === 'activite') return !!form.name.trim() && validClock(form.time) && (form.end === '' || validClock(form.end));
         if (form.kind === 'repas') return !!form.text.trim() && validClock(form.time);
         if (form.kind === 'instant') return !!form.name.trim() && validClock(form.time);
+        if (form.kind === 'creux') return validClock(form.time) && (form.end === '' || validClock(form.end));
+        if (form.kind === 'note') return !!form.text.trim() && (form.text.trim() !== form.orig || selKey(form.sel) !== form.selOrig || (form.ans || '').trim() !== form.ansOrig || (form.att || '').trim() !== form.attOrig); // rien à enregistrer tant que le texte, la catégorie, la réponse et la note rattachée n'ont pas changé
         return validClock(form.time);
     }
     return false;
@@ -2542,12 +3431,71 @@ function milestone(w) {
       '</main>' + formFoot('act-start-go', 'Commencer', formValid());
   }
 
+  // Creux : texte « R+6h22 après le réveil de 8h10 » sous l'heure du début, et durée sous l'heure de fin (mis à jour à chaque frappe, sans redessiner l'écran).
+  function creuxHint() {
+    if (!form || !validClock(form.time)) return '';
+    var ts = tsFromClock(form.time, Date.now()), fs = form.qslot == null ? freeSlotAt(ts, L.getWake()) : -1; // B : on prévient si ce signalement libre répondra « oui » à une question
+    return rLabel(relAt(ts, L.getWake())) + ' après le réveil de ' + L.fmtClock(L.getWake()) + (fs >= 0 ? ' · compté comme « oui » à la question de ' + rLabel(PLAN[fs].r) : '');
+  }
+  // Heure de fin saisie -> instant : l'occurrence la plus récente (pas dans le futur) ; si elle tombe avant le début, la première après le début.
+  function creuxEndTs(clock, c) {
+    if (!c || !validClock(clock)) return null;
+    var now = Date.now(), ts = tsFromClock(clock, now);
+    if (ts < c.ts) { var alt = tsAfter(clock, c.ts); if (alt <= now + 10 * 60000) ts = alt; }
+    return ts;
+  }
+  function creuxDurTxt() {
+    var c = form && creuxById(form.id), ts = creuxEndTs(form && form.time, c);
+    return ts === null || ts < c.ts ? '—' : durText((ts - c.ts) / 60000);
+  }
+  function creuxLive() {
+    if (!form) return;
+    var el;
+    if (form.type === 'creux-start' && (el = $('f-chint'))) el.textContent = creuxHint();
+    if (form.type === 'creux-end' && (el = $('f-cdur'))) el.textContent = creuxDurTxt();
+  }
+  function vCreuxStart() {
+    return formHeader('Début du creux', form.qslot != null && PLAN[form.qslot] ? 'Ta réponse « oui » à la question de ' + rLabel(PLAN[form.qslot].r) : 'Un signalement libre, à n’importe quelle heure') +
+      '<main style="padding-top:14px;gap:14px">' + formError() +
+      '<section class="j-sec">' + fld('Heure', timeIn('time', form.time, 'Heure du début du creux'), '<span id="f-chint">' + esc(creuxHint()) + '</span> · modifiable si tu notes après coup') +
+      '<div class="j-field"><label class="j-lab" for="f-cnote">Note libre (facultatif)</label>' +
+      '<textarea id="f-cnote" class="j-ta mid" data-field="note" maxlength="500" placeholder="Ce que tu ressens…">' + esc(form.note) + '</textarea></div></section>' +
+      '<p class="j-p">Le creux reste ouvert jusqu’à ce que tu le termines, 4 h au maximum : au-delà, l’appli le termine toute seule. Après 1 h, elle te demande s’il est fini (dans l’appli, pas par une notification du téléphone). Il servira à comparer le creux ressenti au creux théorique de R+6h et R+7h (moyenne à ajuster). Étiquette : ressenti déclaratif.</p></main>' +
+      formFoot('creux-start-go', 'Enregistrer le début', formValid());
+  }
+  function vCreuxEnd() {
+    var c = creuxById(form.id);
+    return formHeader('Terminer le creux', c ? 'Début ' + clockOf(c.ts) + ' · ' + esc(creuxOriginTxt(c)) : '') +
+      '<main style="padding-top:14px;gap:14px">' + formError() +
+      '<section class="j-sec">' + fld('Heure de fin', timeIn('time', form.time, 'Heure de fin du creux'), 'Durée : <b id="f-cdur">' + esc(creuxDurTxt()) + '</b>. Fin déclarée, à peu près : tu peux la corriger, on s’en rend compte après coup.') +
+      '<div class="j-field"><label class="j-lab" for="f-cnote">Note libre (facultatif)</label>' +
+      '<textarea id="f-cnote" class="j-ta mid" data-field="note" maxlength="500" placeholder="Ce qui a changé, ce qui t’a aidé…">' + esc(form.note) + '</textarea></div></section>' +
+      '<section class="j-card fin"><p class="lead"><b>Un test pour marquer la fin ?</b></p>' +
+      '<p>Étiquette « fin de creux », à part des tests prévus et libres. Tu choisis le test juste après.</p></section></main>' +
+      '<div class="foot"><button type="button" class="btn primary" id="f-go2" data-act="creux-end-test"' + (formValid() ? '' : ' disabled') + '>Enregistrer et faire un test</button>' +
+      '<button type="button" class="btn secondary" id="f-go" data-act="creux-end-go"' + (formValid() ? '' : ' disabled') + '>Enregistrer sans test</button></div>';
+  }
+
+  // Les touches de l'écran Instant : ta liste de Réglages, plus « Joint » s'il n'y est pas déjà (e4f ; rien n'est écrit dans ta liste).
+  function instChoices() { return instNames.some(isJoint) ? instNames : instNames.concat([JOINT]); }
+  // Rangée « Type du joint » (facultatif) : un seul type, retouché il s'enlève ; masquée tant que le nom n'est pas « Joint » (jtLive).
+  function jtBlock() {
+    var cur = form.jtype || '';
+    return '<section class="j-sec j-jt" id="f-jt" style="gap:8px"' + (isJoint(form.name) ? '' : ' hidden') + '><h2>TYPE DU JOINT · FACULTATIF</h2>' +
+      '<div class="j-picks" role="group" aria-label="Type du joint">' + JTYPES.map(function (t) {
+        var on = cur === t[0];
+        return '<button type="button" class="j-pick' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="jtype" data-id="' + t[0] + '">' + t[1] + '</button>';
+      }).join('') + '</div>' +
+      '<span class="j-fhint">Un seul type ; touche-le encore pour l’enlever. C’est ce que tu déclares : l’appli n’en tire aucune conclusion.</span></section>';
+  }
+  function jtLive() { var el = $('f-jt'); if (el && form) el.hidden = !isJoint(form.name); }
   function vInstant() {
     return formHeader('Instant', 'Un seul moment : une heure, pas de fin') +
       '<main style="padding-top:14px;gap:14px">' + formError() +
       '<section class="j-sec" style="gap:8px"><h2>QUEL INSTANT ?</h2>' +
       (instNames.length ? '' : '<p class="j-fhint">Ta liste est vide. Ajoute des instants dans Réglages, ou écris-en un avec « Autre… ».</p>') +
-      pickGrid(instNames, 'Nom de l’instant…', 'Nom de l’instant') + '</section>' +
+      pickGrid(instChoices(), 'Nom de l’instant…', 'Nom de l’instant') + '</section>' +
+      jtBlock() +
       '<section class="j-sec">' + fld('Heure', timeIn('time', form.time, 'Heure de l’instant'), 'Modifiable si tu notes après coup.') + '</section>' +
       '</main>' + formFoot('instant-go', 'Enregistrer', formValid());
   }
@@ -2559,7 +3507,9 @@ function milestone(w) {
         '<button type="button" class="j-link" data-act="set-del" data-list="' + which + '" data-name="' + esc(n) + '" aria-label="Retirer ' + esc(n) + ' de la liste">Retirer</button></li>';
     }).join('');
     return '<section class="j-sec" style="gap:8px"><h2>' + title + '</h2><p class="j-p" style="margin:0">' + sub + '</p>' +
-      '<div class="j-addrow"><input id="set-' + which + '" class="j-sel" type="text" maxlength="40" data-set="' + which + '" placeholder="Nouveau motif…" value="' + esc(setDraft[which]) + '" aria-label="Nouveau motif, ' + (which === 'act' ? 'activité' : 'instant') + '">' +
+      (which === 'nt' && setNotice && setNoticeIn === 'nt' ? '<p class="j-ok" role="status" style="margin:0">' + esc(setNotice) + '</p>' : '') +
+      '<div class="j-addrow"><input id="set-' + which + '" class="j-sel" type="text" maxlength="' + (which === 'nt' ? NT_LEN : 40) + '" data-set="' + which + '" placeholder="' + (which === 'nt' ? 'Nouvelle catégorie…' : 'Nouveau motif…') +
+      '" value="' + esc(setDraft[which]) + '" aria-label="' + (which === 'nt' ? 'Nouvelle catégorie de note' : 'Nouveau motif, ' + (which === 'act' ? 'activité' : 'instant')) + '">' +
       '<button type="button" class="btn secondary" id="set-add-' + which + '" data-act="set-add" data-list="' + which + '"' + (setDraft[which].trim() ? '' : ' disabled') + '>Ajouter</button></div>' +
       (rows ? '<ul class="j-mlist">' + rows + '</ul>' : '<p class="j-fhint">Liste vide.</p>') + '</section>';
   }
@@ -2572,6 +3522,15 @@ function milestone(w) {
     return '<section class="j-sec" style="gap:8px"><h2>STYLE</h2>' +
       '<p class="j-p" style="margin:0">Classique : sobre, traits fins. Dessiné : contours épais, couleurs vives. Ce choix reste sur cet appareil.</p>' +
       '<div class="j-picks">' + btns + '</div></section>';
+  }
+  function bkBlock() {
+    var btns = BK_HOURS.map(function (h) {
+      var on = bkHours === h;
+      return '<button type="button" class="j-pick' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="bk-hours" data-v="' + h + '">' + (h ? h + ' h' : 'Jamais') + '</button>';
+    }).join('');
+    return '<section class="j-sec" style="gap:8px"><h2>BANNIÈRE DE SAUVEGARDE</h2>' +
+      '<p class="j-p" style="margin:0">Une bannière te prévient sur l’écran Cycle et sur le Journal quand ta dernière sauvegarde a plus de ce délai et qu’il y a du nouveau depuis. Les rappels du calendrier (Journal → Rappels) sont à part. Ce choix reste sur cet appareil.</p>' +
+      '<div class="j-picks three">' + btns + '</div></section>';
   }
   function themeBlock() {
     var cur = L.getTheme ? L.getTheme() : 'jour';
@@ -2586,14 +3545,17 @@ function milestone(w) {
   function vSettings() {
     return '<header><div class="top"><span class="brand">Kioo Cycle</span><span class="module">Module Corps</span></div>' +
       '<div class="titlerow"><h1 tabindex="-1">Réglages</h1></div>' +
-      '<p class="sub">Les motifs que tu veux relever</p></header>' +
-      '<main>' + (setNotice ? '<p class="j-ok" role="status">' + esc(setNotice) + '</p>' : '') +
+      '<p class="sub">Les motifs et les catégories que tu veux relever</p></header>' +
+      '<main>' + (setNotice && setNoticeIn !== 'nt' ? '<p class="j-ok" role="status">' + esc(setNotice) + '</p>' : '') +
       styleBlock() +
       themeBlock() +
       setSection('act', 'ACTIVITÉS · UN DÉBUT, UNE FIN', 'Elles apparaissent dans « Activité » (Journal → À tout moment).', actNames) +
-      setSection('inst', 'INSTANTS · UNE SEULE HEURE', 'Ils apparaissent dans « Instant » (Journal → À tout moment).', instNames) +
-      '<p class="j-p">Retirer un motif de la liste ne touche pas à ton historique : les entrées déjà notées gardent leur nom.</p></main>';
+      setSection('inst', 'INSTANTS · UNE SEULE HEURE', 'Ils apparaissent dans « Instant » (Journal → À tout moment). « Joint », avec son type facultatif, y est toujours proposé en plus.', instNames) +
+      bkBlock() +
+      setSection('nt', 'CATÉGORIES DE NOTE · LES TIENNES', 'Elles s’ajoutent aux catégories de départ (Questionnement, Affirmation, To-do, Constat, Idée, Synchronicité…) quand tu écris ou modifies une note (Journal → Note libre). Les sous-catégories se créent dans la note, avec « Autre sous-catégorie… ». ' + NT_LEN + ' caractères au plus, ' + NT_MAX + ' catégories au plus.', noteTypeNames) +
+      '<p class="j-p">Retirer un motif ou une catégorie de la liste ne touche pas à ton historique : les entrées déjà notées gardent leur nom, et les notes déjà classées gardent leur catégorie.</p></main>';
   }
+
 
   function vActEnd() {
     var a = entries.filter(function (e) { return e.id === form.id; })[0];
@@ -2624,8 +3586,14 @@ function milestone(w) {
   }
 
   function vEdit() {
-    var k = form.kind, title = { activite: 'Modifier l’activité', repas: 'Modifier le repas', coucher: 'Modifier le coucher', instant: 'Modifier l’instant' }[k], inner = '';
-    if (k === 'activite') {
+    var k = form.kind, title = { activite: 'Modifier l’activité', creux: 'Modifier le creux', repas: 'Modifier le repas', coucher: 'Modifier le coucher', instant: 'Modifier l’instant', note: 'Modifier la note' }[k], inner = '';
+    if (k === 'note') {
+      var ne = entries.filter(function (x) { return x.id === form.id; })[0];
+      inner = '<div class="j-nt" id="j-nt">' + noteTypeBlock(form.sel) + '</div><div class="j-field"><label class="j-lab" for="f-text">Ta note</label>' +
+        '<textarea id="f-text" class="j-ta" data-field="text" maxlength="5000">' + esc(form.text) + '</textarea></div>' +
+        '<div id="j-ans">' + ansBlock() + '</div><div id="j-att">' + attBlock() + '</div>' +
+        (ne ? '<p class="j-p">' + esc(noteDates(ne)) + '<br>L’heure de création ne change pas.</p>' : '');
+    } else if (k === 'activite') {
       inner = '<section class="j-sec"><div class="j-field"><label class="j-lab" for="f-name">Activité</label>' +
         '<input id="f-name" class="j-sel" type="text" maxlength="40" data-field="name" value="' + esc(form.name) + '"></div>' +
         fld('Heure de début', timeIn('time', form.time, 'Heure de début')) +
@@ -2634,6 +3602,13 @@ function milestone(w) {
         '<textarea id="f-comment" class="j-ta mid" data-field="comment" maxlength="500">' + esc(form.comment) + '</textarea></div></section>' +
         '<p class="j-p">Un ressenti ajouté ici est marqué « noté après coup » : c’est un souvenir, pas ce que tu ressentais à ce moment-là.</p>' +
         feelBlock('as', 'Ressenti de début', form.feelOpen, 'f-feel') + feelBlock('ae', 'Ressenti de fin', form.feelOpen2, 'f-feel2');
+    } else if (k === 'creux') {
+      inner = '<section class="j-sec">' + fld('Heure de début', timeIn('time', form.time, 'Heure de début du creux')) +
+        fld('Heure de fin', timeIn('end', form.end, 'Heure de fin du creux'), 'Laisse vide si le creux est encore en cours. 4 h au maximum. ' + (form.endAuto ? 'Fin automatique : si tu la changes, elle devient une fin déclarée, à peu près.' : 'Fin déclarée, à peu près.')) +
+        '<div class="j-field"><label class="j-lab" for="f-cnote">Note de début</label>' +
+        '<textarea id="f-cnote" class="j-ta mid" data-field="note" maxlength="500">' + esc(form.note) + '</textarea></div>' +
+        '<div class="j-field"><label class="j-lab" for="f-cnote2">Note de fin</label>' +
+        '<textarea id="f-cnote2" class="j-ta mid" data-field="endNote" maxlength="500">' + esc(form.endNote) + '</textarea></div></section>';
     } else if (k === 'repas') {
       inner = '<section class="j-sec">' + fld('Heure du repas', timeIn('time', form.time, 'Heure du repas')) +
         '<div class="j-field"><label class="j-lab" for="f-text">Contenu</label>' +
@@ -2641,11 +3616,11 @@ function milestone(w) {
     } else if (k === 'instant') {
       inner = '<section class="j-sec"><div class="j-field"><label class="j-lab" for="f-name">Instant</label>' +
         '<input id="f-name" class="j-sel" type="text" maxlength="40" data-field="name" value="' + esc(form.name) + '"></div>' +
-        fld('Heure', timeIn('time', form.time, 'Heure de l’instant')) + '</section>';
+        fld('Heure', timeIn('time', form.time, 'Heure de l’instant')) + '</section>' + jtBlock();
     } else {
       inner = '<section class="j-sec">' + fld('Heure du coucher', timeIn('time', form.time, 'Heure du coucher')) + '</section>';
     }
-    return formHeader(title, 'Corrige l’heure ou le texte') + '<main style="padding-top:14px;gap:14px">' + formError() + inner + '</main>' +
+    return formHeader(title, k === 'note' ? 'Corrige le texte ou la catégorie de ta note, ou ajoute une réponse ou une note rattachée' : 'Corrige l’heure ou le texte') + '<main style="padding-top:14px;gap:14px">' + formError() + inner + '</main>' +
       formFoot('edit-go', 'Enregistrer les changements', formValid());
   }
 
@@ -2659,11 +3634,12 @@ function milestone(w) {
     return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
       '<h1 tabindex="-1">Sauvegarde</h1><p class="sub">Un fichier : tout ton Journal, ton réveil et ton plan</p></header>' +
       '<main style="padding-top:14px;gap:12px"><section class="j-card">' +
-      '<p class="lead">Au quotidien, rien à faire : tes relevés, tests, notes, activités, repas et couchers se gardent tout seuls sur cet appareil, d’un jour à l’autre.</p>' +
+      '<p class="lead">Au quotidien, rien à faire : tes relevés, tests, notes, activités, creux, repas et couchers se gardent tout seuls sur cet appareil, d’un jour à l’autre.</p>' +
       '<p>La sauvegarde est une assurance : si l’appli est supprimée, si les données du navigateur sont effacées ou si tu changes d’appareil, le fichier permet de tout retrouver. Le téléphone et l’ordinateur ne se partagent rien : « Restaurer » en mode « Fusionner » réunit leurs données.</p>' +
-      '<p>Le fichier garde aussi les réglages du plan (premier jour, graine du mélange, étape du PVT-B) et la liste des mots déjà vus à la Memory List. Les fichiers faits avant cette version se restaurent toujours.</p>' +
-      '<p>Suggestion, pas une règle : une fois par semaine.</p>' +
-      '<p style="font-size:12.5px">Le fichier contient tes notes, tes repas et tes activités : range-le dans un endroit privé.</p>' +
+      '<p>Le fichier garde aussi les réglages du plan (premier jour, graine du mélange, étape du PVT-B), la liste des mots déjà vus à la Memory List, tes nuits et ton mantra. Les fichiers faits avant cette version se restaurent toujours.</p>' +
+      '<p>Chaque fichier est complet : seul le plus récent compte, tu peux effacer les anciens.</p>' +
+      '<p>Suggestion, pas une règle : une fois par semaine, et plus souvent si tu notes beaucoup (la bannière et les rappels du calendrier t’y aident).</p>' +
+      '<p style="font-size:12.5px">Le fichier contient tes notes, tes repas, tes activités et ton mantra : range-le dans un endroit privé.</p>' +
       '<p class="last">' + lastBackupText() + '</p></section>' +
       '<div class="j-actions"><button type="button" class="btn primary" data-act="do-backup">Sauvegarder (fichier)</button>' +
       '<button type="button" class="btn secondary" data-act="restore">Restaurer depuis un fichier</button>' +
@@ -2690,22 +3666,23 @@ function milestone(w) {
       '<p>Si un rappel passe, ce n’est pas grave : il n’y a rien à rattraper.</p>' +
       '<div class="chips" style="margin:0"><span class="chip hy">Heures = moyennes à ajuster</span></div></section>' +
       '<section class="j-sec" style="gap:8px"><h2>QUOI RAPPELER ?</h2>' +
-      opt('moments', 'Moments du plan · ' + PLAN.length + ' par jour', 'Un rappel à l’heure de chaque moment (relevé, test, ou les deux), de ' + rLabel(PLAN[0].r) + ' à ' + rLabel(PLAN[PLAN.length - 1].r) + '. Pour un réveil à 8h10 : 8h40, 10h10, 11h10…') +
+      opt('moments', 'Moments du plan · ' + NPLAN + ' par jour', 'Un rappel à l’heure de chaque moment (relevé, test, les deux, ou la question du creux), de ' + rLabel(PLAN[0].r) + ' à ' + rLabel(PLAN[PLAN.length - 1].r) + '. Pour un réveil à 8h10 : 8h40, 10h10, 11h10…') +
       opt('phases', 'Changements de phase · ' + nP + ' par jour', 'Au début de chaque phase, avec son conseil. Pas pour la première (tu viens de te réveiller). Désactivé au départ pour ne pas surcharger.') +
+      opt('backups', 'Sauvegardes · 3 par jour', 'Un rappel « Sauvegarder Kioo » à ' + rLabel(BK_REM[0].r) + ' et ' + rLabel(BK_REM[1].r) + ', calés sur ton réveil, puis à 19h00 (heure fixe). Avec ton réveil actuel : <span id="j-rbk">' + esc(bkTimesText(w)) + '</span>. Le rappel sonne ; la sauvegarde reste un geste de ta part.') +
       '<div class="j-field" style="margin-top:4px"><label class="j-lab" for="j-rdays">Pour</label>' +
       '<select id="j-rdays" class="j-sel" data-rem="days">' + [1, 7, 14, 30].map(function (d) {
         return '<option value="' + d + '"' + (rem.days === d ? ' selected' : '') + '>' + (d === 1 ? 'Aujourd’hui seulement' : d + ' jours de suite') + '</option>';
       }).join('') + '</select></div></section>' +
-      (gOn ? '<div class="j-actions"><button type="button" class="btn primary" id="j-gk" data-act="send-gcal"' + (gBusy || !(rem.moments || rem.phases) ? ' disabled' : '') + '>Envoyer à Google Agenda</button>' +
+      (gOn ? '<div class="j-actions"><button type="button" class="btn primary" id="j-gk" data-act="send-gcal"' + (gBusy || !remAny() ? ' disabled' : '') + '>Envoyer à Google Agenda</button>' +
         '<span class="j-hint left" id="j-gstatus" role="status" aria-live="polite">' + esc(gStatus) + '</span></div>' +
         '<p class="j-p">Une fenêtre Google s’ouvre pour te connecter la première fois. L’autorisation demandée se limite à créer un agenda « Kioo Cycle » et à y gérer ses événements. Seuls les horaires et les titres des rappels partent chez Google, jamais tes réponses. Pour tout retirer : supprime cet agenda dans Google Agenda.</p>' : '') +
-      '<div class="j-actions"><button type="button" class="btn ' + (gOn ? 'secondary' : 'primary') + '" id="j-mk" data-act="make-ics"' + (rem.moments || rem.phases ? '' : ' disabled') + '>Créer le fichier calendrier</button>' +
+      '<div class="j-actions"><button type="button" class="btn ' + (gOn ? 'secondary' : 'primary') + '" id="j-mk" data-act="make-ics"' + (remAny() ? '' : ' disabled') + '>Créer le fichier calendrier</button>' +
       '<span class="j-hint left" id="j-rstatus" role="status" aria-live="polite">' + esc(remStatus) + '</span></div>' +
       '<details class="j-det"><summary>Comment l’ajouter à mon calendrier ?</summary>' +
-      '<p class="j-p" style="margin:0 0 8px"><b>iPhone</b> : lors d’un essai, le Calendrier d’Apple n’a pas reconnu le fichier. Passe plutôt par Gmail : envoie-toi le fichier, ouvre-le dans Gmail et ajoute les rappels à Google Agenda (constaté : ils s’ajoutent d’un coup ; les alarmes par ce chemin ne sont pas encore vérifiées).</p>' +
+      '<p class="j-p" style="margin:0 0 8px"><b>iPhone</b> : lors d’un essai, le Calendrier d’Apple n’a pas reconnu le fichier. Passe plutôt par Gmail : envoie-toi le fichier, ouvre-le dans Gmail et ajoute les rappels à Google Agenda (constaté : ils s’ajoutent d’un coup ; les notifications par ce chemin ne sont pas encore vérifiées).</p>' +
       '<p class="j-p" style="margin:0 0 8px"><b>Google Agenda sur ordinateur</b> : Paramètres → Importer et exporter, puis choisis le fichier et le calendrier de destination. D’après l’aide de Google, l’import se fait sur ordinateur.</p>' +
       '<p class="j-p" style="margin:0 0 8px">Conseil : range-les dans un calendrier à part nommé « Kioo Cycle » ; pour tout retirer d’un coup, il suffit de le supprimer.</p>' +
-      '<p class="j-p" style="margin:0 0 8px">Pas encore vérifié : où Chrome sur iPhone range ce fichier, et si ton calendrier garde les alarmes d’un fichier importé.</p></details></main>';
+      '<p class="j-p" style="margin:0 0 8px">Pas encore vérifié : où Chrome sur iPhone range ce fichier, et si ton calendrier garde les notifications d’un fichier importé.</p></details></main>';
   }
 
   /* ---------- Restauration : affichage ---------- */
@@ -2714,7 +3691,7 @@ function milestone(w) {
     list.forEach(function (e) { var k = e.kind === 'releve' && e.pvt ? 'combo' : (e.kind === 'test' && e.test ? e.test : e.kind); n[k] = (n[k] || 0) + 1; });
     var parts = [];
     [['releve', 'relevé', 'relevés'], ['combo', 'relevé + test', 'relevés + tests'], ['test', 'test', 'tests'], ['rs', 'passage Rotation span', 'passages Rotation span'], ['fl', 'passage Flanker', 'passages Flanker'], ['ss', 'passage Symbol Search', 'passages Symbol Search'], ['hs', 'passage Hand Swype', 'passages Hand Swype'], ['ml', 'passage Memory List', 'passages Memory List'], ['activite', 'activité', 'activités'],
-     ['repas', 'repas', 'repas'], ['coucher', 'coucher', 'couchers'], ['instant', 'instant', 'instants'], ['note', 'note', 'notes'], ['pas', 'note « pas ce moment »', 'notes « pas ce moment »']].forEach(function (t) {
+     ['creux', 'creux', 'creux'], ['creuxq', 'réponse « non » (creux)', 'réponses « non » (creux)'], ['repas', 'repas', 'repas'], ['coucher', 'coucher', 'couchers'], ['nuit', 'nuit', 'nuits'], ['instant', 'instant', 'instants'], ['note', 'note', 'notes'], ['pas', 'note « pas ce moment »', 'notes « pas ce moment »']].forEach(function (t) {
       if (n[t[0]]) parts.push(plural(n[t[0]], t[1], t[2]));
     });
     return parts.length ? parts.join(' · ') : 'aucune entrée';
@@ -2734,6 +3711,18 @@ function milestone(w) {
     if (!r.plan) return '';
     return '<p>Plan : ' + (r.plan.start ? 'premier jour le ' + esc(pDateText(r.plan.start, true)) : 'premier jour pas encore choisi') + ' · étape ' + pStageOf(r.plan, todayInfo().tk) + '</p>';
   }
+  function restoreTodoLine(r) { // un fichier d'avant le 19/11 peut contenir des to-do : elles deviennent des notes de catégorie To-do
+    if (!r.tds || !r.tds.length) return '';
+    var have = {};
+    (r.mode === 'replace' ? r.entries : entries.concat(r.entries)).forEach(function (e) { have[e.id] = true; });
+    var fresh = r.tds.filter(function (t) { return !have[tdNoteId(t)]; }).length;
+    return '<p>' + plural(r.tds.length, 'to-do', 'to-do') + ' · reprises comme notes de catégorie To-do (' + plural(fresh, 'nouvelle', 'nouvelles') + ' pour cet appareil)</p>';
+  }
+  function restoreWakeLine(r) {
+    var m = r.wake ? L.parseWake(r.wake) : null, cur = L.getWake();
+    if (m === null) return '<p>Pas d’heure de réveil dans ce fichier : celle de cet appareil (' + esc(L.fmtClock(cur)) + ') est gardée.</p>';
+    return '<p>Réveil du fichier : ' + esc(L.fmtClock(m)) + (m === cur ? ' (déjà celui de cet appareil)' : ' · il remplacera celui de cet appareil (' + esc(L.fmtClock(cur)) + ')') + '</p>';
+  }
   function vRestore() {
     var r = restore, body = '', btn, canGo = !!r;
     if (r) {
@@ -2743,13 +3732,15 @@ function milestone(w) {
         '<p class="lead" style="font-size:14px;font-weight:700;overflow-wrap:anywhere">' + esc(r.name || 'Texte collé') + '</p>' +
         '<p>' + (r.exportedAt ? 'Sauvegarde du ' + esc(dShort(r.exportedAt)) + ', ' + clockOf(r.exportedAt) : 'Date de sauvegarde inconnue') + '</p>' +
         '<p>' + esc(countsText(r.entries)) + (s.from ? ' · du ' + esc(dShort(s.from)) + ' au ' + esc(dShort(s.to)) : '') + '</p>' +
+        restoreWakeLine(r) +
         restorePlanLine(r) +
+        restoreTodoLine(r) +
         '<p>' + plural(s.fresh.length, 'élément nouveau', 'éléments nouveaux') + ' pour cet appareil · ' + plural(s.dup, 'déjà présent', 'déjà présents') + '</p></section>' +
         '<section class="j-sec" style="gap:8px"><h2>COMMENT LE RESTAURER ?</h2>' +
         '<label class="j-opt' + (r.mode === 'merge' ? ' on' : '') + '"><input type="radio" name="rmode" value="merge"' + (r.mode === 'merge' ? ' checked' : '') + '>' +
-        '<span class="t"><b>Fusionner <small>· recommandé</small></b><span class="d">Ajoute ce qui manque sur cet appareil. Rien n’est effacé, les doublons sont ignorés, ton réveil actuel est gardé. Le plan de cet appareil est gardé, sauf s’il n’a pas encore de premier jour.</span></span></label>' +
+        '<span class="t"><b>Fusionner <small>· recommandé</small></b><span class="d">Ajoute ce qui manque sur cet appareil. Rien n’est effacé, les doublons sont ignorés. Le réveil du fichier est repris. Le plan de cet appareil est gardé, sauf s’il n’a pas encore de premier jour.</span></span></label>' +
         '<label class="j-opt' + (r.mode === 'replace' ? ' on' : '') + '"><input type="radio" name="rmode" value="replace"' + (r.mode === 'replace' ? ' checked' : '') + '>' +
-        '<span class="t"><b>Remplacer</b><span class="d">Efface le Journal de cet appareil, et met celui du fichier à la place (réveil' + (r.plan ? ' et plan' : '') + ' compris). Ce qui a été fait après la sauvegarde est perdu.</span></span></label></section>' +
+        '<span class="t"><b>Remplacer</b><span class="d">Efface le Journal de cet appareil, et met celui du fichier à la place (réveil' + (r.plan ? ' et plan' : '') + ' compris' + (r.tds ? ' ; les to-do du fichier deviennent des notes' : '') + '). Ce qui a été fait après la sauvegarde est perdu.</span></span></label></section>' +
         (r.mode === 'replace' && r.confirm ? '<p class="j-warn" role="alert">Cela efface le contenu du Journal de cet appareil (' + esc(countsText(entries)) + ') pour mettre celui du fichier à la place.' + (r.plan ? ' Le plan (premier jour, graine, étape) est aussi remplacé.' : '') + '</p>' : '');
     } else {
       btn = 'Restaurer';
@@ -2768,19 +3759,137 @@ function milestone(w) {
       '<button type="button" class="btn ghost" data-act="backup">Annuler</button></div>';
   }
 
-  function vHistory() {
-    var tk = todayInfo().tk, list = entries.slice().reverse();
-    return '<header class="subhead"><div class="top">' + back('home', 'Journal') + '<span class="brand">Kioo Cycle</span></div>' +
-      '<h1 tabindex="-1">Historique</h1><p class="sub">' + plural(entries.length, 'entrée', 'entrées') + ' · les plus récentes d’abord</p></header>' +
-      '<main style="padding-top:14px"><div class="j-hist">' +
-      (list.length ? list.map(function (e) { return histCard(e, tk, true); }).join('') : '<div class="j-empty">Rien pour l’instant.</div>') +
-      '</div></main>';
+  /* ---------- Tout l'historique : filtres de genre, catégorie, sous-catégorie, état, tri Date | Événement (depuis le 08/11, c2b ; catégories depuis le 19/11) ---------- */
+  // État gardé en mémoire seulement (jamais enregistré) : depuis `e4a` (19/11, demande de Jonathan : « il les garde »), l'Historique se souvient de son filtre et de son tri tant que l'appli n'est pas fermée ;
+  // avant, on repartait de « Toutes » à chaque ouverture. Rien ne les remet à zéro, sauf la fermeture de l'appli (et un filtre qui n'a plus de sens, voir `histNorm`).
+  // sub : 'all' | 'none' (sans sous-catégorie) | 's:<nom>' ; ans : 'all' | 'no' | 'yes' (questionnement : réponse ; to-do : mise en place) ; dir : 'desc' (plus récentes d'abord) | 'asc' (plus anciennes d'abord).
+  var hf = { genre: 'all', ntype: 'all', sub: 'all', ans: 'all', sort: 'date', dir: 'desc' };
+  function hfReset() { hf = { genre: 'all', ntype: 'all', sub: 'all', ans: 'all', sort: 'date', dir: 'desc' }; }
+  var HG = [['all', 'Toutes'], ['releve', 'Relevés'], ['test', 'Tests'], ['activite', 'Activités'], ['creux', 'Creux'], ['repas', 'Repas'], ['coucher', 'Coucher'], ['nuit', 'Nuits'], ['instant', 'Instants'], ['note', 'Notes'], ['pas', 'Pas ce moment']];
+  // Les genres suivent le champ `kind` : un ancien « relevé + test » (avant le 11/10) compte parmi les Relevés.
+  function genreOf(e) { return e.kind === 'creuxq' ? 'creux' : e.kind; } // la réponse « non » à la question du creux est rangée avec les creux
+  function noteTid(e) { return noteTypeOf(e.ntype).id || 'none'; } // 'none' = sans catégorie
+  function histTypeChoices(notes) { // catégories proposées : celles qui ont des notes (ou celle qui est choisie), puis les tiennes (Réglages), puis « Sans catégorie » (toujours là : c'est le lot à trier)
+    var cnt = {}, out = [{ id: 'all', label: 'Toutes', n: notes.length }], customs = noteTypeNames.map(function (n) { return noteTypeOf('u:' + n).id; });
+    notes.forEach(function (e) { var id = noteTid(e); cnt[id] = (cnt[id] || 0) + 1; });
+    Object.keys(cnt).forEach(function (id) { if (id.slice(0, 2) === 'u:' && customs.indexOf(id) < 0) customs.push(id); });
+    NOTE_TYPES.slice(1).forEach(function (t) { if (cnt[t.id] || hf.ntype === t.id) out.push({ id: t.id, label: t.name, n: cnt[t.id] || 0 }); });
+    customs.forEach(function (id) { out.push({ id: id, label: noteTypeOf(id).name, n: cnt[id] || 0 }); });
+    out.push({ id: 'none', label: 'Sans catégorie', n: cnt.none || 0 });
+    return out;
+  }
+  function histSubChoices(notes) { // sous-catégories de la catégorie choisie : seulement celles qui portent des notes ; null s'il n'y en a aucune
+    if (hf.ntype === 'all' || hf.ntype === 'none') return null;
+    var inCat = notes.filter(function (e) { return noteTid(e) === hf.ntype; }), cnt = {}, none = 0, order = (noteTypeOf(hf.ntype).subs || []).slice();
+    inCat.forEach(function (e) { if (e.nsub) { cnt[e.nsub] = (cnt[e.nsub] || 0) + 1; if (order.indexOf(e.nsub) < 0) order.push(e.nsub); } else none++; });
+    var out = [{ id: 'all', label: 'Toutes', n: inCat.length }];
+    order.forEach(function (n) { if (cnt[n] || hf.sub === 's:' + n) out.push({ id: 's:' + n, label: n, n: cnt[n] || 0 }); });
+    if (out.length < 2) return null;
+    if (none || hf.sub === 'none') out.push({ id: 'none', label: 'Sans sous-catégorie', n: none });
+    return out;
+  }
+  function histNorm() { // un filtre qui n'a plus de sens (genre changé, catégorie sans note après une suppression) revient à « Toutes »
+    if (hf.genre !== 'note') { hf.ntype = 'all'; hf.sub = 'all'; hf.ans = 'all'; return; }
+    var notes = entries.filter(function (e) { return e.kind === 'note'; });
+    if (!histTypeChoices(notes).some(function (c) { return c.id === hf.ntype; })) hf.ntype = 'all';
+    var sc = histSubChoices(notes);
+    if (!sc || !sc.some(function (c) { return c.id === hf.sub; })) hf.sub = 'all';
+    if (hf.ntype !== 'questionnement' && hf.ntype !== 'todo') hf.ans = 'all';
+  }
+  function histFiltered() {
+    histNorm();
+    var list = hf.dir === 'asc' ? entries.slice() : entries.slice().reverse(); // `entries` est rangé par date de saisie (`ts`) croissante
+    if (hf.genre !== 'all') list = list.filter(function (e) { return genreOf(e) === hf.genre; });
+    if (hf.genre === 'note') {
+      if (hf.ntype !== 'all') list = list.filter(function (e) { return noteTid(e) === hf.ntype; });
+      if (hf.sub === 'none') list = list.filter(function (e) { return !e.nsub; });
+      else if (hf.sub !== 'all') list = list.filter(function (e) { return e.nsub === hf.sub.slice(2); });
+      if (hf.ans !== 'all') list = list.filter(function (e) { return doneOf(e) === (hf.ans === 'yes'); });
+    }
+    return list;
+  }
+  function histSub() {
+    var n = histFiltered().length, tot = entries.length;
+    return (n === tot ? plural(tot, 'entrée', 'entrées') : n + ' sur ' + plural(tot, 'entrée', 'entrées')) + ' · ' + (hf.sort === 'event' ? 'groupées par genre' + (hf.dir === 'asc' ? ', les plus anciennes d’abord' : '') : hf.dir === 'asc' ? 'les plus anciennes d’abord' : 'les plus récentes d’abord');
+  }
+  function hfChips(actName, label, choices, cur) {
+    return '<div class="lab">' + label + '</div><div class="j-chips" role="group" aria-label="' + esc(label) + '">' + choices.map(function (c) {
+      var on = c.id === cur;
+      return '<button type="button" class="j-chip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="' + actName + '" data-v="' + esc(c.id) + '"><span>' + esc(c.label) + '</span>' +
+        (c.n == null ? '' : '<span class="n">' + c.n + '</span>') + '</button>';
+    }).join('') + '</div>';
+  }
+  function histGroups(list) { // tri « Événement » : un titre par genre ; pour les notes, un sous-titre par type ; le plus récent d'abord dans chaque groupe
+    var out = '', tk = todayInfo().tk;
+    HG.slice(1).forEach(function (g) {
+      var items = list.filter(function (e) { return genreOf(e) === g[0]; });
+      if (!items.length) return;
+      out += '<h2 class="j-gt">' + esc(g[1]) + ' · ' + items.length + '</h2>';
+      if (g[0] !== 'note') { out += items.map(function (e) { return histCard(e, tk, true); }).join(''); return; }
+      histTypeChoices(items).slice(1).forEach(function (c) {
+        var sub = items.filter(function (e) { return noteTid(e) === c.id; });
+        if (!sub.length) return;
+        out += '<h3 class="j-gt sub">' + esc(c.label) + ' · ' + sub.length + '</h3>' + sub.map(function (e) { return histCard(e, tk, true); }).join('');
+      });
+    });
+    return out;
+  }
+  function histBody() {
+    lkIdx = lkBuild();
+    var list = histFiltered(), tk = todayInfo().tk, cnt = { all: entries.length };
+    entries.forEach(function (e) { cnt[genreOf(e)] = (cnt[genreOf(e)] || 0) + 1; });
+    var bar = hfChips('hf-genre', 'Genre', HG.map(function (g) { return { id: g[0], label: g[1], n: cnt[g[0]] || 0 }; }), hf.genre);
+    if (hf.genre === 'note') {
+      var notes = entries.filter(function (e) { return e.kind === 'note'; });
+      bar += hfChips('hf-ntype', 'Catégorie', histTypeChoices(notes), hf.ntype);
+      var subc = histSubChoices(notes);
+      if (subc) bar += hfChips('hf-sub', 'Sous-catégorie', subc, hf.sub);
+      if (hf.ntype === 'questionnement' || hf.ntype === 'todo') {
+        var isTd = hf.ntype === 'todo', qs = notes.filter(function (e) { return noteTid(e) === hf.ntype; }), yes = qs.filter(doneOf).length;
+        bar += hfChips('hf-ans', isTd ? 'Mise en place' : 'Réponse', [{ id: 'all', label: 'Toutes', n: qs.length }, { id: 'no', label: isTd ? 'À mettre en place' : 'Sans réponse', n: qs.length - yes }, { id: 'yes', label: isTd ? 'Mises en place' : 'Avec réponse', n: yes }], hf.ans);
+      }
+    }
+    bar += hfChips('hf-sort', 'Trier par', [{ id: 'date', label: 'Date' }, { id: 'event', label: 'Événement' }], hf.sort);
+    bar += hfChips('hf-dir', 'Ordre', [{ id: 'desc', label: 'Plus récentes d’abord' }, { id: 'asc', label: 'Plus anciennes d’abord' }], hf.dir); // par date de saisie ; avec « Événement », dans chaque groupe
+    var body = !entries.length ? '<div class="j-empty">Rien pour l’instant.</div>'
+      : !list.length ? '<div class="j-empty">Aucune entrée avec ce filtre.</div>'
+      : hf.sort === 'event' ? histGroups(list) : list.map(function (e) { return histCard(e, tk, true); }).join('');
+    lkIdx = null;
+    return '<div class="j-fbar">' + bar + '</div><div class="j-hist">' + body + '</div>';
+  }
+  // Met à jour la barre et la liste sans redessiner l'écran : le défilement et le clavier restent où ils sont.
+  function histRefresh(focusFn) {
+    var w = $('j-hwrap');
+    if (!w || screen !== 'history') { render(); return; }
+    var hn = $('j-hnotice'); if (hn && hn.parentNode) hn.parentNode.removeChild(hn); // le message de l'enregistrement disparaît au premier geste
+    w.innerHTML = histBody();
+    var sub = $('j-hsub'); if (sub) sub.textContent = histSub();
+    var f = focusFn ? focusFn(w) : null;
+    if (f) f.focus({ preventScroll: true });
+  }
+  function hfBtn(act, v) { return function (w) { return Array.prototype.filter.call(w.querySelectorAll('[data-act="' + act + '"]'), function (b) { return b.getAttribute('data-v') === v; })[0]; }; }
+  function hfSet(name, v) {
+    if (name === 'hf-genre' && HG.some(function (g) { return g[0] === v; })) { hf.genre = v; hf.ntype = 'all'; hf.sub = 'all'; hf.ans = 'all'; }
+    else if (name === 'hf-ntype') { hf.ntype = v; hf.sub = 'all'; hf.ans = 'all'; }
+    else if (name === 'hf-sub') hf.sub = v;
+    else if (name === 'hf-ans' && (v === 'all' || v === 'no' || v === 'yes')) hf.ans = v;
+    else if (name === 'hf-sort' && (v === 'date' || v === 'event')) hf.sort = v;
+    else if (name === 'hf-dir' && (v === 'desc' || v === 'asc')) hf.dir = v;
+    else return;
+    pendingDel = null;
+    histRefresh(hfBtn(name, v));
+  }
+
+  function vHistory() { // e4c : un onglet de la barre du bas (comme Réglages) : plus de flèche « Journal »
+    return '<header><div class="top"><span class="brand">Kioo Cycle</span><span class="module">Module Corps</span></div>' +
+      '<div class="titlerow"><h1 tabindex="-1">Reflet</h1></div><p class="sub" id="j-hsub" aria-live="polite">' + histSub() + '</p></header>' +
+      '<main style="padding-top:14px">' + (notice ? '<p class="j-ok" id="j-hnotice" role="status">' + esc(notice) + '</p>' : '') + '<div id="j-hwrap">' + histBody() + '</div></main>';
   }
 
   var VIEWS = { home: vHome, feel: vFeel, intro: vIntro, run: vRun, result: vResult, note: vNote, backup: vBackup, restore: vRestore, history: vHistory,
-                reminders: vRemind, plan: vPlan, settings: vSettings, instant: vInstant, 'act-start': vActStart, 'act-end': vActEnd, meal: vMeal, bed: vBed, edit: vEdit,
+                reminders: vRemind, plan: vPlan, settings: vSettings, instant: vInstant, 'act-start': vActStart, 'act-end': vActEnd, 'creux-start': vCreuxStart, 'creux-end': vCreuxEnd, meal: vMeal, bed: vBed, edit: vEdit,
                 chain: vChain, skip: vSkip,
-                tests: vTests, 'ss-intro': vSsIntro, 'ss-run': vSsRun, 'ss-prac': vSsPrac, 'ss-result': vSsResult,
+                tests: vTests, wake: vWake, night: vNight, mantra: vMantra, 'ss-intro': vSsIntro, 'ss-run': vSsRun, 'ss-prac': vSsPrac, 'ss-result': vSsResult,
                 'rs-intro': vTIntro, 'rs-run': vTRun, 'rs-prac': vTPrac, 'rs-result': vTResult,
                 'hs-intro': vTIntro, 'hs-run': vTRun, 'hs-prac': vTPrac, 'hs-result': vTResult,
                 'fl-intro': vTIntro, 'fl-run': vTRun, 'fl-prac': vTPrac, 'fl-result': vTResult,
@@ -2790,13 +3899,14 @@ function milestone(w) {
     var runM = /^(ss|rs|hs|fl|ml)-run$/.exec(screen);
     if (rnRun && !runM) { rnRun.why = 'silent'; rnKill(); } // on quitte l'écran du test : on l'arrête sans rien dire
     root.innerHTML = (VIEWS[screen] || vHome)();
-    L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders' || screen === 'plan' || screen === 'settings');
+    L.navVisible(screen === 'home' || screen === 'backup' || screen === 'reminders' || screen === 'plan' || screen === 'settings' || screen === 'history');
+    if (L.navCurrent) L.navCurrent(screen === 'history' ? 'nav-historique' : screen === 'settings' ? 'nav-reglages' : 'nav-journal');
     if (screen === 'home') { L.bindWake(root.querySelector('.wake-input')); updateHome(); }
     if (screen === 'reminders') { L.bindWake(root.querySelector('.wake-input')); gLoadLib(); }
     if (screen === 'plan') { L.bindWake(root.querySelector('.wake-input')); pRefreshDay(); }
     if (screen === 'run') startPvt();
     if (runM) rnStart(RUN[runM[1]][flow.tMode === 'practice' ? 'practice' : 'test']);
-    var focus = screen === 'run' ? $('j-area') : root.querySelector('h1');
+    var focus = screen === 'run' ? $('j-area') : (root.querySelector('h1'));
     if (focus) focus.focus({ preventScroll: true });
     var m = root.querySelector('main');
     if (m) m.scrollTop = 0;
@@ -3585,34 +4695,47 @@ function milestone(w) {
     flow = newFlow();
     form = null;
     updateAlert();
-    go('home');
+    var to = ret; ret = 'home'; // e4c : un formulaire ouvert depuis l'Historique y revient
+    go(to);
   }
   function baseEntry(kind, ts, wake) {
     return { id: uid(ts), kind: kind, ts: ts, day: dayKey(ts, wake), wake: wake, rel: relAt(ts, wake) };
   }
   function releveEntry(ts, wake) {
     var f = {}, e = baseEntry('releve', ts, wake);
-    FEEL.forEach(function (x) { f[x.id] = +flow.feel[x.id]; });
-    e.slot = flow.slot; e.plan = flow.slot != null ? 'prevu' : 'libre'; e.fv = 2; e.feel = f;
+    qsetOf(flow).forEach(function (id) { f[id] = +flow.feel[id]; });
+    e.slot = flow.slot; e.plan = flow.slot != null ? 'prevu' : 'libre'; e.fv = 3; e.feel = f;
     var dt = (flow.detail || '').trim();
     if (dt) e.detail = dt.slice(0, 500);
     return e;
   }
+  /* Première pensée du matin (e5) : écrite sur l'écran du relevé du matin ; gardée comme une NOTE (catégorie « Première pensée », une catégorie libre) pour qu'elle se relise avec les notes.
+     Elle part avec le relevé, une minute après lui (même identifiant impossible) ; si le relevé n'est pas enregistré, elle ne l'est pas non plus. */
+  var THOUGHT_CAT = 'u:Première pensée';
+  function pushReleve(ts, wake) {
+    entries.push(releveEntry(ts, wake));
+    var tx = (flow.thought || '').trim();
+    if (!tx) return false;
+    var n = baseEntry('note', ts + 1, wake);
+    n.text = tx.slice(0, 1000); n.ntype = THOUGHT_CAT;
+    entries.push(n);
+    return true;
+  }
   function saveReleveOnly() {
     if (!feelComplete()) return;
     var ts = flow.feelTs || Date.now(); // relevé + test : heure où le ressenti a été validé
-    entries.push(releveEntry(ts, L.getWake()));
-    afterSave('Relevé enregistré · ' + clockOf(ts) + '.');
+    var th = pushReleve(ts, L.getWake());
+    afterSave('Relevé enregistré · ' + clockOf(ts) + (th ? ', première pensée gardée dans tes notes' : '') + '.');
   }
   function saveTest() { // test seul, ou relevé + test
     var r = flow.result, ts = flow.ts, wake = flow.wake;
-    if (flow.mode === 'both') entries.push(releveEntry(flow.feelTs || ts, wake));
+    if (flow.mode === 'both') pushReleve(flow.feelTs || ts, wake);
     var t = baseEntry('test', ts, wake);
-    t.slot = flow.slot; t.plan = flow.slot != null ? 'prevu' : 'libre'; t.device = r.device; t.input = r.input;
+    t.slot = flow.slot; t.plan = planOfFlow(); stampFin(t); t.device = r.device; t.input = r.input;
     t.pvt = { n: r.n, mean: r.mean, lapses: r.lapses, falseStarts: r.falseStarts, timeouts: r.timeouts, rts: r.rts, durationMs: r.durationMs };
     chainStamp(t);
     entries.push(t);
-    saved((flow.mode === 'both' ? 'Relevé et test enregistrés · ' : (flow.chain ? 'PVT-B enregistré · ' : 'Test enregistré · ')) + clockOf(ts) + '.');
+    saved((flow.mode === 'both' ? 'Relevé et test enregistrés · ' : (flow.chain ? 'PVT-B enregistré · ' : 'Test enregistré · ')) + clockOf(ts) + finSuffix() + '.');
   }
   // Un passage de Symbol Search, Rotation span, Hand Swype ou Flanker : un test seul (les moments du plan à plusieurs tests viendront plus tard).
   function saveTestN() {
@@ -3620,22 +4743,26 @@ function milestone(w) {
     if (!r || !td) return;
     var prev = entries.filter(function (x) { return x.test === id; });
     var e = baseEntry('test', r.ts, r.wake);
-    e.test = id; e.slot = flow.slot; e.plan = flow.slot != null ? 'prevu' : 'libre'; e.device = r.device; e.input = r.input;
+    e.test = id; e.slot = flow.slot; e.plan = planOfFlow(); stampFin(e); e.device = r.device; e.input = r.input;
     e.nth = prev.length + 1; // n-ième passage de ce test (tous passages, libres compris)
     e.nthDay = prev.filter(function (x) { return x.day === e.day; }).length + 1; // n-ième passage de ce test dans la journée
     e[id] = td.pack(r);
     chainStamp(e);
     entries.push(e);
-    saved(td.name + ' enregistré · ' + clockOf(r.ts) + '.');
+    saved(td.name + ' enregistré · ' + clockOf(r.ts) + finSuffix() + '.');
   }
   function saveNote() {
     var text = noteText.trim();
     if (!text) return;
     var e = baseEntry('note', noteTs, L.getWake());
     e.text = text;
+    var sc = noteTypeOf(noteSel.id).id;
+    if (sc) { e.ntype = sc; var ss = selSub(noteSel); if (ss) e.nsub = ss; }
+    var fo = fromOf();
+    if (fo) e.from = fo.id; // lien vers la note d'origine ; rien n'est écrit sur la note d'origine
     entries.push(e);
-    noteText = '';
-    afterSave('Note enregistrée.');
+    noteText = ''; noteSel = { id: '', sub: '', other: false, txt: '' }; noteFrom = '';
+    afterSave(fo ? 'Note enregistrée, liée à la note d’origine.' : 'Note enregistrée.');
   }
 
   /* ---------- Moment enchaîné : PVT-B puis 2 tests, « Pas ce moment » (morceau 4b) ---------- */
@@ -3653,6 +4780,7 @@ function milestone(w) {
     if (e.nth) rows.push('Passage n° ' + e.nth + (e.nthDay ? ' · ' + ordTxt(e.nthDay) + ' de la journée' : ''));
     var pj = pjText(e);
     if (pj) rows.push(pj);
+    if (e.plan === 'creux') { var fc = e.cid ? creuxById(e.cid) : null; rows.push(fc ? 'Marque la fin du creux de ' + clockOf(fc.ts) + (fc.end != null ? ' (fin ' + clockOf(fc.end) + ')' : '') : 'Marque la fin d’un creux'); }
     return rows.map(function (t) { return '<div class="body">' + esc(t) + '</div>'; }).join('');
   }
   function slotTag(m) { // « R+3h · test 2 sur 3 » dans un moment enchaîné, « R+3h · prévu » sinon
@@ -3661,6 +4789,15 @@ function milestone(w) {
   }
   function chainTag() { return flow.chain && flow.slot != null && PLAN[flow.slot] ? ' · ' + slotTag(PLAN[flow.slot]) : ''; }
   function prevuTxt() { return 'prévu' + (flow.chain && PL.isRodage(flow.chain.d) ? ' · rodage' : ''); }
+  // F3 (09/11, f3) : test de fin de creux = un test proposé après « Terminer le creux » (`flow.fin` = id du creux). Étiquette « fin de creux », ni « prévu » ni « libre » :
+  // il n'entre pas dans la référence (qui ne prend que les passages « prévus »). Ses textes ne diffèrent de ceux d'un test libre que par l'étiquette.
+  function finTag() { return flow.fin ? 'Fin de creux' : 'Test libre'; }
+  function finChip() { return flow.fin ? 'fin de creux' : 'test libre'; }
+  function finIntro(ref) { return (flow.fin ? 'Test de fin de creux : il sera enregistré avec l’étiquette « fin de creux », hors des moments du plan' : 'Test libre : il sera enregistré, hors des moments du plan') + (ref ? ' et hors de ta référence.' : '.'); }
+  function finRef() { return flow.fin ? 'Test de fin de creux : il est comparé à ta référence mais n’y entre pas (« fin de creux : hors référence »).' : 'Test libre : il est comparé à ta référence mais n’y entre pas (« libre : hors référence »).'; }
+  function planOfFlow() { return flow.slot != null ? 'prevu' : (flow.fin ? 'creux' : 'libre'); }
+  function stampFin(e) { if (flow.slot == null && flow.fin) e.cid = flow.fin; }
+  function finSuffix() { return flow.slot == null && flow.fin ? ' · fin de creux' : ''; }
   function chainState() {
     var ch = flow.chain;
     if (!ch) return null;
@@ -3693,7 +4830,7 @@ function milestone(w) {
     if (!flow.chain || !feelComplete()) return;
     var ts = Date.now();
     flow.feelTs = ts;
-    entries.push(releveEntry(ts, L.getWake()));
+    pushReleve(ts, L.getWake());
     entries.sort(byTs);
     var ok = persist();
     updateAlert();
@@ -3802,22 +4939,95 @@ function milestone(w) {
     afterSave('« ' + a.name + ' » terminée à ' + clockOf(ts) + ' (' + durText((ts - a.ts) / 60000) + ').');
   }
 
+  /* ---------- Creux (depuis le 09/11, f1) ---------- */
+  function openCreuxStart() {
+    if (currentCreux()) { openCreuxEnd(); return; } // un seul creux à la fois : le bouton sert alors à le terminer
+    form = { type: 'creux-start', time: clockInput(Date.now()), note: '', error: '' };
+    go('creux-start');
+  }
+  // Question du creux (F2) : « Oui » ouvre l'écran de début (heure proposée = maintenant, modifiable) ; « Non » est noté tout de suite.
+  function qNoteNow(i) { var el = $('j-qnote-' + i); return (el ? el.value : (qDraft[i] || '')).trim().slice(0, 500); }
+  function openQYes(i) {
+    var info = todayInfo(), s = slotStates(info).list[i];
+    if (!PLAN[i] || !PLAN[i].q || !s || !s.qpend) { go('home'); return; } // déjà répondue
+    if (currentCreux()) { openCreuxEnd(); return; }
+    form = { type: 'creux-start', time: clockInput(Date.now()), note: qNoteNow(i), error: '', qslot: i, qans: Date.now() };
+    go('creux-start');
+  }
+  function doQNo(i) {
+    var info = todayInfo(), s = slotStates(info).list[i];
+    if (!PLAN[i] || !PLAN[i].q || !s || !s.qpend) { go('home'); return; }
+    var now = Date.now(), e = baseEntry('creuxq', now, L.getWake()), nt = qNoteNow(i);
+    e.slot = i; e.ans = 'non';
+    if (nt) e.note = nt;
+    delete qDraft[i];
+    entries.push(e);
+    afterSave('Réponse « non » notée à ' + clockOf(now) + ' pour la question de ' + rLabel(PLAN[i].r) + (qLate(e) ? ' (réponse tardive).' : '.'));
+  }
+  function doCreuxStart() {
+    if (!form || form.type !== 'creux-start' || !formValid()) return;
+    var ts = tsFromClock(form.time, Date.now()), ov = creuxOverlap(ts, null, '');
+    if (ov) { form.error = 'Cette heure tombe pendant un autre creux (' + clockOf(ov.ts) + (ov.end == null ? ', en cours' : ' → ' + clockOf(ov.end)) + ').'; render(); return; }
+    var e = baseEntry('creux', ts, L.getWake()), nt = form.note.trim().slice(0, 500);
+    e.end = null; e.origin = 'libre';
+    if (form.qslot != null && PLAN[form.qslot] && PLAN[form.qslot].q) { e.origin = 'question'; e.slot = form.qslot; e.ansTs = form.qans; delete qDraft[form.qslot]; }
+    if (nt) e.note = nt;
+    entries.push(e);
+    var fsl = creuxFreeSlot(e);
+    afterSave('Creux noté à ' + clockOf(ts) + (e.origin === 'question' ? ' (réponse « oui » à la question de ' + rLabel(PLAN[e.slot].r) + (qLate(e) ? ', réponse tardive' : '') + ')' : (fsl >= 0 ? ' (compté comme « oui » à la question de ' + rLabel(PLAN[fsl].r) + ')' : '')) + '. Il reste ouvert jusqu’à ce que tu le termines (4 h au maximum).');
+  }
+  function openCreuxEnd() {
+    var c = currentCreux();
+    if (!c) { go('home'); return; }
+    form = { type: 'creux-end', id: c.id, time: clockInput(Date.now()), note: c.endNote || '', error: '' };
+    go('creux-end');
+  }
+  function doCreuxEnd(withTest) { // withTest (F3) : la fin est enregistrée tout de suite, puis on propose de choisir un test « fin de creux »
+    if (!form || form.type !== 'creux-end' || !formValid()) return;
+    var c = creuxById(form.id);
+    if (!c) return;
+    var ts = creuxEndTs(form.time, c);
+    if (ts === null || ts < c.ts) { form.error = 'L’heure de fin est avant le début (' + clockOf(c.ts) + ').'; render(); return; }
+    if (ts - c.ts > CREUX_MAX) { form.error = 'Un creux dure 4 h au maximum : vérifie l’heure de fin.'; render(); return; }
+    var ov = creuxOverlap(c.ts, ts, c.id);
+    if (ov) { form.error = 'Ce creux chevaucherait un autre creux (' + clockOf(ov.ts) + (ov.end == null ? ', en cours' : ' → ' + clockOf(ov.end)) + ').'; render(); return; }
+    c.end = ts; delete c.endAuto;
+    var nt = form.note.trim().slice(0, 500);
+    if (nt) c.endNote = nt; else delete c.endNote;
+    var endMsg = 'Creux terminé à ' + clockOf(ts) + ' (' + durText((ts - c.ts) / 60000) + ').';
+    if (!withTest) { afterSave(endMsg); return; }
+    entries.sort(byTs);
+    if (!persist()) endMsg += ' Attention : l’appareil refuse d’enregistrer.';
+    flow = newFlow({ mode: 'test', fin: c.id, finMsg: endMsg + ' Choisis un test pour en marquer la fin.', finDone: endMsg });
+    form = null; updateAlert(); go('tests');
+  }
+
   /* ---------- Instants ---------- */
   function openInstant() {
-    form = { type: 'instant', name: '', other: !instNames.length, time: clockInput(Date.now()), error: '' };
+    form = { type: 'instant', name: '', other: false, jtype: '', time: clockInput(Date.now()), error: '' };
     go('instant');
   }
   function doInstant() {
     if (!form || !formValid()) return;
     var name = form.name.trim().slice(0, 40), ts = tsFromClock(form.time, Date.now()), e = baseEntry('instant', ts, L.getWake());
     e.name = name;
+    if (isJoint(name) && jtypeOk(form.jtype)) e.jtype = form.jtype;
     entries.push(e);
-    afterSave('« ' + name + ' » noté à ' + clockOf(ts) + '.');
+    afterSave('« ' + name + (e.jtype ? ' · ' + jtLabel(e.jtype).toLowerCase() : '') + ' » noté à ' + clockOf(ts) + '.');
+  }
+  // Type du joint : touche = choisi, retouche = enlevé (écran Instant ou « Modifier » d'un instant).
+  function pickJt(id) {
+    if (!form || !(form.type === 'instant' || (form.type === 'edit' && form.kind === 'instant')) || !jtypeOk(id)) return;
+    form.jtype = form.jtype === id ? '' : id;
+    render();
+    var b = root.querySelector('[data-act="jtype"][data-id="' + id + '"]'); if (b) b.focus({ preventScroll: true });
   }
   // Choix d'un motif sur les grandes touches (activité ou instant).
   function pickName(name) {
     if (!form || (form.type !== 'act-start' && form.type !== 'instant')) return;
-    form.name = name; form.other = false; render();
+    form.name = name; form.other = false;
+    if (!isJoint(name)) form.jtype = '';
+    render();
   }
   function pickOther() {
     if (!form || (form.type !== 'act-start' && form.type !== 'instant')) return;
@@ -3827,7 +5037,19 @@ function milestone(w) {
 
   /* ---------- Réglages : listes de motifs ---------- */
   function setAdd(which) {
-    if (which !== 'act' && which !== 'inst') return;
+    if (which !== 'act' && which !== 'inst' && which !== 'nt') return;
+    setNoticeIn = which === 'nt' ? 'nt' : '';
+    if (which === 'nt') { // type de note libre : la section est tout en bas, on reste où l'on est (comme pour setDel)
+      var tn = typeName(setDraft.nt), tr = tn ? addTypeName(tn) : 'vide';
+      if (tr === 'ok') { saveNoteTypeNames(); setDraft.nt = ''; setNotice = '« ' + tn + ' » ajoutée aux catégories de note.'; }
+      else if (tr === 'doublon') setNotice = '« ' + tn + ' » est déjà dans la liste.';
+      else if (tr === 'reserve') setNotice = '« ' + tn + ' » existe déjà : c’est l’une des catégories de départ.';
+      else if (tr === 'pleine') setNotice = 'La liste est pleine (' + NT_MAX + ' catégories) : retires-en une d’abord.';
+      else setNotice = 'Écris un nom de ' + NT_LEN + ' caractères au plus.';
+      renderKeepScroll();
+      var ti = $('set-nt'); if (ti) ti.focus({ preventScroll: true });
+      return;
+    }
     var list = which === 'act' ? actNames : instNames, name = (setDraft[which] || '').trim().slice(0, 40);
     if (!name) return;
     var r = addToList(list, name);
@@ -3837,12 +5059,20 @@ function milestone(w) {
     render();
     var inp = $('set-' + which); if (inp) inp.focus({ preventScroll: true });
   }
+  function renderKeepScroll() { // render() remonte en haut ; ici on revient à la position de l'écran (liste en bas de Réglages)
+    var m0 = root.querySelector('main'), top = m0 ? m0.scrollTop : 0;
+    render();
+    var m1 = root.querySelector('main');
+    if (m1) m1.scrollTop = top;
+  }
   function setDel(which, name) {
+    setNoticeIn = which === 'nt' ? 'nt' : '';
     if (which === 'act') { actNames = actNames.filter(function (n) { return n !== name; }); saveActNames(); }
     else if (which === 'inst') { instNames = instNames.filter(function (n) { return n !== name; }); saveInstNames(); }
+    else if (which === 'nt') { noteTypeNames = noteTypeNames.filter(function (n) { return n !== name; }); saveNoteTypeNames(); }
     else return;
-    setNotice = '« ' + name + ' » retiré de la liste. Ton historique n’est pas modifié.';
-    render();
+    setNotice = which === 'nt' ? '« ' + name + ' » retirée des catégories de note. Les notes déjà classées gardent cette catégorie.' : '« ' + name + ' » retiré de la liste. Ton historique n’est pas modifié.';
+    if (which === 'nt') renderKeepScroll(); else render();
   }
 
   /* ---------- Repas, coucher ---------- */
@@ -3862,22 +5092,6 @@ function milestone(w) {
     entries.push(e);
     afterSave('Coucher noté à ' + clockOf(ts) + '.');
   }
-  // Carte du matin : « À quelle heure t'es-tu couché hier soir ? »
-  function doBedCard() {
-    var inp = $('j-bedin'), v = inp ? inp.value : '';
-    if (!validClock(v)) { notice = 'Choisis l’heure de ton coucher.'; render(); return; }
-    var ts = tsFromClock(v, Date.now()), wake = L.getWake(), info = todayInfo(), e = baseEntry('coucher', ts, wake);
-    var d = dateOfKey(info.tk); d.setMinutes(wake);
-    e.memo = true;
-    if (d.getTime() > ts && d.getTime() - ts < 20 * 3600e3) e.wakeTs = d.getTime(); // le réveil de ce matin
-    entries.push(e);
-    afterSave('Coucher noté à ' + clockOf(ts) + '.');
-  }
-  function skipBed() {
-    try { localStorage.setItem(KEY_BEDSKIP, todayInfo().tk); } catch (e) {}
-    updateHome();
-  }
-
   /* ---------- Modifier une entrée ---------- */
   // Heure saisie la plus proche de l'heure d'origine (± 1 jour).
   function nearestTs(clock, refTs) {
@@ -3888,23 +5102,69 @@ function milestone(w) {
     });
     return best;
   }
+  function openNoteFrom(id) { // « Créer à partir de… » : l'écran « Note libre », avec la note d'origine rappelée
+    var o = entries.filter(function (x) { return x.id === id && x.kind === 'note'; })[0];
+    if (!o) return;
+    pendingDel = null; ret = screen === 'history' ? 'history' : 'home';
+    noteText = ''; noteSel = { id: '', sub: '', other: false, txt: '' }; noteFrom = o.id; noteTs = Date.now();
+    go('note');
+  }
+  function linkGo(id) { // « Voir » : l'historique des notes sans filtre, la note visée au milieu de l'écran et au clavier
+    pendingDel = null;
+    var keepDir = hf.dir; hfReset(); hf.genre = 'note'; hf.dir = keepDir; // l'ordre choisi par Jonathan est gardé (il ne change pas ce qui est visible)
+    histRefresh();
+    var t = null;
+    Array.prototype.forEach.call(root.querySelectorAll('[data-eid]'), function (x) { if (x.getAttribute('data-eid') === id) t = x; });
+    if (!t) return;
+    t.classList.add('hl'); t.setAttribute('tabindex', '-1');
+    t.focus({ preventScroll: true });
+    t.scrollIntoView({ block: 'center' });
+  }
   function openEdit(id) {
     var e = entries.filter(function (x) { return x.id === id; })[0];
-    if (!e || ['activite', 'repas', 'coucher', 'instant'].indexOf(e.kind) < 0) return;
+    if (e && e.kind === 'nuit') { openNight(id, screen === 'history' ? 'history' : 'wake'); return; } // une nuit se corrige sur l'écran « Ma nuit »
+    if (!e || ['activite', 'creux', 'repas', 'coucher', 'instant', 'note'].indexOf(e.kind) < 0) return;
+    ret = screen === 'history' ? 'history' : 'home';
     form = { type: 'edit', id: id, kind: e.kind, time: clockInput(e.ts), error: '' };
+    if (e.kind === 'note') {
+      form.text = e.text; form.orig = e.text.trim();
+      form.sel = { id: noteTypeOf(e.ntype).id, sub: noteTypeOf(e.ntype).id && e.nsub ? e.nsub : '', other: false, txt: '' }; form.selOrig = selKey(form.sel);
+      form.ans = ansAnswered(e) ? e.ans : ''; form.ansOrig = form.ans.trim();
+      form.att = attFilled(e) ? e.att : ''; form.attOrig = form.att.trim();
+    }
     if (e.kind === 'activite') {
       form.name = e.name; form.end = e.end == null ? '' : clockInput(e.end); form.comment = e.comment || '';
       form.feelStart = Object.assign({}, e.feelStart || {}); form.feelEnd = Object.assign({}, e.feelEnd || {});
       form.feelOpen = !!e.feelStart; form.feelOpen2 = !!e.feelEnd;
     }
+    if (e.kind === 'creux') { form.end = e.end == null ? '' : clockInput(e.end); form.note = e.note || ''; form.endNote = e.endNote || ''; form.endAuto = !!e.endAuto; }
     if (e.kind === 'repas') form.text = e.text;
-    if (e.kind === 'instant') form.name = e.name;
+    if (e.kind === 'instant') { form.name = e.name; form.jtype = jtypeOk(e.jtype) ? e.jtype : ''; }
     go('edit');
   }
   function doEdit() {
     if (!form || !formValid()) return;
     var e = entries.filter(function (x) { return x.id === form.id; })[0];
     if (!e) return;
+    if (e.kind === 'note') { // le texte, le type et la réponse peuvent changer ; `ts` (création) ne bouge pas ; `modTs` ne bouge que si le TEXTE change (classer une note ou y répondre ne la « modifie » pas : la réponse a sa propre heure, `ansTs`)
+      var nt = form.text.trim().slice(0, 5000), textCh = nt !== e.text, nid = noteTypeOf(form.sel.id).id, nsb = selSub(form.sel), typeCh = selKey(form.sel) !== (noteTypeOf(e.ntype).id + '|' + (noteTypeOf(e.ntype).id ? e.nsub || '' : ''));
+      var na = (form.ans || '').trim().slice(0, 5000), oa = ansAnswered(e) ? e.ans.trim() : '', ansCh = na !== oa;
+      var nat = (form.att || '').trim().slice(0, 5000), oat = attFilled(e) ? e.att.trim() : '', attCh = nat !== oat;
+      if (!textCh && !typeCh && !ansCh && !attCh) { afterSave('Rien n’a changé.'); return; }
+      if (typeCh) { if (nid) e.ntype = nid; else delete e.ntype; if (nid && nsb) e.nsub = nsb; else delete e.nsub; e.catTs = Math.max(Date.now(), e.ts + 1); } // `catTs` : heure du classement, pour la bannière de sauvegarde (classer 100 notes, c'est du travail à ne pas perdre)
+      if (textCh) { e.text = nt; e.modTs = Math.max(Date.now(), e.ts + 1); }
+      if (ansCh) {
+        if (na) { e.ans = na; if (!oa) e.ansTs = Math.max(Date.now(), e.ts + 1); } // l'heure de la première réponse est gardée quand on la corrige
+        else { delete e.ans; delete e.ansTs; }
+      }
+      if (attCh) { // note rattachée : même règle que la réponse (l'heure de la première fois est gardée)
+        if (nat) { e.att = nat; if (!oat) e.attTs = Math.max(Date.now(), e.ts + 1); }
+        else { delete e.att; delete e.attTs; }
+      }
+      afterSave(textCh && ansCh && attCh ? 'Note et ajouts enregistrés.' : textCh && ansCh ? 'Note et réponse enregistrées.' : textCh && attCh ? 'Note et note rattachée enregistrées.' : textCh ? 'Note modifiée.' : ansCh && !attCh ? (na ? (oa ? 'Réponse modifiée.' : 'Réponse enregistrée.') : 'Réponse retirée.') :
+        attCh && !ansCh ? (nat ? (oat ? 'Note rattachée modifiée.' : 'Note rattachée enregistrée.') : 'Note rattachée retirée.') : ansCh && attCh ? 'Réponse et note rattachée enregistrées.' : 'Catégorie de la note changée.');
+      return;
+    }
     var ts = nearestTs(form.time, e.ts);
     if (e.kind === 'activite') {
       var other = currentAct(), end = null;
@@ -3922,16 +5182,34 @@ function milestone(w) {
       if (!sameFeel(fe, e.feelEnd)) {
         if (fe) { e.feelEnd = fe; e.feelEndLate = true; } else { delete e.feelEnd; delete e.feelEndLate; }
       }
+    } else if (e.kind === 'creux') {
+      var cend = null;
+      if (form.end) {
+        cend = tsAfter(form.end, ts);
+        if (cend - ts > CREUX_MAX) { form.error = 'Un creux dure 4 h au maximum : vérifie l’heure de fin.'; render(); return; }
+      } else {
+        var oc = currentCreux();
+        if (oc && oc.id !== e.id) { form.error = 'Un autre creux est déjà en cours (depuis ' + clockOf(oc.ts) + ') : un seul à la fois. Indique une heure de fin.'; render(); return; }
+      }
+      var ovl = creuxOverlap(ts, cend, e.id);
+      if (ovl) { form.error = 'Ce creux chevaucherait un autre creux (' + clockOf(ovl.ts) + (ovl.end == null ? ', en cours' : ' → ' + clockOf(ovl.end)) + ').'; render(); return; }
+      var keepAuto = !!e.endAuto && cend !== null && e.end != null && Math.floor(cend / 60000) === Math.floor(e.end / 60000); // fin automatique inchangée : elle reste « automatique »
+      e.ts = ts; e.end = cend;
+      if (keepAuto) e.endAuto = true; else delete e.endAuto;
+      var cn1 = form.note.trim().slice(0, 500), cn2 = form.endNote.trim().slice(0, 500);
+      if (cn1) e.note = cn1; else delete e.note;
+      if (cn2 && cend !== null) e.endNote = cn2; else delete e.endNote;
     } else if (e.kind === 'repas') {
       e.text = form.text.trim().slice(0, 1000); e.ts = ts;
     } else if (e.kind === 'instant') {
       e.name = form.name.trim().slice(0, 40); e.ts = ts;
+      if (isJoint(e.name) && jtypeOk(form.jtype)) e.jtype = form.jtype; else delete e.jtype;
     } else {
       e.ts = ts;
       if (e.wakeTs && !(e.wakeTs > ts && e.wakeTs - ts < 20 * 3600e3)) delete e.wakeTs;
     }
     e.day = dayKey(e.ts, e.wake); e.rel = relAt(e.ts, e.wake);
-    normalizeActs();
+    normalizeActs(); creuxSweep();
     afterSave('Modifié.');
   }
 
@@ -3943,9 +5221,10 @@ function milestone(w) {
     out.sort(function (a, b) { return a[1] - b[1]; });
     try { localStorage.setItem(KEY_ML, JSON.stringify(out.slice(-400))); } catch (e) {}
   }
-  // Format v4 : + liste des instants et entrées « instant ». (v3 : réglages du plan + journal des listes de mots.) Les fichiers v1, v2 et v3 restent lisibles.
+  // Format v5 (e5, 20/11) : + entrées « nuit », relevés à questions partielles (`fv` 3) et le mantra. Une appli d'avant e5 refuse un fichier v5 (« version plus récente ») au lieu de perdre ces données en silence.
+  // (v4 : liste des instants et entrées « instant ». v3 : réglages du plan + journal des listes de mots.) Les fichiers v1 à v4 restent lisibles.
   function buildBackup() {
-    return JSON.stringify({ app: 'Kioo Cycle', v: 4, exportedAt: Date.now(), wake: L.wakeStr(L.getWake()), activities: actNames, instants: instNames, entries: entries, plan: pExport(), mlUsed: mlLogRead() });
+    return JSON.stringify({ app: 'Kioo Cycle', v: 5, exportedAt: Date.now(), wake: L.wakeStr(L.getWake()), activities: actNames, instants: instNames, noteTypes: noteTypeNames, entries: entries, plan: pExport(), mlUsed: mlLogRead(), mantra: mantra || undefined });
   }
   function setStatus(msg) {
     backupStatus = msg;
@@ -4003,6 +5282,10 @@ function milestone(w) {
 
   /* ---------- Rappels : fichier calendrier (.ics, RFC 5545) ---------- */
   // Phases à annoncer : toutes sauf la première (on vient de se réveiller).
+  // Rappels « Sauvegarder Kioo » (depuis le 09/11) : R+5h10 et R+8h15 suivent le réveil, 19h00 est une heure d'horloge fixe (choix de Jonathan, 04/11).
+  var BK_REM = [{ r: 310 }, { r: 495 }, { fixed: 19 * 60 }];
+  function remAny() { return !!(rem.moments || rem.phases || rem.backups); }
+  function bkTimesText(w) { return L.fmt(w + BK_REM[0].r) + ', ' + L.fmt(w + BK_REM[1].r) + ' et 19h00'; }
   function remPhases() { return L.phases.filter(function (p) { return p.s > 0; }); }
   function icsEsc(s) { return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
   // Lignes de 75 octets au plus ; la suite commence par une espace. On ne coupe jamais au milieu d'un caractère.
@@ -4028,14 +5311,21 @@ function milestone(w) {
     function at(total) { return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, total, 0); }
     var wk = L.fmtClock(wake);
     if (o.moments) PLAN.forEach(function (m, i) {
-      ev.push({ key: 'm' + pad(i), uid: 'luna-moment-' + i, start: at(wake + m.r), dur: 15, summary: 'Kioo Cycle · ' + momTitle(m),
-        desc: 'Moment prévu à ' + L.fmt(wake + m.r) + ' (' + rLabel(m.r) + ', calé sur ton réveil de ' + wk + '). ' + m.goal + (/[?!.]$/.test(m.goal) ? '' : '.') +
+      if (m.off) return; // moment retiré du plan (R+7h) : pas de rappel
+      ev.push({ key: 'm' + pad(i), uid: 'luna-moment-' + i, start: at(wake + m.r), dur: 15, summary: 'Kioo Cycle · ' + momLabel(m),
+        desc: 'Moment prévu à ' + L.fmt(wake + m.r) + ' (' + rLabel(m.r) + ', calé sur ton réveil de ' + wk + '). ' + momGoal(m) + (/[?!.]$/.test(momGoal(m)) ? '' : '.') +
           ' Fenêtre : de ' + L.fmt(wake + m.r - WIN.before) + ' à ' + L.fmt(wake + m.r + WIN.after) + '. Si ce moment passe, ce n’est pas grave.' });
     });
     if (o.phases) remPhases().forEach(function (p, i) {
       ev.push({ key: 'p' + pad(i), uid: 'luna-phase-' + i, start: at(wake + p.s), dur: 5, summary: 'Kioo Cycle · Nouvelle phase · ' + p.name,
         desc: 'Début vers ' + L.fmt(wake + p.s) + ' (moyenne calée sur ton réveil de ' + wk + '). ' + p.advice +
           ' Étiquette : ' + p.status + (p.durLabel ? ' · durée : ' + p.durLabel.toLowerCase() : '') + '.' });
+    });
+    if (o.backups) BK_REM.forEach(function (b, i) {
+      var t = b.fixed != null ? b.fixed : wake + b.r;
+      ev.push({ key: 'b' + pad(i), uid: 'luna-backup-' + i, start: at(t), dur: 5, summary: 'Sauvegarder Kioo',
+        desc: 'Rappel de sauvegarde à ' + L.fmt(t) + (b.fixed != null ? ' (heure fixe)' : ' (' + rLabel(b.r) + ', calé sur ton réveil de ' + wk + ')') +
+          '. Ouvre Kioo Cycle, puis Journal, Sauvegarder / Restaurer, Sauvegarder (fichier). Chaque fichier est complet : seul le plus récent compte, tu peux effacer les anciens. Si ce moment passe, ce n’est pas grave.' });
     });
     return ev;
   }
@@ -4065,7 +5355,7 @@ function milestone(w) {
     if (el) el.textContent = msg;
   }
   function doIcs() {
-    if (!rem.moments && !rem.phases) return;
+    if (!remAny()) return;
     var out = buildIcs(rem), name = 'kioo-cycle-rappels-' + keyOf(new Date()) + '.ics';
     var what = rem.days === 1 ? plural(out.count, 'rappel', 'rappels') + ' pour aujourd’hui'
                                 : plural(out.count, 'rappel', 'rappels') + ' par jour, pendant ' + rem.days + ' jours';
@@ -4126,7 +5416,7 @@ function milestone(w) {
     var el = $('j-gstatus');
     if (el) el.textContent = msg;
   }
-  function gPaint() { var b = $('j-gk'); if (b) b.disabled = gBusy || !(rem.moments || rem.phases); }
+  function gPaint() { var b = $('j-gk'); if (b) b.disabled = gBusy || !remAny(); }
 
   // Jeton d'accès de courte durée (Google Identity Services, « token model »). À appeler directement depuis le clic : sinon le navigateur bloque la fenêtre.
   // cb(code) en cas d'échec (clés de G_AUTH_MSG), cb(null, jeton) en cas de succès.
@@ -4214,7 +5504,7 @@ function milestone(w) {
 
   // Envoie les rappels du jour. Renvoie une promesse ; en cas d'échec, l'erreur porte le message à afficher (gMsg).
   function gSend(tok) {
-    var now = new Date(), o = { moments: rem.moments, phases: rem.phases, days: rem.days }, tz = gTz();
+    var now = new Date(), o = { moments: rem.moments, phases: rem.phases, backups: rem.backups, days: rem.days }, tz = gTz();
     var evs = remEvents(o, now), ids = evs.map(function (e) { return gEventId(e, o, now); });
     var dateTag = keyOf(now), prev = gSentGet(), retried = false, progress = 0;
     function attempt() {
@@ -4252,7 +5542,7 @@ function milestone(w) {
     });
   }
   function doGcal() {
-    if (gBusy || !gEnabled() || !(rem.moments || rem.phases)) return;
+    if (gBusy || !gEnabled() || !remAny()) return;
     gBusy = true; gPaint(); setGStatus('');
     function end(msg) { gBusy = false; gPaint(); setGStatus(msg); }
     gToken(function (err, tok) { // appelé tout de suite, dans le clic
@@ -4272,7 +5562,7 @@ function milestone(w) {
     if (typeof text !== 'string' || text.length > 20e6) return 'Ce fichier est trop gros ou illisible.';
     try { o = JSON.parse(text); } catch (e) { return 'Ce fichier n’est pas une sauvegarde Kioo Cycle (texte illisible).'; }
     if (!o || (o.app !== 'Kioo Cycle' && o.app !== 'LUNA') || !Array.isArray(o.entries)) return 'Ce fichier n’est pas une sauvegarde Kioo Cycle.'; // « LUNA » = nom des sauvegardes faites avant le 26/10/2026 : elles se restaurent toujours
-    if (Number(o.v) > 4) return 'Cette sauvegarde vient d’une version plus récente de Kioo Cycle : mets d’abord l’appli à jour.';
+    if (Number(o.v) > 5) return 'Cette sauvegarde vient d’une version plus récente de Kioo Cycle : mets d’abord l’appli à jour.';
     if (o.entries.length > 50000) return 'Ce fichier contient trop d’entrées.';
     var list = o.entries.map(clean).filter(Boolean);
     var seen = {};
@@ -4280,19 +5570,24 @@ function milestone(w) {
     var skipped = o.entries.length - list.length;
     var acts = cleanNames(o.activities);
     var insts = Array.isArray(o.instants) ? cleanNames(o.instants) : undefined; // undefined = fichier sans liste d'instants (v1 à v3)
+    var nts = Array.isArray(o.noteTypes) ? cleanTypeNames(o.noteTypes) : undefined; // undefined = fichier sans types de note libres (avant le 08/11)
+    var tds = Array.isArray(o.todos) ? cleanTodos(o.todos) : undefined; // undefined = fichier sans to-do (avant le 09/11)
+    var tdSkipped = tds ? o.todos.filter(function (x) { return !cleanTodo(x); }).length : 0; // illisibles (les doublons ne comptent pas)
     // plan : undefined = fichier sans plan (v1, v2) ; null = réglages illisibles (ignorés) ; sinon réglages validés
     var pl = o.plan === undefined ? undefined : pClean(o.plan);
     var mlu = Array.isArray(o.mlUsed) ? o.mlUsed.filter(function (x) { return Array.isArray(x) && int(x[0], 1, ML_BANK.length) !== null && isFinite(x[1]) && x[1] > 0; })
       .map(function (x) { return [Number(x[0]), Math.floor(x[1])]; }).slice(-400) : undefined;
     return { name: name, entries: list, wake: typeof o.wake === 'string' ? o.wake : null, exportedAt: Number(o.exportedAt) > 0 ? Number(o.exportedAt) : 0,
-             acts: acts, insts: insts, mode: 'merge', confirm: false, skipped: skipped, plan: pl, mlUsed: mlu };
+             acts: acts, insts: insts, nts: nts, tds: tds, tdSkipped: tdSkipped, mode: 'merge', confirm: false, skipped: skipped, plan: pl, mlUsed: mlu,
+             mantra: typeof o.mantra === 'string' && o.mantra.trim() ? o.mantra.trim().slice(0, 10000) : undefined };
   }
   function loadRestore(text, name) {
     var r = parseBackup(text, name);
     if (typeof r === 'string') { restore = null; restoreError = r; }
-    else if (!r.entries.length) { restore = null; restoreError = 'Cette sauvegarde ne contient aucune entrée.'; }
+    else if (!r.entries.length && !(r.tds && r.tds.length)) { restore = null; restoreError = 'Cette sauvegarde ne contient aucune entrée.'; }
     else {
       restore = r; restoreError = r.skipped ? plural(r.skipped, 'entrée illisible ignorée', 'entrées illisibles ignorées') + '.' : '';
+      if (r.tdSkipped) restoreError += (restoreError ? ' ' : '') + plural(r.tdSkipped, 'to-do illisible ignorée', 'to-do illisibles ignorées') + '.';
       if (r.plan === null) restoreError += (restoreError ? ' ' : '') + 'Les réglages du plan de ce fichier sont illisibles : ils sont ignorés.';
     }
     render();
@@ -4304,8 +5599,14 @@ function milestone(w) {
       msg = 'Restauré. Ajouté : ' + countsText(s.fresh) + ' ; ' + plural(s.dup, 'était déjà présent', 'étaient déjà présents') + '.';
     } else {
       entries = r.entries.slice().sort(byTs);
-      if (r.wake && L.parseWake(r.wake) !== null) L.setWake(r.wake, null);
       msg = 'Restauré : cet appareil contient maintenant ' + countsText(r.entries) + ' du fichier.';
+    }
+    // heure du réveil du fichier : reprise dans les deux modes (demande du 06/11 ; avant, seul « Remplacer » la reprenait)
+    var wkFile = r.wake ? L.parseWake(r.wake) : null;
+    if (wkFile !== null) {
+      var wkBefore = L.getWake();
+      L.setWake(r.wake, null);
+      msg += ' Réveil repris du fichier : ' + L.fmtClock(wkFile) + (wkBefore !== wkFile ? ' (avant : ' + L.fmtClock(wkBefore) + ')' : '') + '.';
     }
     // journal des listes de mots et réglages du plan (sauvegardes v3) : le plan de l'appareil n'est remplacé que s'il n'a pas encore de premier jour, ou en mode « Remplacer »
     if (r.mlUsed) mlLogRestore(r.mlUsed, r.mode === 'replace');
@@ -4323,7 +5624,19 @@ function milestone(w) {
       if (r.mode === 'replace') instNames = r.insts.slice(); else r.insts.forEach(function (n) { addToList(instNames, n); });
       saveInstNames();
     }
-    normalizeActs();
+    if (r.nts) { // types de note libres du fichier : ils rejoignent ceux de l'appareil ; en mode « Remplacer », la liste du fichier prend la place
+      if (r.mode === 'replace') noteTypeNames = r.nts.slice(); else r.nts.forEach(function (n) { addTypeName(n); });
+      saveNoteTypeNames();
+    }
+    if (r.tds) { // to-do d'un fichier d'avant le 19/11 : reprises comme notes de catégorie To-do (celles qui existent déjà comme notes sont sautées)
+      var tdAdded = moveTodos(r.tds);
+      msg += ' To-do : ' + plural(tdAdded, 'reprise', 'reprises') + ' comme notes.';
+    }
+    if (r.mantra) { // mantra du fichier : repris s'il n'y en a pas sur l'appareil, ou en mode « Remplacer » ; sinon celui de l'appareil est gardé
+      if (r.mode === 'replace' || !mantra) { mantra = r.mantra; saveMantra(); msg += ' Mantra repris du fichier.'; }
+      else if (r.mantra !== mantra) msg += ' Le mantra de cet appareil est gardé.';
+    }
+    normalizeActs(); creuxSweep();
     if (!persist()) msg += ' Attention : l’appareil refuse d’enregistrer ces données.';
     restore = null; restoreError = '';
     backupStatus = msg;
@@ -4334,7 +5647,7 @@ function milestone(w) {
   /* ---------- Événements ---------- */
   function act(name, el) {
     var id = el.getAttribute('data-id');
-    notice = '';
+    notice = ''; cutMsg = '';
     if (name !== 'set-add' && name !== 'set-del') setNotice = '';
     var tm = /^(ss|rs|hs|fl|ml)-(intro|practice|test|save)$/.exec(name); // écrans communs à tous les tests (sauf PVT-B)
     if (tm) {
@@ -4346,13 +5659,13 @@ function milestone(w) {
       return;
     }
     switch (name) {
-      case 'home': pendingDel = null; form = null; flow = newFlow(); go('home'); break;
+      case 'home': var toH = ret; ret = 'home'; pendingDel = null; form = null; night = null; mForm = null; if (flow.fin && flow.finDone) notice = flow.finDone + ' Pas de test enregistré.'; flow = newFlow(); go(toH); break;
       case 'releve': flow = newFlow({ mode: 'releve' }); go('feel'); break;
       case 'test-libre': flow = newFlow({ mode: 'test' }); go('tests'); break;
-      case 'tests': flow = newFlow({ mode: 'test' }); go('tests'); break;
+      case 'tests': flow = newFlow({ mode: 'test', fin: flow.fin, finMsg: flow.finMsg, finDone: flow.finDone }); go('tests'); break;
       case 'test-pick':
         var tid = TESTS.some(function (t) { return t.id === id; }) ? id : 'pvt';
-        flow = newFlow({ mode: 'test', test: tid }); go(tid === 'pvt' ? 'intro' : tid + '-intro'); break;
+        flow = newFlow({ mode: 'test', test: tid, fin: flow.fin, finMsg: flow.finMsg, finDone: flow.finDone }); go(tid === 'pvt' ? 'intro' : tid + '-intro'); break;
       case 'run-stop': rnStop(); break;
       case 'moment': startMoment(Number(id)); break;
       case 'feel': go('feel'); break;
@@ -4363,17 +5676,20 @@ function milestone(w) {
       case 'save-releve': saveReleveOnly(); break;
       case 'discard':
         if (flow.chain) { flow.result = null; notice = 'Ce passage n’est pas enregistré. Tu peux le refaire ou arrêter ici.'; go('chain'); }
-        else { flow = newFlow(); go('home'); }
+        else { if (flow.fin && flow.finDone) notice = flow.finDone + ' Pas de test enregistré.'; flow = newFlow(); go('home'); }
         break;
       case 'chain-feel': chainFeel(); break;
       case 'chain-go': chainGo(); break;
       case 'chain-stop': chainStop(); break;
       case 'skip-open': skipOpen(Number(id)); break;
       case 'skip-go': doSkip(); break;
-      case 'note': noteText = ''; noteTs = Date.now(); go('note'); break;
+      case 'note': noteText = ''; noteSel = { id: '', sub: '', other: false, txt: '' }; noteFrom = ''; noteTs = Date.now(); go('note'); break;
+      case 'note-from': openNoteFrom(id); break;
+      case 'link-go': linkGo(id); break;
       case 'save-note': saveNote(); break;
       case 'act-start': openActStart(); break;
       case 'pick': pickName(el.getAttribute('data-name') || ''); break;
+      case 'jtype': pickJt(el.getAttribute('data-id') || ''); break;
       case 'pick-other': pickOther(); break;
       case 'instant': openInstant(); break;
       case 'instant-go': doInstant(); break;
@@ -4384,12 +5700,29 @@ function milestone(w) {
       case 'act-start-go': doActStart(); break;
       case 'act-end': openActEnd(); break;
       case 'act-end-go': doActEnd(); break;
+      case 'q-yes': openQYes(Number(id)); break;
+      case 'q-no': doQNo(Number(id)); break;
+      case 'creux-start': openCreuxStart(); break;
+      case 'creux-start-go': doCreuxStart(); break;
+      case 'creux-end': openCreuxEnd(); break;
+      case 'creux-end-go': doCreuxEnd(); break;
+      case 'creux-end-test': doCreuxEnd(true); break;
+      case 'creux-later': // « Pas encore » : la question revient dans 1 h (en mémoire seulement)
+        var cl = currentCreux();
+        if (cl) { creuxSnooze[cl.id] = Date.now() + 3600e3; updateAlert(); if (screen === 'home') updateHome(); var hc = root.querySelector('h1'); if (hc) hc.focus({ preventScroll: true }); }
+        break;
       case 'meal': openMeal(); break;
       case 'meal-go': doMeal(); break;
       case 'bed': openBed(); break;
       case 'bed-go': doBed(); break;
-      case 'bed-card-go': doBedCard(); break;
-      case 'bed-skip': skipBed(); break;
+      case 'wake-open': openWake(); break;
+      case 'night-open': openNight(null, 'wake'); break;
+      case 'night-go': doNight(); break;
+      case 'morning-releve': openMorningReleve(); break;
+      case 'mantra-open': openMantra(); break;
+      case 'mantra-edit': mForm = { text: mantra }; go('mantra'); break;
+      case 'mantra-save': saveMantraForm(); break;
+      case 'mantra-cancel': mForm = null; if (!mantra) { ret = 'home'; go('wake'); } else go('mantra'); break;
       case 'edit': openEdit(id); break;
       case 'edit-go': doEdit(); break;
       case 'backup': restore = null; restoreError = ''; go('backup'); break;
@@ -4411,12 +5744,25 @@ function milestone(w) {
         if (restore.mode === 'replace' && !restore.confirm) { restore.confirm = true; render(); }
         else applyRestore();
         break;
-      case 'history': pendingDel = null; go('history'); break;
-      case 'del': pendingDel = id; render(); break;
-      case 'del-no': pendingDel = null; render(); break;
+      // To-do : liste, nouvelle, modifier, cocher, supprimer (avec confirmation « Garder / Supprimer »)
+      case 'bk-go': pendingDel = null; form = null; flow = newFlow(); go('backup'); break;
+      case 'bk-later': bkSnooze = Date.now() + 3600e3; updateAlert(); if (screen === 'home') updateHome(); var hh = root.querySelector('h1'); if (hh) hh.focus({ preventScroll: true }); break;
+      case 'bk-hours':
+        var bhv = Number(el.getAttribute('data-v'));
+        if (BK_HOURS.indexOf(bhv) < 0) break;
+        bkHours = bhv; bkSnooze = 0; saveBkHours(); updateAlert(); renderKeepScroll(); break;
+      case 'rank': // e4c : « À ranger » : l'Historique sur Notes › Sans catégorie, plus anciennes d'abord (une note à la fois)
+        pendingDel = null; hf.genre = 'note'; hf.ntype = 'none'; hf.sub = 'all'; hf.ans = 'all'; hf.sort = 'date'; hf.dir = 'asc'; go('history'); break;
+      case 'last-tests': // e4c : « Dernier test » : l'Historique sur les tests, plus récents d'abord
+        pendingDel = null; hf.genre = 'test'; hf.ntype = 'all'; hf.sub = 'all'; hf.ans = 'all'; hf.sort = 'date'; hf.dir = 'desc'; go('history'); break;
+      case 'history': pendingDel = null; go('history'); break; // e4a : le filtre et le tri sont gardés en mémoire (plus de remise à zéro à l'ouverture)
+      case 'hf-genre': case 'hf-ntype': case 'hf-sub': case 'hf-ans': case 'hf-sort': case 'hf-dir': hfSet(name, el.getAttribute('data-v') || ''); break;
+      // Supprimer : on reste où l'on est dans la liste (render() remontait tout en haut)
+      case 'del': pendingDel = id; histRefresh(function (w) { return Array.prototype.filter.call(w.querySelectorAll('[data-act="del-yes"]'), function (b) { return b.getAttribute('data-id') === id; })[0]; }); break;
+      case 'del-no': var was = pendingDel; pendingDel = null; histRefresh(function (w) { return Array.prototype.filter.call(w.querySelectorAll('[data-act="del"]'), function (b) { return b.getAttribute('data-id') === was; })[0]; }); break;
       case 'del-yes':
         entries = entries.filter(function (e) { return e.id !== id; });
-        pendingDel = null; persist(); updateAlert(); render(); break;
+        pendingDel = null; persist(); updateAlert(); histRefresh(function () { return root.querySelector('h1'); }); break;
     }
   }
   root.addEventListener('click', function (e) {
@@ -4429,12 +5775,20 @@ function milestone(w) {
     var f = t.getAttribute('data-field');
     if (!f || !form) return;
     form[f] = t.value;
-    var b = $('f-go');
+    var b = $('f-go'), b2 = $('f-go2');
     if (b) b.disabled = !formValid();
+    if (b2) b2.disabled = !formValid();
+    creuxLive();
+    if (f === 'name') jtLive();
   }
   root.addEventListener('change', function (e) {
     var t = e.target;
-    if (t.getAttribute && t.getAttribute('data-feel')) {
+    if (t.getAttribute && t.getAttribute('data-nt')) { // menus Catégorie / Sous-catégorie d'une note
+      var wnt = t.getAttribute('data-nt');
+      if (wnt === 'cat') setNoteType(t.value); else if (wnt === 'sub') setNoteSub(t.value); else if (wnt === 'subother') setNoteSubText(t.value);
+    } else if (t.getAttribute && t.getAttribute('data-night')) { // « Ma nuit » : un champ modifié
+      if (night) { night[t.getAttribute('data-night')] = t.value; var gn = $('f-go'); if (gn) gn.disabled = !nightValid(); }
+    } else if (t.getAttribute && t.getAttribute('data-feel')) {
       var ns = t.getAttribute('data-ns') || 'flow', tgt = feelTarget(ns), key = t.getAttribute('data-feel');
       if (t.value) tgt[key] = t.value; else delete tgt[key];
       if (ns === 'flow') {
@@ -4453,7 +5807,7 @@ function milestone(w) {
         if (lab) lab.classList.toggle('on', t.checked);
       }
       var mk = $('j-mk');
-      if (mk) mk.disabled = !(rem.moments || rem.phases);
+      if (mk) mk.disabled = !remAny();
       gPaint();
     } else if (t.id === 'pl-start' || t.id === 'pl-stage') {
       pOnField(t);
@@ -4468,19 +5822,29 @@ function milestone(w) {
   });
   root.addEventListener('input', function (e) {
     var t = e.target;
-    if (t.id === 'j-note') {
+    if (t.getAttribute && t.getAttribute('data-nt') === 'subother') {
+      setNoteSubText(t.value);
+    } else if (t.id === 'j-note') {
       noteText = t.value;
       var b = $('j-notesave');
       if (b) b.disabled = !noteText.trim();
+    } else if (t.id && t.id.indexOf('j-qnote-') === 0) {
+      qDraft[Number(t.id.slice(8))] = t.value;
     } else if (t.id === 'j-detail') {
       flow.detail = t.value;
+    } else if (t.id === 'j-thought') {
+      flow.thought = t.value;
+    } else if (t.getAttribute && t.getAttribute('data-night')) {
+      if (night) { night[t.getAttribute('data-night')] = t.value; var gn2 = $('f-go'); if (gn2) gn2.disabled = !nightValid(); }
+    } else if (t.getAttribute && t.getAttribute('data-mantra')) {
+      if (mForm) { mForm.text = t.value; var mg = $('m-go'); if (mg) mg.disabled = !mForm.text.trim(); }
     } else if (t.id === 'j-skiptext') {
       if (form && form.type === 'skip') form.text = t.value;
     } else if (t.id === 'pl-start') {
       pOnField(t);
     } else if (t.getAttribute && t.getAttribute('data-set')) {
       var wh = t.getAttribute('data-set');
-      if (wh === 'act' || wh === 'inst') {
+      if (wh === 'act' || wh === 'inst' || wh === 'nt') {
         setDraft[wh] = t.value;
         var ab = $('set-add-' + wh);
         if (ab) ab.disabled = !t.value.trim();
@@ -4506,27 +5870,34 @@ function milestone(w) {
   /* ---------- Alerte sur la Roue : activité en cours depuis longtemps ---------- */
   function updateAlert() {
     if (!L.setAlert) return;
-    var a = currentAct(), min = a ? (Date.now() - a.ts) / 60000 : 0;
-    if (a && min >= LONG_ACT_MIN) L.setAlert({ title: 'Activité en cours · ' + a.name, sub: 'Depuis ' + durText(min) + ' · la terminer ?' });
+    var a = currentAct(), min = a ? (Date.now() - a.ts) / 60000 : 0, cx = currentCreux();
+    if (cx && creuxAsk(cx)) L.setAlert({ title: 'Creux en cours · depuis ' + clockOf(cx.ts), sub: durText((Date.now() - cx.ts) / 60000) + ' · le terminer ?' });
+    else if (a && min >= LONG_ACT_MIN) L.setAlert({ title: 'Activité en cours · ' + a.name, sub: 'Depuis ' + durText(min) + ' · la terminer ?' });
     else L.setAlert(null);
+    if (L.setBackupBanner) L.setBackupBanner(bkInfo());
   }
 
   /* ---------- Branchement sur l'appli ---------- */
   function maybeUpdate() {
+    var cutT = creuxSweep();
+    if (cutT) { cutMsg = creuxCutText(cutT); persist(); if (!root.hidden && screen === 'home') render(); }
     updateAlert();
     if (root.hidden) return;
     if (screen === 'home') updateHome();
     if (screen === 'plan') pRefreshDay();
-    if (screen === 'reminders') { var w = $('j-rwake'); if (w) w.textContent = L.fmtClock(L.getWake()); }
+    if (screen === 'reminders') { var w = $('j-rwake'); if (w) w.textContent = L.fmtClock(L.getWake()); var wb = $('j-rbk'); if (wb) wb.textContent = bkTimesText(L.getWake()); }
   }
   L.on('tick', maybeUpdate);
   L.on('wake', maybeUpdate);
   L.journal = {
+    bkLater: function () { bkSnooze = Date.now() + 3600e3; updateAlert(); },
     // target : 'settings' ouvre les Réglages (onglet du bas) ; sinon on revient au Journal
     onShow: function (target) {
-      notice = ''; setNotice = '';
+      notice = ''; setNotice = ''; ret = 'home';
       if (target === 'settings') { flow = newFlow(); form = null; screen = 'settings'; }
-      else if (['home', 'backup', 'history', 'reminders', 'plan'].indexOf(screen) < 0) { flow = newFlow(); form = null; screen = 'home'; }
+      else if (target === 'backup') { flow = newFlow(); form = null; screen = 'backup'; }
+      else if (target === 'history') { flow = newFlow(); form = null; screen = 'history'; } // onglet Historique : le filtre, le tri et l'ordre sont gardés (en mémoire)
+      else if (['home', 'backup', 'reminders', 'plan'].indexOf(screen) < 0) { flow = newFlow(); form = null; screen = 'home'; } // onglet Journal : jamais l'Historique (il a son onglet)
       render();
     }
   };

@@ -18,7 +18,7 @@
   document.documentElement.setAttribute('data-style', st);
 })();
 </script>
-<meta name="description" content="Kioo Cycle · module Corps · roue circadienne">
+<meta name="description" content="Kioo Cycle · module Corps · cycle circadien">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -93,6 +93,9 @@ main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;paddin
   border:1px solid var(--line2);border-left:4px solid var(--dash);border-radius:12px}
 .banner[hidden]{display:none}
 .banner.alert{border-left-color:var(--teal)}
+.banner.bk{border-left-color:var(--gold)}
+.banner .k-go{width:auto;height:auto;min-height:40px;padding:6px 0;text-align:left;font-size:13px;font-weight:700;color:var(--text);text-decoration:underline;cursor:pointer;font-family:inherit}
+.banner .k-x{font-size:22px}
 .banner .txt{flex:1;min-width:0}
 .banner b{display:block;font-size:14px;font-weight:700}
 .banner span{display:block;font-size:12.5px;color:var(--muted);margin-top:1px}
@@ -143,6 +146,8 @@ nav button{flex:1;min-height:44px;display:flex;flex-direction:column;align-items
 nav .pill{display:flex;align-items:center;justify-content:center;width:52px;height:28px;border-radius:14px}
 nav button[aria-current="page"]{color:var(--text);font-weight:700}
 nav button[aria-current="page"] .pill{background:var(--nav-on)}
+nav .emo{font-size:18px;line-height:1;opacity:.65;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+nav button[aria-current="page"] .emo{opacity:1}
 nav button:disabled{opacity:.45}
 nav[hidden]{display:none}
 :focus-visible{outline:2px solid var(--text);outline-offset:2px}
@@ -155,16 +160,16 @@ html:root[data-style="dessine"][data-theme="jour"]{
   --text:#2A2140; --muted:#51476E; --track:#EADFC2; --ink-on:#FFFFFF; --needle:#2A2140; --band:#2A2140;
   --lav:#B79CFF; --teal:#4FD0B2; --slate:#BDB8D2; --violet:#9B6BFF; --indigo:#5B7CFA; --gold:#FFC83D; --coral:#FF7F6B;
   --teal-text:#0F6E5A; --gold-text:#7A5200; --coral-text:#B3331E;
-  --ol:#2A2140; --sh:#2A2140; --dot:rgba(42,33,64,.08); --chipbg:#FFE9A8; --tint-act:#E4FBF4; --tint-bed:#EFE7FF;
-  --p-act:#BFF1E3; --p-ins:#FFE48A; --p-tst:#BFDDFF; --p-rep:#FFC9D6; --p-cou:#E0D4FF; --p-not:#FFFFFF; --p-ink:#2A2140; --p-rel:#FFB8AA; --veil:rgba(255,255,255,.5);
+  --ol:#2A2140; --sh:#2A2140; --dot:rgba(42,33,64,.08); --chipbg:#FFE9A8; --tint-act:#E4FBF4; --tint-bed:#EFE7FF; --tint-cre:#EEF8D0;
+  --p-act:#BFF1E3; --p-cre:#DDEFA6; --p-ins:#FFE48A; --p-tst:#BFDDFF; --p-rep:#FFC9D6; --p-cou:#E0D4FF; --p-not:#FFFFFF; --p-ink:#2A2140; --p-rel:#FFB8AA; --p-nui:#EBCDF5; --p-wak:#FFE0B8; --veil:rgba(255,255,255,.5);
 }
 html:root[data-style="dessine"][data-theme="nuit"]{
   --bg:#1B1530; --card:#2A2145; --line:#3E3366; --line2:#F6EBD4; --nav:#241C3D; --nav-on:#4B3C85; --dash:#9F93C6; --chip:#F6EBD4; --nav-off:#B1A7D0;
   --text:#F6EBD4; --muted:#C5BADF; --track:#3E3366; --ink-on:#1B1530; --needle:#F6EBD4; --band:#1B1530;
   --lav:#B79CFF; --teal:#4FD0B2; --slate:#6E6797; --violet:#9B6BFF; --indigo:#6F88FF; --gold:#FFC83D; --coral:#FF7F6B;
   --teal-text:#5FE0C2; --gold-text:#FFD25E; --coral-text:#FF9A86;
-  --ol:#F6EBD4; --sh:#0A0716; --dot:rgba(246,235,212,.06); --chipbg:#3E3366; --tint-act:#1D3B43; --tint-bed:#33265E;
-  --p-act:#BFF1E3; --p-ins:#FFE48A; --p-tst:#BFDDFF; --p-rep:#FFC9D6; --p-cou:#E0D4FF; --p-not:#F6EBD4; --p-ink:#2A2140; --p-rel:#FF7F6B; --veil:rgba(42,33,69,.7);
+  --ol:#F6EBD4; --sh:#0A0716; --dot:rgba(246,235,212,.06); --chipbg:#3E3366; --tint-act:#1D3B43; --tint-bed:#33265E; --tint-cre:#2F3F22;
+  --p-act:#BFF1E3; --p-cre:#DDEFA6; --p-ins:#FFE48A; --p-tst:#BFDDFF; --p-rep:#FFC9D6; --p-cou:#E0D4FF; --p-not:#F6EBD4; --p-ink:#2A2140; --p-rel:#FF7F6B; --p-nui:#EBCDF5; --p-wak:#FFE0B8; --veil:rgba(42,33,69,.7);
 }
 html:root[data-style="dessine"]{background-color:var(--bg);background-image:radial-gradient(var(--dot) 1.3px,transparent 1.4px);background-size:20px 20px}
 html:root[data-style="dessine"] body{background:transparent;font-family:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -178,6 +183,9 @@ html:root[data-style="dessine"] .j-warn{border:2.5px solid var(--coral);border-r
 html:root[data-style="dessine"] .j-empty{border:2.5px dashed var(--ol);border-radius:16px}
 html:root[data-style="dessine"] .j-now.act,html:root[data-style="dessine"] .banner.alert{background:var(--tint-act)}
 html:root[data-style="dessine"] .j-now.bed{background:var(--tint-bed)}
+html:root[data-style="dessine"] .j-now.creux,html:root[data-style="dessine"] .j-now.creuxq{background:var(--tint-cre)}
+html:root[data-style="dessine"] .j-card.fin{background:var(--p-tst);border-left-width:2.5px}
+html:root[data-style="dessine"] .j-card.fin p,html:root[data-style="dessine"] .j-card.fin p.lead{color:var(--p-ink)}
 html:root[data-style="dessine"] .row.cur,html:root[data-style="dessine"] .j-pt.open{background:var(--card);border:2px solid var(--ol);border-radius:14px;box-shadow:3px 3px 0 var(--sh)}
 html:root[data-style="dessine"] .card .dot{width:14px;height:14px;border:2px solid var(--ol)}
 /* boutons, champs */
@@ -189,8 +197,14 @@ html:root[data-style="dessine"] .btn.primary{background:var(--coral);color:var(-
 html:root[data-style="dessine"] .btn.primary:disabled{background:var(--track);color:var(--nav-off);box-shadow:none}
 html:root[data-style="dessine"] .j-pick.other{border-style:dashed;color:var(--muted)}
 html:root[data-style="dessine"] .j-pick.on{background:#FFD84D;color:#2A2140}
+html:root[data-style="dessine"] .j-chip{border:2.5px solid var(--ol);padding:3px 11px;box-shadow:2px 2px 0 var(--sh)}
+html:root[data-style="dessine"] .j-chip.on{background:#FFD84D;color:#2A2140}
+html:root[data-style="dessine"] .j-chip.on .n{color:#2A2140}
+html:root[data-style="dessine"] .btn.danger{border:2.5px solid var(--coral);box-shadow:3px 3px 0 var(--sh)}
+html:root[data-style="dessine"] .btn.primary.keep{background:#FFD84D;color:#2A2140}
 html:root[data-style="dessine"] .j-grid .btn{color:var(--p-ink);font-weight:700}
 html:root[data-style="dessine"] .j-grid .btn[data-act="act-start"]{background:var(--p-act)}
+html:root[data-style="dessine"] .j-grid .btn[data-act="creux-start"],html:root[data-style="dessine"] .j-grid .btn[data-act="creux-end"]{background:var(--p-cre)}
 html:root[data-style="dessine"] .j-grid .btn[data-act="instant"]{background:var(--p-ins)}
 html:root[data-style="dessine"] .j-grid .btn[data-act="test-libre"]{background:var(--p-tst)}
 html:root[data-style="dessine"] .j-grid .btn[data-act="meal"]{background:var(--p-rep)}
@@ -198,10 +212,20 @@ html:root[data-style="dessine"] .j-grid .btn[data-act="note"]{background:var(--p
 html:root[data-style="dessine"] .btn:not(:disabled):active,html:root[data-style="dessine"] .j-pick:active,html:root[data-style="dessine"] .go:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--sh)}
 /* historique : chaque événement prend la couleur de sa touche. Jour = fond en couleur ; Nuit = fond sombre, bande et pastille en couleur */
 html:root[data-style="dessine"] .j-h[data-k="activite"]{--k:var(--p-act)}
+html:root[data-style="dessine"] .j-h[data-k="creux"],html:root[data-style="dessine"] .j-h[data-k="creuxq"]{--k:var(--p-cre)}
 html:root[data-style="dessine"] .j-h[data-k="instant"]{--k:var(--p-ins)}
 html:root[data-style="dessine"] .j-h[data-k="test"]{--k:var(--p-tst)}
 html:root[data-style="dessine"] .j-h[data-k="repas"]{--k:var(--p-rep)}
 html:root[data-style="dessine"] .j-h[data-k="coucher"]{--k:var(--p-cou)}
+html:root[data-style="dessine"] .j-h[data-k="nuit"]{--k:var(--p-nui)}
+html:root[data-style="dessine"] .j-wakebtn{background:var(--p-wak);color:var(--p-ink);font-weight:700}
+html:root[data-style="dessine"] .j-wakebtn .j-wks{color:var(--p-ink)}
+html:root[data-style="dessine"] .j-tile{border:2.5px solid var(--ol);box-shadow:3px 3px 0 var(--sh);color:var(--p-ink)}
+html:root[data-style="dessine"] .j-tile .ts{color:var(--p-ink)}
+html:root[data-style="dessine"] .j-tile[data-act="night-open"]{background:var(--p-nui)}
+html:root[data-style="dessine"] .j-tile[data-act="morning-releve"]{background:var(--p-wak)}
+html:root[data-style="dessine"] .j-tile[data-act="mantra-open"]{background:var(--p-cou)}
+html:root[data-style="dessine"] .j-tile:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--sh)}
 html:root[data-style="dessine"] .j-h[data-k="releve"]{--k:var(--p-rel)}
 html:root[data-style="dessine"] .j-h[data-k="note"]{--k:var(--p-not)}
 html:root[data-style="dessine"] .j-h[data-k] .kind{border:2px solid var(--ol);border-radius:12px;padding:1px 9px;font-weight:700;color:var(--p-ink);background:var(--k)}
@@ -230,11 +254,11 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
 <body>
 <div id="app">
 
-  <section class="view" id="v-roue" aria-label="Roue circadienne">
+  <section class="view" id="v-roue" aria-label="Cycle circadien">
     <header>
       <div class="top"><span class="brand">Kioo Cycle</span><span class="module">Module Corps</span></div>
       <div class="titlerow">
-        <h1 tabindex="-1">Roue circadienne</h1>
+        <h1 tabindex="-1">Cycle circadien</h1>
         <label class="wake">Réveil <input class="wake-input" type="time" value="08:10" aria-label="Heure de réveil" required></label>
       </div>
       <p class="sub">Calée sur ton réveil · en haut · sens horaire</p>
@@ -248,9 +272,13 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
         <div class="txt"><b class="a-title"></b><span class="a-sub"></span></div>
         <button type="button" class="a-go" aria-label="Ouvrir le Journal">›</button>
       </div>
+      <div class="banner bk" role="status" hidden>
+        <div class="txt"><b class="k-title"></b><button type="button" class="k-go">Sauvegarder maintenant ›</button></div>
+        <button type="button" class="k-x" aria-label="Masquer ce rappel pendant 1 heure">×</button>
+      </div>
 
       <div class="wheel">
-        <svg id="wheel" viewBox="0 0 360 360" role="img" aria-label="Roue circadienne sur 24 heures, réveil en haut, journée en sens horaire">
+        <svg id="wheel" viewBox="0 0 360 360" role="img" aria-label="Cycle circadien sur 24 heures, réveil en haut, journée en sens horaire">
           <circle cx="180" cy="180" r="139" fill="none" style="stroke:var(--track)" stroke-width="22"/>
           <g id="arcs"></g>
           <g id="hypo" fill="none"></g>
@@ -289,7 +317,7 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
       <div class="top">
         <button type="button" class="back" id="back-roue">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
-          Roue
+          Cycle
         </button>
         <span class="brand">Kioo Cycle</span>
       </div>
@@ -308,6 +336,10 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
         <div class="txt"><b class="a-title"></b><span class="a-sub"></span></div>
         <button type="button" class="a-go" aria-label="Ouvrir le Journal">›</button>
       </div>
+      <div class="banner bk" role="status" hidden>
+        <div class="txt"><b class="k-title"></b><button type="button" class="k-go">Sauvegarder maintenant ›</button></div>
+        <button type="button" class="k-x" aria-label="Masquer ce rappel pendant 1 heure">×</button>
+      </div>
       <p class="legend">Couleur = phase · pointillé = sommet possible, à mesurer</p>
       <ol class="rows" id="rows"></ol>
       <div class="legend">
@@ -323,11 +355,15 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
   <nav aria-label="Navigation">
     <button type="button" id="nav-roue" aria-current="page">
       <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12V6.5"/><path d="M12 12l4 2.5"/></svg></span>
-      Roue
+      Cycle
     </button>
     <button type="button" id="nav-journal">
       <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/></svg></span>
       Journal
+    </button>
+    <button type="button" id="nav-historique">
+      <span class="pill"><span class="emo" aria-hidden="true">🪞</span></span>
+      Reflet
     </button>
     <button type="button" id="nav-reglages">
       <span class="pill"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span>
@@ -490,7 +526,7 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
     if (cur.durLabel) chips.appendChild(chip(cur.durLabel === AJ ? '' : 'hy', 'Durée · ' + cur.durLabel));
     H.forEach(function (x) { if (L.rel >= x.s && L.rel < x.e) chips.appendChild(chip('hy', x.name + ' · ' + HY, x.color)); });
     $('c-next').textContent = 'Ensuite · ' + nxt.name + ' à ' + fmt(wake + nxt.s) + ' (dans ' + fmtDur(until) + ')';
-    $('wheel').setAttribute('aria-label', 'Roue circadienne sur 24 heures, réveil en haut. Il est ' + fmtClock(L.t) +
+    $('wheel').setAttribute('aria-label', 'Cycle circadien sur 24 heures, réveil en haut. Il est ' + fmtClock(L.t) +
       ', phase en cours : ' + cur.name + '.');
   }
 
@@ -564,8 +600,16 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
       el.querySelector('.a-sub').textContent = alertInfo.sub;
     });
   }
+  var bkInfo = null; // { title } : rappel de sauvegarde du Journal, ou null
+  function paintBackup() {
+    all('.banner.bk').forEach(function (el) {
+      if (!bkInfo) { el.hidden = true; return; }
+      el.hidden = false;
+      el.querySelector('.k-title').textContent = bkInfo.title;
+    });
+  }
   function paintBanner() {
-    all('.banner:not(.alert)').forEach(function (el) {
+    all('.banner:not(.alert):not(.bk)').forEach(function (el) {
       if (banner === null) { el.hidden = true; return; }
       var p = P[banner];
       el.hidden = false;
@@ -598,7 +642,7 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
     refresh(false);
     emit('wake');
   }
-  // Un champ « Réveil » (Roue, Ma journée, Journal) : même valeur partout.
+  // Un champ « Réveil » (Cycle, Ma journée, Journal) : même valeur partout.
   function bindWake(inp) {
     inp.value = wakeStr(wake);
     ['input', 'change'].forEach(function (ev) { inp.addEventListener(ev, function () { setWake(inp.value, inp); }); });
@@ -610,16 +654,20 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
   /* ---------- Navigation et bandeau ---------- */
   var VIEWS = { roue: 'v-roue', journee: 'v-journee', journal: 'v-journal' };
   // « reglages » s'affiche dans la même page que le Journal (c'est le module Journal qui le dessine).
-  function show(view) {
-    var page = view === 'reglages' ? 'journal' : view;
-    Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== page; });
-    var cur = view === 'journal' ? 'nav-journal' : view === 'reglages' ? 'nav-reglages' : 'nav-roue';
-    ['nav-roue', 'nav-journal', 'nav-reglages'].forEach(function (id) {
+  // Onglet en cours dans la barre du bas (le module Journal le signale aussi : l'Historique s'ouvre depuis le Journal).
+  function navCurrent(cur) {
+    ['nav-roue', 'nav-journal', 'nav-historique', 'nav-reglages'].forEach(function (id) {
       if (id === cur) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current');
     });
+  }
+  function show(view) {
+    var page = (view === 'reglages' || view === 'backup' || view === 'historique') ? 'journal' : view;
+    Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== page; });
+    var cur = (view === 'journal' || view === 'backup') ? 'nav-journal' : view === 'historique' ? 'nav-historique' : view === 'reglages' ? 'nav-reglages' : 'nav-roue';
+    navCurrent(cur);
     document.querySelector('nav').hidden = false;
     if (page === 'journal') {
-      if (window.LUNA.journal) window.LUNA.journal.onShow(view === 'reglages' ? 'settings' : undefined);
+      if (window.LUNA.journal) window.LUNA.journal.onShow(view === 'reglages' ? 'settings' : view === 'historique' ? 'history' : view === 'backup' ? 'backup' : undefined);
       else $('v-journal').textContent = 'Le Journal n’a pas pu se charger. Recharge la page.';
       return;
     }
@@ -631,9 +679,12 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
   $('back-roue').addEventListener('click', function () { show('roue'); });
   $('nav-roue').addEventListener('click', function () { show('roue'); });
   $('nav-journal').addEventListener('click', function () { show('journal'); });
+  $('nav-historique').addEventListener('click', function () { show('historique'); });
   $('nav-reglages').addEventListener('click', function () { show('reglages'); });
   all('.b-x').forEach(function (b) { b.addEventListener('click', function () { banner = null; paintBanner(); }); });
   all('.a-go').forEach(function (b) { b.addEventListener('click', function () { show('journal'); }); });
+  all('.k-go').forEach(function (b) { b.addEventListener('click', function () { show('backup'); }); });
+  all('.k-x').forEach(function (b) { b.addEventListener('click', function () { if (window.LUNA.journal && window.LUNA.journal.bkLater) window.LUNA.journal.bkLater(); }); });
 
   /* ---------- Apparence : style « dessine » (par défaut) ou « classique » ; thème « jour », « nuit », « auto » (suit le téléphone) ---------- */
   var THEME_KEY = 'luna.theme', themeMode = 'jour', themeMq = null;
@@ -670,19 +721,21 @@ html:root[data-style="dessine"] nav button[aria-current="page"] .pill{background
 
   /* ---------- Socle commun, offert aux autres modules (Journal, plus tard d’autres modules) ---------- */
   window.LUNA = {
-    version: '2026-11-03-kioo5-gcal-b',
+    version: '2026-11-20-kioo7-e5b',
     getWake: function () { return wake; },          // minutes depuis minuit : UNE seule valeur pour toute l'appli
     setWake: setWake,
     bindWake: bindWake,
     phases: P.map(function (p) { return { name: p.name, s: p.s, e: p.e, color: p.color,
                                           advice: p.advice, status: p.status, durLabel: p.durLabel }; }),
     setAlert: function (a) { alertInfo = a || null; paintAlert(); },
+    setBackupBanner: function (b) { bkInfo = b || null; paintBackup(); },
     getTheme: function () { return themeMode; },    // « jour », « nuit » ou « auto »
     setTheme: setTheme,
     getStyle: function () { return styleMode; },    // « dessine » ou « classique »
     setStyle: setStyle,
     show: show,
     navVisible: function (v) { document.querySelector('nav').hidden = !v; },
+    navCurrent: navCurrent,
     on: function (ev, fn) { if (listeners[ev]) listeners[ev].push(fn); },
     fmt: fmt, fmtClock: fmtClock, mod: mod, wakeStr: wakeStr, parseWake: parseWake
   };
