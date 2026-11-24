@@ -689,9 +689,11 @@
   function noteDates(e) {
     var m = typeof e.modTs === 'number' && isFinite(e.modTs) && e.modTs > e.ts;
     var a = ansAnswered(e) && typeof e.ansTs === 'number' && isFinite(e.ansTs) && e.ansTs > e.ts;
-    var r = attFilled(e) && typeof e.attTs === 'number' && isFinite(e.attTs) && e.attTs > e.ts;
-    return 'Créée le ' + whenText(e.ts) + (m ? ' · Modifiée le ' + whenText(e.modTs) : '') + (a ? ' · Répondu le ' + whenText(e.ansTs) + ' (' + delayText(e.ansTs - e.ts) + ')' : '') + (r ? ' · Note rattachée le ' + whenText(e.attTs) + ' (' + delayText(e.attTs - e.ts) + ')' : '');
+    var r = attFilled(e) && typeof e.attTs === 'number' && isFinite(e.attTs) && e.attTs > e.ts, v = isVal(e);
+    return 'Créée le ' + whenText(e.ts) + (m ? ' · Modifiée le ' + whenText(e.modTs) : '') + (a ? ' · Répondu le ' + whenText(e.ansTs) + ' (' + delayText(e.ansTs - e.ts) + ')' : '') + (r ? ' · Note rattachée le ' + whenText(e.attTs) + ' (' + delayText(e.attTs - e.ts) + ')' : '') + (v ? ' · Validée le ' + whenText(e.valTs) + ' (' + delayText(e.valTs - e.ts) + ')' : '');
   }
+  // Validation d'une note (depuis e5c, 24/11) : champ facultatif `valTs` (heure de la validation) sur une note. Réversible : « Annuler la validation » retire le champ. Indépendant de la réponse (questionnement) et de la note rattachée (to-do).
+  function isVal(e) { return !!e && e.kind === 'note' && typeof e.valTs === 'number' && isFinite(e.valTs) && e.valTs > e.ts; }
   // Réponse à un questionnement (depuis le 08/11, c2a3) : champs facultatifs `ans` (texte) et `ansTs` (heure de la première réponse), sur la même note.
   function ansAnswered(e) { return !!e && e.kind === 'note' && typeof e.ans === 'string' && !!e.ans.trim(); }
   function delayText(ms) { // « 12 min après », « 3 h après », « 2 j après »
@@ -1285,7 +1287,7 @@ function milestone(w) {
   var KEY_BKH = 'luna.bkHours', BK_HOURS = [2, 4, 6, 8, 12, 0], bkHours = 4, bkSnooze = 0;
   function bkNewSince(t) {
     function newer(x) { return typeof x === 'number' && isFinite(x) && x > t; }
-    return entries.some(function (e) { return newer(e.ts) || newer(e.end) || newer(e.modTs) || newer(e.ansTs) || newer(e.attTs) || newer(e.catTs); }) ||
+    return entries.some(function (e) { return newer(e.ts) || newer(e.end) || newer(e.modTs) || newer(e.ansTs) || newer(e.attTs) || newer(e.catTs) || newer(e.valTs); }) ||
            todos.some(function (d) { return newer(d.ts) || newer(d.doneTs); });
   }
   function agoText(ms) {
@@ -1565,6 +1567,10 @@ function milestone(w) {
         o.att = e.att.slice(0, 5000);
         var att0 = Number(e.attTs);
         if (e.attTs != null && isFinite(att0) && att0 > ts && att0 < 4e12) o.attTs = att0;
+      }
+      if (k === 'note' && e.valTs != null) { // validation (e5c) : gardée si son heure est lisible et après la création
+        var vt = Number(e.valTs);
+        if (isFinite(vt) && vt > ts && vt < 4e12) o.valTs = vt;
       }
       if (k === 'note' && typeof e.ans === 'string' && e.ans.trim()) { // réponse à un questionnement (c2a3) : gardée ; son heure l'est si elle est lisible et après la création
         o.ans = e.ans.slice(0, 5000);
@@ -2077,6 +2083,7 @@ function milestone(w) {
       var answered = ansAnswered(e), attd = attFilled(e);
       if (answered && cid === 'questionnement') { kindTxt = 'Questionnement' + subTxt + ' · répondu\u00a0✓'; kindSty = 'background:' + ANS_COL.bg + ';color:' + ANS_COL.ink; } // texte ET couleur : lisible sans la couleur
       else if (attd && cid === 'todo') { kindTxt = 'To-do' + subTxt + ' · mis en place\u00a0✓'; kindSty = 'background:' + ANS_COL.bg + ';color:' + ANS_COL.ink; }
+      if (isVal(e)) { kindTxt += ' · validée\u00a0✓'; kindSty = 'background:' + ANS_COL.bg + ';color:' + ANS_COL.ink; } // e5c : texte ET couleur
       body = '<div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.text) + '</div>' +
         (answered ? '<div class="ans"><div class="alab">Réponse</div><div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.ans) + '</div></div>' : '') +
         (attd ? '<div class="ans att"><div class="alab">' + esc(attLabel(cid)) + '</div><div class="body note' + (full ? '' : ' clamp') + '">' + esc(e.att) + '</div></div>' : '') +
@@ -2152,7 +2159,10 @@ function milestone(w) {
         ? '<div class="act"><span class="j-confirm">Supprimer pour de bon ?</span>' +
           '<button type="button" class="j-link danger" data-act="del-yes" data-id="' + esc(e.id) + '">Oui, supprimer</button>' +
           '<button type="button" class="j-link" data-act="del-no">Annuler</button></div>'
-        : '<div class="act">' + (e.kind === 'note' ? '<button type="button" class="j-link" data-act="note-from" data-id="' + esc(e.id) + '" aria-label="Créer une note à partir de cette note">Créer à partir de…</button>' : '') +
+        : '<div class="act">' + (e.kind === 'note' ? (isVal(e)
+            ? '<button type="button" class="j-link" data-act="val-undo" data-id="' + esc(e.id) + '" aria-label="Annuler la validation de cette note">Annuler la validation</button>'
+            : '<button type="button" class="j-link" data-act="val" data-id="' + esc(e.id) + '" aria-label="Valider cette note">Valider</button>') +
+          '<button type="button" class="j-link" data-act="note-from" data-id="' + esc(e.id) + '" aria-label="Créer une note à partir de cette note">Créer à partir de…</button>' : '') +
           (editable ? '<button type="button" class="j-link" data-act="edit" data-id="' + esc(e.id) + '">Modifier</button>' : '') +
           '<button type="button" class="j-link" data-act="del" data-id="' + esc(e.id) + '">Supprimer</button></div>';
     }
@@ -3763,8 +3773,8 @@ function milestone(w) {
   // État gardé en mémoire seulement (jamais enregistré) : depuis `e4a` (19/11, demande de Jonathan : « il les garde »), l'Historique se souvient de son filtre et de son tri tant que l'appli n'est pas fermée ;
   // avant, on repartait de « Toutes » à chaque ouverture. Rien ne les remet à zéro, sauf la fermeture de l'appli (et un filtre qui n'a plus de sens, voir `histNorm`).
   // sub : 'all' | 'none' (sans sous-catégorie) | 's:<nom>' ; ans : 'all' | 'no' | 'yes' (questionnement : réponse ; to-do : mise en place) ; dir : 'desc' (plus récentes d'abord) | 'asc' (plus anciennes d'abord).
-  var hf = { genre: 'all', ntype: 'all', sub: 'all', ans: 'all', sort: 'date', dir: 'desc' };
-  function hfReset() { hf = { genre: 'all', ntype: 'all', sub: 'all', ans: 'all', sort: 'date', dir: 'desc' }; }
+  var hf = { genre: 'all', ntype: 'all', sub: 'all', ans: 'all', val: 'all', sort: 'date', dir: 'desc' };
+  function hfReset() { hf = { genre: 'all', ntype: 'all', sub: 'all', ans: 'all', val: 'all', sort: 'date', dir: 'desc' }; }
   var HG = [['all', 'Toutes'], ['releve', 'Relevés'], ['test', 'Tests'], ['activite', 'Activités'], ['creux', 'Creux'], ['repas', 'Repas'], ['coucher', 'Coucher'], ['nuit', 'Nuits'], ['instant', 'Instants'], ['note', 'Notes'], ['pas', 'Pas ce moment']];
   // Les genres suivent le champ `kind` : un ancien « relevé + test » (avant le 11/10) compte parmi les Relevés.
   function genreOf(e) { return e.kind === 'creuxq' ? 'creux' : e.kind; } // la réponse « non » à la question du creux est rangée avec les creux
@@ -3789,7 +3799,7 @@ function milestone(w) {
     return out;
   }
   function histNorm() { // un filtre qui n'a plus de sens (genre changé, catégorie sans note après une suppression) revient à « Toutes »
-    if (hf.genre !== 'note') { hf.ntype = 'all'; hf.sub = 'all'; hf.ans = 'all'; return; }
+    if (hf.genre !== 'note') { hf.ntype = 'all'; hf.sub = 'all'; hf.ans = 'all'; hf.val = 'all'; return; }
     var notes = entries.filter(function (e) { return e.kind === 'note'; });
     if (!histTypeChoices(notes).some(function (c) { return c.id === hf.ntype; })) hf.ntype = 'all';
     var sc = histSubChoices(notes);
@@ -3805,6 +3815,7 @@ function milestone(w) {
       if (hf.sub === 'none') list = list.filter(function (e) { return !e.nsub; });
       else if (hf.sub !== 'all') list = list.filter(function (e) { return e.nsub === hf.sub.slice(2); });
       if (hf.ans !== 'all') list = list.filter(function (e) { return doneOf(e) === (hf.ans === 'yes'); });
+      if (hf.val !== 'all') list = list.filter(function (e) { return isVal(e) === (hf.val === 'yes'); }); // e5c : validées / à valider
     }
     return list;
   }
@@ -3849,6 +3860,13 @@ function milestone(w) {
         bar += hfChips('hf-ans', isTd ? 'Mise en place' : 'Réponse', [{ id: 'all', label: 'Toutes', n: qs.length }, { id: 'no', label: isTd ? 'À mettre en place' : 'Sans réponse', n: qs.length - yes }, { id: 'yes', label: isTd ? 'Mises en place' : 'Avec réponse', n: yes }], hf.ans);
       }
     }
+    if (hf.genre === 'note') { // e5c : « Validation » : le décompte suit la catégorie et la sous-catégorie choisies
+      var vs = entries.filter(function (e) { return e.kind === 'note'; });
+      if (hf.ntype !== 'all') vs = vs.filter(function (e) { return noteTid(e) === hf.ntype; });
+      if (hf.sub === 'none') vs = vs.filter(function (e) { return !e.nsub; }); else if (hf.sub !== 'all') vs = vs.filter(function (e) { return e.nsub === hf.sub.slice(2); });
+      var nv = vs.filter(isVal).length;
+      bar += hfChips('hf-val', 'Validation', [{ id: 'all', label: 'Toutes', n: vs.length }, { id: 'no', label: 'À valider', n: vs.length - nv }, { id: 'yes', label: 'Validées', n: nv }], hf.val);
+    }
     bar += hfChips('hf-sort', 'Trier par', [{ id: 'date', label: 'Date' }, { id: 'event', label: 'Événement' }], hf.sort);
     bar += hfChips('hf-dir', 'Ordre', [{ id: 'desc', label: 'Plus récentes d’abord' }, { id: 'asc', label: 'Plus anciennes d’abord' }], hf.dir); // par date de saisie ; avec « Événement », dans chaque groupe
     var body = !entries.length ? '<div class="j-empty">Rien pour l’instant.</div>'
@@ -3869,10 +3887,11 @@ function milestone(w) {
   }
   function hfBtn(act, v) { return function (w) { return Array.prototype.filter.call(w.querySelectorAll('[data-act="' + act + '"]'), function (b) { return b.getAttribute('data-v') === v; })[0]; }; }
   function hfSet(name, v) {
-    if (name === 'hf-genre' && HG.some(function (g) { return g[0] === v; })) { hf.genre = v; hf.ntype = 'all'; hf.sub = 'all'; hf.ans = 'all'; }
+    if (name === 'hf-genre' && HG.some(function (g) { return g[0] === v; })) { hf.genre = v; hf.ntype = 'all'; hf.sub = 'all'; hf.ans = 'all'; hf.val = 'all'; }
     else if (name === 'hf-ntype') { hf.ntype = v; hf.sub = 'all'; hf.ans = 'all'; }
     else if (name === 'hf-sub') hf.sub = v;
     else if (name === 'hf-ans' && (v === 'all' || v === 'no' || v === 'yes')) hf.ans = v;
+    else if (name === 'hf-val' && (v === 'all' || v === 'no' || v === 'yes')) hf.val = v;
     else if (name === 'hf-sort' && (v === 'date' || v === 'event')) hf.sort = v;
     else if (name === 'hf-dir' && (v === 'desc' || v === 'asc')) hf.dir = v;
     else return;
@@ -3883,7 +3902,7 @@ function milestone(w) {
   function vHistory() { // e4c : un onglet de la barre du bas (comme Réglages) : plus de flèche « Journal »
     return '<header><div class="top"><span class="brand">Kioo Cycle</span><span class="module">Module Corps</span></div>' +
       '<div class="titlerow"><h1 tabindex="-1">Reflet</h1></div><p class="sub" id="j-hsub" aria-live="polite">' + histSub() + '</p></header>' +
-      '<main style="padding-top:14px">' + (notice ? '<p class="j-ok" id="j-hnotice" role="status">' + esc(notice) + '</p>' : '') + '<div id="j-hwrap">' + histBody() + '</div></main>';
+      '<main style="padding-top:14px">' + (notice ? '<p class="j-ok" id="j-hnotice" role="status">' + esc(notice) + '</p>' : '') + '<span id="j-hlive" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap"></span><div id="j-hwrap">' + histBody() + '</div></main>';
   }
 
   var VIEWS = { home: vHome, feel: vFeel, intro: vIntro, run: vRun, result: vResult, note: vNote, backup: vBackup, restore: vRestore, history: vHistory,
@@ -5752,14 +5771,27 @@ function milestone(w) {
         if (BK_HOURS.indexOf(bhv) < 0) break;
         bkHours = bhv; bkSnooze = 0; saveBkHours(); updateAlert(); renderKeepScroll(); break;
       case 'rank': // e4c : « À ranger » : l'Historique sur Notes › Sans catégorie, plus anciennes d'abord (une note à la fois)
-        pendingDel = null; hf.genre = 'note'; hf.ntype = 'none'; hf.sub = 'all'; hf.ans = 'all'; hf.sort = 'date'; hf.dir = 'asc'; go('history'); break;
+        pendingDel = null; hf.genre = 'note'; hf.ntype = 'none'; hf.sub = 'all'; hf.ans = 'all'; hf.val = 'all'; hf.sort = 'date'; hf.dir = 'asc'; go('history'); break;
       case 'last-tests': // e4c : « Dernier test » : l'Historique sur les tests, plus récents d'abord
-        pendingDel = null; hf.genre = 'test'; hf.ntype = 'all'; hf.sub = 'all'; hf.ans = 'all'; hf.sort = 'date'; hf.dir = 'desc'; go('history'); break;
+        pendingDel = null; hf.genre = 'test'; hf.ntype = 'all'; hf.sub = 'all'; hf.ans = 'all'; hf.val = 'all'; hf.sort = 'date'; hf.dir = 'desc'; go('history'); break;
       case 'history': pendingDel = null; go('history'); break; // e4a : le filtre et le tri sont gardés en mémoire (plus de remise à zéro à l'ouverture)
-      case 'hf-genre': case 'hf-ntype': case 'hf-sub': case 'hf-ans': case 'hf-sort': case 'hf-dir': hfSet(name, el.getAttribute('data-v') || ''); break;
+      case 'hf-genre': case 'hf-ntype': case 'hf-sub': case 'hf-ans': case 'hf-val': case 'hf-sort': case 'hf-dir': hfSet(name, el.getAttribute('data-v') || ''); break;
       // Supprimer : on reste où l'on est dans la liste (render() remontait tout en haut)
       case 'del': pendingDel = id; histRefresh(function (w) { return Array.prototype.filter.call(w.querySelectorAll('[data-act="del-yes"]'), function (b) { return b.getAttribute('data-id') === id; })[0]; }); break;
       case 'del-no': var was = pendingDel; pendingDel = null; histRefresh(function (w) { return Array.prototype.filter.call(w.querySelectorAll('[data-act="del"]'), function (b) { return b.getAttribute('data-id') === was; })[0]; }); break;
+      case 'val': case 'val-undo': { // e5c : valider une note (ou annuler) : immédiat, réversible, ne change ni le texte ni `modTs`
+        var ve = entries.filter(function (x) { return x.id === id; })[0];
+        if (!ve || ve.kind !== 'note') break;
+        pendingDel = null;
+        if (name === 'val') { if (!isVal(ve)) ve.valTs = Math.max(Date.now(), ve.ts + 1); } else delete ve.valTs;
+        persist(); updateAlert();
+        histRefresh(function (w) {
+          var other = name === 'val' ? 'val-undo' : 'val';
+          return Array.prototype.filter.call(w.querySelectorAll('[data-act="' + other + '"]'), function (b) { return b.getAttribute('data-id') === id; })[0] || root.querySelector('h1'); // la note a pu quitter la liste (filtre « À valider »)
+        });
+        var lv = $('j-hlive'); if (lv) lv.textContent = name === 'val' ? 'Note validée.' : 'Validation annulée.';
+        break;
+      }
       case 'del-yes':
         entries = entries.filter(function (e) { return e.id !== id; });
         pendingDel = null; persist(); updateAlert(); histRefresh(function () { return root.querySelector('h1'); }); break;
